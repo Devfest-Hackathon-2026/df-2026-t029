@@ -1,10 +1,11 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:go_router/go_router.dart';
 
+import '../live_form/live_draft.dart';
 import '../../services/gemini_service.dart';
 
 class ScanPage extends ConsumerStatefulWidget {
@@ -34,8 +35,9 @@ class _ScanPageState extends ConsumerState<ScanPage> {
           .read(geminiServiceProvider)
           .extractLiveInfo(bytes, file.mimeType ?? 'image/png');
       if (!mounted) return;
-      setState(() =>
-          _result = const JsonEncoder.withIndent('  ').convert(data));
+      context.push('/live-form', extra: LiveDraft.fromGemini(data));
+      // setState(() =>
+      //     _result = const JsonEncoder.withIndent('  ').convert(data));
     } catch (e) {
       if (!mounted) return;
       setState(() => _result = 'エラー: $e');
