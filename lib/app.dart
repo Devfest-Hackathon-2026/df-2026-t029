@@ -52,7 +52,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
-      GoRoute(path: '/scan', builder: (context, state) => const ScanPage()),
+      GoRoute(path: '/register', builder: (context, state) => const ScanPage()),
       GoRoute(
         path: '/live-form',
         builder: (context, state) => LiveFormPage(initial: state.extra as LiveDraft?),

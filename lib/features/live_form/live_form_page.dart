@@ -113,7 +113,9 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
     final titleStyle = Theme.of(context).textTheme.titleLarge;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('ライブ情報の確認')),
+      appBar: AppBar(
+        title: Text(widget.initial == null ? 'ライブ情報の入力' : 'ライブ情報の確認'),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
