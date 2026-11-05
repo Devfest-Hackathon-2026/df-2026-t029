@@ -1,0 +1,15 @@
+{
+    "name": "Flutter Web",
+    "build": {"dockerfile": "Dockerfile"},
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "dart-code.flutter"
+            ]
+        }
+    },
+    "forwardPorts": [8080],
+    "mounts": [
+        "source=oshiashi-firebase-login,target=/root/.config/configstore,type=volume"
+    ]
+}
