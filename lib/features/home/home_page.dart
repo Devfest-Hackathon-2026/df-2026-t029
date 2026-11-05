@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../repositories/auth_repository.dart';
+import '../live/upcoming_deadlines_section.dart';
 import '../oshi/following_oshi_list.dart';
 
 class HomePage extends ConsumerWidget {
@@ -38,6 +39,35 @@ class HomePage extends ConsumerWidget {
                 label: const Text('推しを探す'),
               ),
             ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  key: const Key('home_register_live_button'),
+                  onPressed: () => context.push('/live-form'),
+                  icon: const Icon(Icons.edit_calendar),
+                  label: const Text('ライブを登録'),
+                ),
+                OutlinedButton.icon(
+                  key: const Key('home_scan_button'),
+                  onPressed: () => context.push('/scan'),
+                  icon: const Icon(Icons.document_scanner),
+                  label: const Text('スクショから登録'),
+                ),
+                OutlinedButton.icon(
+                  key: const Key('home_live_list_button'),
+                  onPressed: () => context.push('/lives'),
+                  icon: const Icon(Icons.event_note),
+                  label: const Text('ライブ一覧'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Text('次の締切', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            const UpcomingDeadlinesSection(),
             const SizedBox(height: 24),
             Text('フォロー中の推し', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),

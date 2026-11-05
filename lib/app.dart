@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 
 import 'features/auth/login_page.dart';
 import 'features/home/home_page.dart';
+import 'features/live/live_detail_page.dart';
+import 'features/live/live_list_page.dart';
 import 'features/scan/scan_page.dart';
 import 'features/live_form/live_draft.dart';
 import 'features/live_form/live_form_page.dart';
@@ -47,6 +49,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => OshiRequestPage(
               initialName: state.uri.queryParameters['name'] ?? '',
             ),
+          ),
+          GoRoute(
+            path: 'lives',
+            builder: (context, state) => const LiveListPage(),
+            routes: [
+              GoRoute(
+                path: ':liveId',
+                builder: (context, state) => LiveDetailPage(
+                  liveId: state.pathParameters['liveId']!,
+                ),
+              ),
+            ],
           ),
         ],
       ),

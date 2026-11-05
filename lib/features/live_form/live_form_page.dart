@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'date_time_field.dart';
 import 'live_draft.dart';
+import 'live_draft_to_models.dart';
 
 import '../../models/reception.dart';
 import '../../models/oshi.dart';
+import '../../providers/live_providers.dart';
 import '../../providers/oshi_providers.dart';
 import 'performer_picker_sheet.dart';
 
@@ -26,6 +29,9 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
   List<String> _unmatched = [];
   bool _autoMatched = false;
 
+  /// 保存中（ボタンを押せなくし、二重保存を防ぐ）
+  bool _saving = false;
+
   Future<void> _pickPerformer({String initialQuery = '', String? resolving}) async {
     final picked =
         await showPerformerPicker(context, initialQuery: initialQuery);
@@ -36,8 +42,11 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
     });
   }
 
-  void _save() {
-    final errors = _draft.validate();
+  Future<void> _save() async {
+    // setState が反映される前の2回目のタップでも、2回保存しない
+    if (_saving) return;
+    // 公演0件・長さ・個数の上限は checkLimits() が日本語で返す
+    final errors = [..._draft.validate(), ..._draft.checkLimits()];
     if (errors.isNotEmpty) {
       showDialog<void>(
         context: context,
@@ -54,9 +63,38 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
       );
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('入力チェック OK（保存処理は Step 3-5 で追加します）')),
-    );
+    final uid = ref.read(currentUidProvider);
+    if (uid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ログインし直してから、もう一度保存してください')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    final String liveId;
+    try {
+      final m = _draft.toModels();
+      liveId = await ref.read(liveRepositoryProvider).create(
+            live: m.live,
+            performances: m.performances,
+            receptions: m.receptions,
+            uid: uid,
+          );
+    } catch (e) {
+      debugPrint('ライブの保存に失敗: $e');
+      // State.context を使うので、State の mounted で確認する
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('保存できませんでした。通信状況を確かめて、もう一度お試しください')),
+        );
+      return;
+    }
+    if (!mounted) return;
+    // go で移動し、フォームを履歴から外す（戻るで同じ内容を再保存しない）
+    context.go('/lives/$liveId');
   }
 
   @override
@@ -167,7 +205,17 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: FilledButton(onPressed: _save, child: const Text('保存'))
+          child: FilledButton(
+            key: const Key('live_form_save_button'),
+            onPressed: _saving ? null : _save,
+            child: _saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('保存'),
+          ),
         ),
       ),
     );
