@@ -1,5 +1,9 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../services/gemini_service.dart';
 
@@ -11,17 +15,27 @@ class ScanPage extends ConsumerStatefulWidget {
 }
 
 class _ScanPageState extends ConsumerState<ScanPage> {
+  Uint8List? _image;
   String _result = '';
   bool _loading = false;
 
-  Future<void> _test() async {
-    setState(() => _loading = true);
+  Future<void> _pickAndExtract() async {
+    final file = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+
+    setState(() {
+      _image = bytes;
+      _result = '';
+      _loading = true;
+    });
     try {
-      final text = await ref
+      final data = await ref
           .read(geminiServiceProvider)
-          .generateText('推し活アプリ「おしあし」への応援メッセージを一言ください');
+          .extractLiveInfo(bytes, file.mimeType ?? 'image/png');
       if (!mounted) return;
-      setState(() => _result = text);
+      setState(() =>
+          _result = const JsonEncoder.withIndent('  ').convert(data));
     } catch (e) {
       if (!mounted) return;
       setState(() => _result = 'エラー: $e');
@@ -34,19 +48,27 @@ class _ScanPageState extends ConsumerState<ScanPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('スクショ読み取り')),
-      body: Padding(
+      body: ListView(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            FilledButton(
-              onPressed: _loading ? null : _test,
-              child: const Text('Gemini に接続テスト'),
+        children: [
+          FilledButton.icon(
+            onPressed: _loading ? null : _pickAndExtract,
+            icon: const Icon(Icons.image),
+            label: const Text('画像を選んで読み取る'),
+          ),
+          if (_image != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 300),
+                child: Image.memory(_image!),
+              ),
             ),
-            const SizedBox(height: 16),
-            if (_loading) const CircularProgressIndicator() else Text(_result),
-          ],
-        ),
+          if (_loading)
+            const Center(child: CircularProgressIndicator())
+          else
+            SelectableText(_result),
+        ],
       ),
     );
   }
