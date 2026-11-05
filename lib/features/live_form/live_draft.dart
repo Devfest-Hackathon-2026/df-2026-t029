@@ -33,6 +33,27 @@ class LiveDraft {
             ReceptionDraft.fromGemini(r as Map<String, dynamic>),
         ],
       );
+  
+  /// 保存前の入力チェック（問題があれば、その内容の一覧を返す）
+  List<String> validate() {
+    final errors = <String>[];
+    if (performers.isEmpty) errors.add('出演者を入力してください');
+    if (title.trim().isEmpty) errors.add('ライブ名を入力してください');
+    for (final (i, p) in performances.indexed) {
+      final label = '公演${i + 1}';
+      if (p.startAt == null) errors.add('$label：開演日時を入力してください');
+      if (p.venue.trim().isEmpty) errors.add('$label：会場名を入力してください');
+    }
+    for (final (i, r) in receptions.indexed) {
+      final label = '受付${i + 1}';
+      if (r.name.trim().isEmpty) errors.add('$label：表示名を入力してください');
+      if (r.applyEndAt == null) errors.add('$label：申込期限を入力してください');
+      if (r.prices.any((p) => p.seat.trim().isEmpty || p.amount == null)) {
+        errors.add('$label：料金は席種と金額を両方入力してください');
+      }
+    }
+    return errors;
+  }
 }
 
 class PerformanceDraft {
@@ -65,7 +86,7 @@ class ReceptionDraft {
     this.applyEndAt,
     this.resultAt,
     this.paymentDeadline,
-    List<Price>? prices,
+    List<PriceDraft>? prices,
     this.winnersOnly = false,
   }) : prices = prices ?? [];
 
@@ -75,7 +96,7 @@ class ReceptionDraft {
   DateTime? applyEndAt;
   DateTime? resultAt;
   DateTime? paymentDeadline;
-  final List<Price> prices;
+  final List<PriceDraft> prices;
   bool winnersOnly;
 
   factory ReceptionDraft.fromGemini(Map<String, dynamic> json) =>
@@ -89,10 +110,20 @@ class ReceptionDraft {
         paymentDeadline: _parseDateTime(json['paymentDeadline']),
         prices: [
           for (final p in json['prices'] as List? ?? const [])
-            Price.fromMap(p as Map<String, dynamic>),
+            PriceDraft(
+              seat: (p as Map)['seat'] as String? ?? '',
+              amount: (p['amount'] as num?)?.toInt(),
+            ),
         ],
         winnersOnly: json['winnersOnly'] as bool? ?? false,
       );
+}
+
+class PriceDraft {
+  PriceDraft({this.seat = '', this.amount});
+
+  String seat;
+  int? amount; // 円
 }
 
 /// ISO 8601 の文字列を、ブラウザの時刻（日本時間）の DateTime にする
