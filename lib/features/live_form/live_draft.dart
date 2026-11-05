@@ -2,6 +2,8 @@ import '../../models/converters.dart';
 import '../../models/reception.dart';
 import '../../models/oshi.dart';
 import '../../utils/oshi_search.dart';
+import '../../models/live.dart';
+import '../../models/performance.dart';
 
 /// 確認・修正画面で編集する、保存前のライブ情報
 class LiveDraft {
@@ -100,6 +102,45 @@ class LiveDraft {
       }
     }
     return errors;
+  }
+
+  /// 保存用のモデルに変換する（[validate] の結果が空のときだけ呼ぶ）
+  (Live, List<Performance>, List<Reception>) toModels() {
+    String? orNull(String s) => s.trim().isEmpty ? null : s.trim();
+
+    return (
+      Live(
+        title: title.trim(),
+        groupIds: groupIds,
+        oshiIds: oshiIds,
+        officialUrl: orNull(officialUrl),
+      ),
+      [
+        for (final p in performances)
+          Performance(
+            startAt: p.startAt!,
+            openAt: p.openAt,
+            venue: p.venue.trim(),
+            prefecture: orNull(p.prefecture),
+          ),
+      ],
+      [
+        for (final r in receptions)
+          Reception(
+            type: r.type,
+            name: r.name.trim(),
+            applyStartAt: r.applyStartAt,
+            applyEndAt: r.applyEndAt!,
+            resultAt: r.resultAt,
+            paymentDeadline: r.paymentDeadline,
+            prices: [
+              for (final price in r.prices)
+                Price(seat: price.seat.trim(), amount: price.amount!),
+            ],
+            winnersOnly: r.winnersOnly,
+          ),
+      ],
+    );
   }
 }
 

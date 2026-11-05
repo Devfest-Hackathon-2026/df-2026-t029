@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'date_time_field.dart';
 import 'live_draft.dart';
@@ -7,6 +8,7 @@ import 'live_draft.dart';
 import '../../models/reception.dart';
 import '../../models/oshi.dart';
 import '../../providers/oshi_providers.dart';
+import '../../providers/live_providers.dart';
 import 'performer_picker_sheet.dart';
 
 /// ライブ情報の確認・修正画面（空で開けば手入力の登録画面になる）
@@ -25,6 +27,7 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
   /// 自動で対応付けられなかった、読み取った出演者名
   List<String> _unmatched = [];
   bool _autoMatched = false;
+  bool _saving = false;
 
   Future<void> _pickPerformer({String initialQuery = '', String? resolving}) async {
     final picked =
@@ -36,7 +39,7 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
     });
   }
 
-  void _save() {
+  Future<void> _save() async {
     final errors = _draft.validate();
     if (errors.isNotEmpty) {
       showDialog<void>(
@@ -54,9 +57,30 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
       );
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('入力チェック OK（保存処理は Step 3-5 で追加します）')),
-    );
+
+    final uid = ref.read(currentUidProvider);
+    if (uid == null) return;
+
+    setState(() => _saving = true);
+    try {
+      final (live, performances, receptions) = _draft.toModels();
+      await ref.read(liveRepositoryProvider).create(
+            live: live,
+            performances: performances,
+            receptions: receptions,
+            uid: uid,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('保存しました')));
+      context.go('/');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('保存に失敗しました：$e')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -167,7 +191,16 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: FilledButton(onPressed: _save, child: const Text('保存'))
+          child: FilledButton(
+            onPressed: _saving ? null : _save,
+            child: _saving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('保存'),
+          ),
         ),
       ),
     );
