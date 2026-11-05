@@ -9,6 +9,9 @@ import '../../models/reception.dart';
 import '../../models/oshi.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/live_providers.dart';
+import '../../services/calendar_events.dart';
+import '../calendar/calendar_add_sheet.dart';
+
 import 'performer_picker_sheet.dart';
 
 /// ライブ情報の確認・修正画面（空で開けば手入力の登録画面になる）
@@ -64,7 +67,7 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
     setState(() => _saving = true);
     try {
       final (live, performances, receptions) = _draft.toModels();
-      await ref.read(liveRepositoryProvider).create(
+      final saved = await ref.read(liveRepositoryProvider).create(
             live: live,
             performances: performances,
             receptions: receptions,
@@ -73,6 +76,21 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('保存しました')));
+
+      final events = buildCalendarEvents(
+        live: saved.live,
+        performances: saved.performances,
+        receptions: saved.receptions,
+      );
+      if (events.isNotEmpty) {
+        final added = await showCalendarAddSheet(context, events);
+        if (!mounted) return;
+        if (added) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Google カレンダーに追加しました')));
+        }
+      }
+      if (!mounted) return;
       context.go('/');
     } catch (e) {
       if (!mounted) return;
