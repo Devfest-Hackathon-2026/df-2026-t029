@@ -46,3 +46,9 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Claude Code（個人の設定。agent team の有効化と品質ゲートのフック）
+.claude/settings.local.json
+
+# Firestore ルールのテスト（Node.js）
+test_rules/node_modules/

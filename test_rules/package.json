@@ -1,0 +1,13 @@
+{
+  "name": "oshiashi-firestore-rules-test",
+  "private": true,
+  "type": "module",
+  "description": "Firestore セキュリティルールのテスト。firebase emulators:exec の中で実行する",
+  "scripts": {
+    "test": "node --test --test-concurrency=1"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.2",
+    "firebase": "12.19.0"
+  }
+}
