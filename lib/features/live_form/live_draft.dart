@@ -2,8 +2,6 @@ import '../../models/converters.dart';
 import '../../models/reception.dart';
 import '../../models/oshi.dart';
 import '../../utils/oshi_search.dart';
-import '../../models/live.dart';
-import '../../models/performance.dart';
 
 /// 確認・修正画面で編集する、保存前のライブ情報
 class LiveDraft {
@@ -14,10 +12,10 @@ class LiveDraft {
     List<OshiSummary>? selectedPerformers,
     List<PerformanceDraft>? performances,
     List<ReceptionDraft>? receptions,
-  })  : performers = performers ?? [],
-        selectedPerformers = selectedPerformers ?? [],
-        performances = performances ?? [],
-        receptions = receptions ?? [];
+  }) : performers = performers ?? [],
+       selectedPerformers = selectedPerformers ?? [],
+       performances = performances ?? [],
+       receptions = receptions ?? [];
 
   String title;
   String officialUrl;
@@ -33,15 +31,15 @@ class LiveDraft {
 
   /// 出演グループの ID（lives.groupIds）
   List<String> get groupIds => [
-        for (final o in selectedPerformers)
-          if (o.kind == OshiKind.group) o.id,
-      ];
+    for (final o in selectedPerformers)
+      if (o.kind == OshiKind.group) o.id,
+  ];
 
   /// 個人名義で出演する推しの ID（lives.oshiIds）
   List<String> get oshiIds => [
-        for (final o in selectedPerformers)
-          if (o.kind == OshiKind.person) o.id,
-      ];
+    for (final o in selectedPerformers)
+      if (o.kind == OshiKind.person) o.id,
+  ];
 
   /// 出演者を追加する（すでに選んでいれば何もしない）
   void addPerformer(OshiSummary oshi) {
@@ -70,18 +68,18 @@ class LiveDraft {
 
   /// Gemini の抽出結果（JSON）から作る
   factory LiveDraft.fromGemini(Map<String, dynamic> json) => LiveDraft(
-        title: json['liveTitle'] as String? ?? '',
-        officialUrl: json['officialUrl'] as String? ?? '',
-        performers: toStringList(json['performers']),
-        performances: [
-          for (final p in json['performances'] as List? ?? const [])
-            PerformanceDraft.fromGemini(p as Map<String, dynamic>),
-        ],
-        receptions: [
-          for (final r in json['receptions'] as List? ?? const [])
-            ReceptionDraft.fromGemini(r as Map<String, dynamic>),
-        ],
-      );
+    title: json['liveTitle'] as String? ?? '',
+    officialUrl: json['officialUrl'] as String? ?? '',
+    performers: toStringList(json['performers']),
+    performances: [
+      for (final p in json['performances'] as List? ?? const [])
+        PerformanceDraft.fromGemini(p as Map<String, dynamic>),
+    ],
+    receptions: [
+      for (final r in json['receptions'] as List? ?? const [])
+        ReceptionDraft.fromGemini(r as Map<String, dynamic>),
+    ],
+  );
 
   /// 保存前の入力チェック（問題があれば、その内容の一覧を返す）
   List<String> validate() {
@@ -102,45 +100,6 @@ class LiveDraft {
       }
     }
     return errors;
-  }
-
-  /// 保存用のモデルに変換する（[validate] の結果が空のときだけ呼ぶ）
-  (Live, List<Performance>, List<Reception>) toModels() {
-    String? orNull(String s) => s.trim().isEmpty ? null : s.trim();
-
-    return (
-      Live(
-        title: title.trim(),
-        groupIds: groupIds,
-        oshiIds: oshiIds,
-        officialUrl: orNull(officialUrl),
-      ),
-      [
-        for (final p in performances)
-          Performance(
-            startAt: p.startAt!,
-            openAt: p.openAt,
-            venue: p.venue.trim(),
-            prefecture: orNull(p.prefecture),
-          ),
-      ],
-      [
-        for (final r in receptions)
-          Reception(
-            type: r.type,
-            name: r.name.trim(),
-            applyStartAt: r.applyStartAt,
-            applyEndAt: r.applyEndAt!,
-            resultAt: r.resultAt,
-            paymentDeadline: r.paymentDeadline,
-            prices: [
-              for (final price in r.prices)
-                Price(seat: price.seat.trim(), amount: price.amount!),
-            ],
-            winnersOnly: r.winnersOnly,
-          ),
-      ],
-    );
   }
 }
 
@@ -187,24 +146,24 @@ class ReceptionDraft {
   final List<PriceDraft> prices;
   bool winnersOnly;
 
-  factory ReceptionDraft.fromGemini(Map<String, dynamic> json) =>
-      ReceptionDraft(
-        type: ReceptionType.values.asNameMap()[json['type']] ??
-            ReceptionType.other,
-        name: json['name'] as String? ?? '',
-        applyStartAt: _parseDateTime(json['applyStartAt']),
-        applyEndAt: _parseDateTime(json['applyEndAt']),
-        resultAt: _parseDateTime(json['resultAt']),
-        paymentDeadline: _parseDateTime(json['paymentDeadline']),
-        prices: [
-          for (final p in json['prices'] as List? ?? const [])
-            PriceDraft(
-              seat: (p as Map)['seat'] as String? ?? '',
-              amount: (p['amount'] as num?)?.toInt(),
-            ),
-        ],
-        winnersOnly: json['winnersOnly'] as bool? ?? false,
-      );
+  factory ReceptionDraft.fromGemini(
+    Map<String, dynamic> json,
+  ) => ReceptionDraft(
+    type: ReceptionType.values.asNameMap()[json['type']] ?? ReceptionType.other,
+    name: json['name'] as String? ?? '',
+    applyStartAt: _parseDateTime(json['applyStartAt']),
+    applyEndAt: _parseDateTime(json['applyEndAt']),
+    resultAt: _parseDateTime(json['resultAt']),
+    paymentDeadline: _parseDateTime(json['paymentDeadline']),
+    prices: [
+      for (final p in json['prices'] as List? ?? const [])
+        PriceDraft(
+          seat: (p as Map)['seat'] as String? ?? '',
+          amount: (p['amount'] as num?)?.toInt(),
+        ),
+    ],
+    winnersOnly: json['winnersOnly'] as bool? ?? false,
+  );
 }
 
 class PriceDraft {

@@ -4,14 +4,15 @@ import 'package:go_router/go_router.dart';
 
 import 'date_time_field.dart';
 import 'live_draft.dart';
+import 'live_draft_to_models.dart';
 
 import '../../models/reception.dart';
 import '../../models/oshi.dart';
-import '../../providers/oshi_providers.dart';
 import '../../providers/live_providers.dart';
+import '../../providers/oshi_providers.dart';
+import '../../repositories/live_repository.dart';
 import '../../services/calendar_events.dart';
 import '../calendar/calendar_add_sheet.dart';
-
 import 'performer_picker_sheet.dart';
 
 /// ライブ情報の確認・修正画面（空で開けば手入力の登録画面になる）
@@ -26,15 +27,22 @@ class LiveFormPage extends ConsumerStatefulWidget {
 
 class _LiveFormPageState extends ConsumerState<LiveFormPage> {
   late final LiveDraft _draft = widget.initial ?? LiveDraft();
-  
+
   /// 自動で対応付けられなかった、読み取った出演者名
   List<String> _unmatched = [];
   bool _autoMatched = false;
+
+  /// 保存中（ボタンを押せなくし、二重保存を防ぐ）
   bool _saving = false;
 
-  Future<void> _pickPerformer({String initialQuery = '', String? resolving}) async {
-    final picked =
-        await showPerformerPicker(context, initialQuery: initialQuery);
+  Future<void> _pickPerformer({
+    String initialQuery = '',
+    String? resolving,
+  }) async {
+    final picked = await showPerformerPicker(
+      context,
+      initialQuery: initialQuery,
+    );
     if (picked == null || !mounted) return;
     setState(() {
       _draft.addPerformer(picked);
@@ -43,7 +51,10 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
   }
 
   Future<void> _save() async {
-    final errors = _draft.validate();
+    // setState が反映される前の2回目のタップでも、2回保存しない
+    if (_saving) return;
+    // 公演0件・長さ・個数の上限は checkLimits() が日本語で返す
+    final errors = [..._draft.validate(), ..._draft.checkLimits()];
     if (errors.isNotEmpty) {
       showDialog<void>(
         context: context,
@@ -60,45 +71,58 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
       );
       return;
     }
-
     final uid = ref.read(currentUidProvider);
-    if (uid == null) return;
-
+    if (uid == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ログインし直してから、もう一度保存してください')));
+      return;
+    }
     setState(() => _saving = true);
+    final SavedLive saved;
     try {
-      final (live, performances, receptions) = _draft.toModels();
-      final saved = await ref.read(liveRepositoryProvider).create(
-            live: live,
-            performances: performances,
-            receptions: receptions,
+      final m = _draft.toModels();
+      saved = await ref
+          .read(liveRepositoryProvider)
+          .create(
+            live: m.live,
+            performances: m.performances,
+            receptions: m.receptions,
             uid: uid,
           );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('保存しました')));
-
-      final events = buildCalendarEvents(
-        live: saved.live,
-        performances: saved.performances,
-        receptions: saved.receptions,
-      );
-      if (events.isNotEmpty) {
-        final added = await showCalendarAddSheet(context, events);
-        if (!mounted) return;
-        if (added) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Google カレンダーに追加しました')));
-        }
-      }
-      if (!mounted) return;
-      context.go('/');
     } catch (e) {
+      debugPrint('ライブの保存に失敗: $e');
+      // State.context を使うので、State の mounted で確認する
       if (!mounted) return;
+      setState(() => _saving = false);
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('保存に失敗しました：$e')));
-    } finally {
-      if (mounted) setState(() => _saving = false);
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('保存できませんでした。通信状況を確かめて、もう一度お試しください')),
+        );
+      return;
     }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('保存しました')));
+
+    // 保存後に、予定を選んで Google カレンダーへ追加できるようにする（Step5）
+    final events = buildCalendarEvents(
+      live: saved.live,
+      performances: saved.performances,
+      receptions: saved.receptions,
+    );
+    if (events.isNotEmpty) {
+      final added = await showCalendarAddSheet(context, events);
+      if (!mounted) return;
+      if (added) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Google カレンダーに追加しました')));
+      }
+    }
+    if (!mounted) return;
+    // go で移動し、フォームを履歴から外す（戻るで同じ内容を再保存しない）
+    context.go('/lives/${saved.live.id}');
   }
 
   @override
@@ -120,7 +144,7 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
         padding: const EdgeInsets.all(16),
         children: [
           Text('ライブ', style: titleStyle),
-          
+
           const SizedBox(height: 8),
           Text('出演者', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
@@ -173,8 +197,8 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
             children: [
               Expanded(child: Text('公演', style: titleStyle)),
               TextButton.icon(
-                onPressed: () => setState(
-                    () => _draft.performances.add(PerformanceDraft())),
+                onPressed: () =>
+                    setState(() => _draft.performances.add(PerformanceDraft())),
                 icon: const Icon(Icons.add),
                 label: const Text('追加'),
               ),
@@ -193,7 +217,7 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
               Expanded(child: Text('受付', style: titleStyle)),
               TextButton.icon(
                 onPressed: () =>
-                  setState(() => _draft.receptions.add(ReceptionDraft())),
+                    setState(() => _draft.receptions.add(ReceptionDraft())),
                 icon: const Icon(Icons.add),
                 label: const Text('追加'),
               ),
@@ -212,11 +236,12 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: FilledButton(
+            key: const Key('live_form_save_button'),
             onPressed: _saving ? null : _save,
             child: _saving
                 ? const SizedBox(
-                    width: 16,
-                    height: 16,
+                    width: 20,
+                    height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Text('保存'),
@@ -311,15 +336,14 @@ class _ReceptionCard extends StatelessWidget {
     String label,
     DateTime? value,
     void Function(DateTime?) set,
-  ) =>
-      DateTimeField(
-        label: label,
-        value: value,
-        onChanged: (v) {
-          set(v);
-          onChanged();
-        },
-      );
+  ) => DateTimeField(
+    label: label,
+    value: value,
+    onChanged: (v) {
+      set(v);
+      onChanged();
+    },
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -348,12 +372,18 @@ class _ReceptionCard extends StatelessWidget {
               decoration: const InputDecoration(labelText: '表示名（例：FC1次先行）'),
               onChanged: (v) => draft.name = v,
             ),
-            _dateField('申込開始', draft.applyStartAt,
-                (v) => draft.applyStartAt = v),
+            _dateField(
+              '申込開始',
+              draft.applyStartAt,
+              (v) => draft.applyStartAt = v,
+            ),
             _dateField('申込期限', draft.applyEndAt, (v) => draft.applyEndAt = v),
             _dateField('当落発表', draft.resultAt, (v) => draft.resultAt = v),
-            _dateField('入金期限', draft.paymentDeadline,
-                (v) => draft.paymentDeadline = v),
+            _dateField(
+              '入金期限',
+              draft.paymentDeadline,
+              (v) => draft.paymentDeadline = v,
+            ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('当選者のみが対象（アプグレなど）'),

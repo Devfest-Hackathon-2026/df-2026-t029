@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../repositories/auth_repository.dart';
+import '../live/upcoming_deadlines_section.dart';
 import '../oshi/following_oshi_list.dart';
 
 class HomePage extends ConsumerWidget {
@@ -38,6 +39,21 @@ class HomePage extends ConsumerWidget {
                 label: const Text('推しを探す'),
               ),
             ),
+            const SizedBox(height: 8),
+            // ライブの登録は右下のボタン（登録方法を選ぶ画面）にまとめる
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                key: const Key('home_live_list_button'),
+                onPressed: () => context.push('/lives'),
+                icon: const Icon(Icons.event_note),
+                label: const Text('ライブ一覧'),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text('次の締切', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            const UpcomingDeadlinesSection(),
             const SizedBox(height: 24),
             Text('フォロー中の推し', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
@@ -46,6 +62,7 @@ class HomePage extends ConsumerWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        key: const Key('home_register_live_fab'),
         onPressed: () => context.push('/register'),
         icon: const Icon(Icons.add),
         label: const Text('ライブを登録'),

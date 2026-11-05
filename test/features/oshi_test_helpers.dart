@@ -6,10 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:oshiashi/models/oshi.dart';
+import 'package:oshiashi/providers/live_providers.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
 import 'package:oshiashi/repositories/auth_repository.dart';
 import 'package:oshiashi/repositories/follow_repository.dart';
 import 'package:oshiashi/repositories/oshi_repository.dart';
+
+import 'live_test_helpers.dart';
 
 OshiSummary oshi(
   String id,
@@ -159,6 +162,10 @@ List<Override> overridesFor(
   authStateProvider.overrideWith((ref) => Stream<User?>.value(null)),
   oshiRepositoryProvider.overrideWithValue(oshiRepo),
   followRepositoryProvider.overrideWithValue(followRepo),
+  // ホームの「次の締切」（Step2）が Firestore や1分のタイマーを使わないように
+  liveRepositoryProvider.overrideWithValue(FakeLiveRepository()),
+  applicationRepositoryProvider.overrideWithValue(FakeApplicationRepository()),
+  nowProvider.overrideWithValue(DateTime(2026, 11, 5, 12)),
 ];
 
 Future<void> pumpPage(

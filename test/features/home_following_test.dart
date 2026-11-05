@@ -22,6 +22,21 @@ void main() {
     expect(_key('home_search_button'), findsOneWidget);
   });
 
+  testWidgets('ライブの登録ボタンは右下の1つだけ', (tester) async {
+    await pumpPage(
+      tester,
+      const HomePage(),
+      oshiRepo: FakeOshiRepository(),
+      followRepo: FakeFollowRepository(),
+      settle: false,
+    );
+    expect(_key('home_register_live_fab'), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+    expect(find.text('ライブを登録'), findsOneWidget);
+    expect(find.text('スクショから登録'), findsNothing);
+    expect(_key('home_live_list_button'), findsOneWidget);
+  });
+
   testWidgets('0件: フォローしていない', (tester) async {
     await pumpPage(
       tester,

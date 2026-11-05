@@ -35,8 +35,52 @@ rules_version = '2';
 //     （件数だけ検査する）。申請中の推しをフォローしていないかも検査しない
 //     （本人だけのデータで、ほかのユーザーに影響しないため。アプリ側で拒否する）。
 //
-// Collection: users/{userId}/{subcollection}/**
-//   本人なら読み書きできる（従来どおり。申込状況・動作確認用の test など）。
+// Collection: users/{userId}/{subcollection}/**（applications を除く）
+//   本人なら読み書きできる（従来どおり。動作確認用の test など）。
+//
+// ---------------------------------------------------------------
+// Step2: ライブ・公演・受付（共通データ）と申込状況
+// 計画書 markdown/feature_step2_live_plan.md 3.1・3.6、DB 設計案 3.3〜3.5・3.8
+// ---------------------------------------------------------------
+// クライアントは作成のみ（1つの WriteBatch で、ライブ1件＋公演1〜50件＋受付0〜30件）。
+// 更新・削除は Step2 では不可（Step4 で開ける）。読み取りはログイン済みなら可。
+// 3つに共通の項目:
+//   - createdBy / updatedBy: string（必須、作成者の uid と一致）
+//   - createdAt / updatedAt: timestamp（必須、サーバー時刻 = request.time）
+//   - groupIds / oshiIds: list<string>（必須、各20個以下、合わせて1個以上）。
+//     公演・受付ではライブと同じ値（getAfter で照合）。
+//     ※ 件数だけを検査し、要素の型・長さは検査しない（ユーザー決定・案A。
+//       users の followingGroupIds と同じ方針）。ルールで評価できる式は
+//       1ドキュメントあたり1000個までで、20個＋20個の要素を検査すると上限に
+//       近づくため。要素が文字列でないドキュメントは、アプリが読むときに飛ばす
+//
+// Collection: lives（ライブ）
+//   - title: string（必須、1〜100文字、空白だけは不可）
+//   - officialUrl: string（任意、https:// で始まり空白を含まない、200文字以内）
+//
+// Collection: performances（公演）
+//   - liveId: string（必須。同じバッチで作られたライブの ID）
+//   - startAt: timestamp（必須） / openAt: timestamp（任意）
+//   - venue: string（必須、1〜100文字、空白だけは不可）
+//   - prefecture: string（任意、1〜10文字）
+//
+// Collection: receptions（受付）
+//   - liveId: string（必須。同じバッチで作られたライブの ID）
+//   - type: string（必須、fc / general / upgrade / other）
+//   - name: string（必須、1〜50文字、空白だけは不可）
+//   - applyEndAt: timestamp（必須）
+//   - applyStartAt / resultAt / paymentDeadline: timestamp（任意）
+//   - prices: list<map>（任意、10個以下。要素は {seat: 1〜50文字の string,
+//     amount: 0〜1,000,000 の int} で、ほかのキーは不可）
+//     ※ 1要素ずつ検査するため、式の上限（1000）に収まる10個までとしている
+//   - winnersOnly: bool（必須）
+//   ※ 空の任意項目はキーごと省く（アプリの toModels / toFirestore と同じ）
+//
+// Document: users/{userId}/applications/{receptionId}（申込状況。本人のみ）
+//   - liveId: string（必須、1〜128文字）
+//   - status: string（必須、applied / won / lost / paid）
+//   - updatedAt: timestamp（必須、サーバー時刻 = request.time）
+//   ※ 未申込はドキュメントなし（削除で戻す）
 //
 // それ以外のパスは、すべて拒否する。
 // ===============================================================
@@ -160,99 +204,144 @@ service cloud.firestore {
     }
 
     // =============================================================
-    // ライブ・公演・受付（共通データ。機能B: 新規作成）
-    // DB 設計案 3.3〜3.5・6章。更新・削除・変更履歴は Step 4 で追加する
+    // ライブ・公演・受付・申込状況の検査（Step2）
     // =============================================================
 
-    // 作成時の記録項目: 作成者・更新者は本人、日時はサーバー時刻
-    function hasValidCreateMeta(data) {
-      return data.createdBy == request.auth.uid &&
-        data.createdAt == request.time &&
-        data.updatedBy == request.auth.uid &&
-        data.updatedAt == request.time;
-    }
-
-    // 出演者: groupIds と oshiIds の合計が1件以上（各30件以下）
-    function hasValidPerformers(data) {
-      return data.groupIds is list && data.oshiIds is list &&
-        data.groupIds.size() <= 30 && data.oshiIds.size() <= 30 &&
-        data.groupIds.size() + data.oshiIds.size() >= 1;
+    // 空白だけではない、長さが範囲内の文字列（推しの name と同じ考え方）
+    function isNonBlankString(value, maxLen) {
+      return isStringOfSize(value, 1, maxLen) &&
+        value.trim().size() >= 1 &&
+        !value.matches('^[\\s\\x{3000}\\x{00A0}]*$');
     }
 
     // 任意項目: 無いか、あれば timestamp
-    function isValidOptionalTimestamp(data, field) {
+    function isOptionalTimestamp(data, field) {
       return !(field in data) || data[field] is timestamp;
     }
 
-    function metaFields() {
-      return ['createdBy', 'createdAt', 'updatedBy', 'updatedAt'];
+    // 0〜20個の配列（件数だけを検査する。上の「※」を参照）
+    function isValidIdList20(list) {
+      return list is list && list.size() <= 20;
+    }
+
+    // 作成者・作成日時（3つに共通）
+    function isValidAuditOnCreate(data) {
+      return data.createdBy == request.auth.uid &&
+        data.updatedBy == request.auth.uid &&
+        data.createdAt == request.time &&
+        data.updatedAt == request.time;
+    }
+
+    function liveFields() {
+      return ['title', 'groupIds', 'oshiIds', 'officialUrl',
+              'createdBy', 'createdAt', 'updatedBy', 'updatedAt'];
     }
 
     function isValidLive(data) {
-      return data.keys().hasAll(['title', 'groupIds', 'oshiIds'].concat(metaFields())) &&
-        data.keys().hasOnly(['title', 'groupIds', 'oshiIds', 'officialUrl']
-          .concat(metaFields())) &&
-        isStringOfSize(data.title, 1, 200) &&
-        hasValidPerformers(data) &&
-        isValidOptionalString(data, 'officialUrl', 1, 500) &&
-        hasValidCreateMeta(data);
+      return data.keys().hasOnly(liveFields()) &&
+        data.keys().hasAll(['title', 'groupIds', 'oshiIds',
+          'createdBy', 'createdAt', 'updatedBy', 'updatedAt']) &&
+        isNonBlankString(data.title, 100) &&
+        isValidIdList20(data.groupIds) &&
+        isValidIdList20(data.oshiIds) &&
+        data.groupIds.size() + data.oshiIds.size() >= 1 &&
+        (!('officialUrl' in data) ||
+          (isStringOfSize(data.officialUrl, 9, 200) &&
+           data.officialUrl.matches('^https://\\S+$'))) &&
+        isValidAuditOnCreate(data);
+    }
+
+    // 公演・受付が、同じバッチ（＝同じ request.time）で作られたライブに属し、
+    // groupIds・oshiIds がライブと同じか。
+    // 計画書 3.6 の「条件付き」: ルールでほかのドキュメントを読める回数には
+    // 上限がある。上限の件数（公演50件・受付30件）でエミュレータのテストが
+    // 通らなければ、この関数の呼び出しを外す。
+    function belongsToLiveCreatedNow(data) {
+      let live = getAfter(/databases/$(database)/documents/lives/$(data.liveId)).data;
+      return live.createdAt == request.time &&
+        live.groupIds == data.groupIds &&
+        live.oshiIds == data.oshiIds;
     }
 
     function isValidPerformance(data) {
-      return data.keys().hasAll(['liveId', 'groupIds', 'oshiIds', 'startAt',
-          'venue'].concat(metaFields())) &&
-        data.keys().hasOnly(['liveId', 'groupIds', 'oshiIds', 'startAt',
-          'openAt', 'venue', 'prefecture'].concat(metaFields())) &&
+      return data.keys().hasOnly(['liveId', 'groupIds', 'oshiIds', 'startAt',
+          'openAt', 'venue', 'prefecture',
+          'createdBy', 'createdAt', 'updatedBy', 'updatedAt']) &&
+        data.keys().hasAll(['liveId', 'groupIds', 'oshiIds', 'startAt',
+          'venue', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt']) &&
         isStringOfSize(data.liveId, 1, 128) &&
-        hasValidPerformers(data) &&
         data.startAt is timestamp &&
-        isValidOptionalTimestamp(data, 'openAt') &&
-        isStringOfSize(data.venue, 1, 200) &&
-        isValidOptionalString(data, 'prefecture', 1, 20) &&
-        hasValidCreateMeta(data);
+        isOptionalTimestamp(data, 'openAt') &&
+        isNonBlankString(data.venue, 100) &&
+        isValidOptionalString(data, 'prefecture', 1, 10) &&
+        isValidAuditOnCreate(data) &&
+        belongsToLiveCreatedNow(data);
     }
 
     function receptionTypes() {
       return ['fc', 'general', 'upgrade', 'other'];
     }
 
+    // 料金の i 番目が無いか、あれば {seat, amount} の形。
+    // 評価できる式の数に上限（1000）があるため、式の数を抑えている
+    // （seat・amount が無ければ参照がエラーになり拒否される。hasAll は省略）。
+    function isValidPriceAt(list, i) {
+      return list.size() <= i ||
+        isValidPrice(list[i]);
+    }
+
+    function isValidPrice(p) {
+      return p.keys().hasOnly(['seat', 'amount']) &&
+        p.seat is string && p.seat.size() <= 50 && p.seat.trim().size() >= 1 &&
+        p.amount is int && p.amount >= 0 && p.amount <= 1000000;
+    }
+
+    // 0〜10個の料金
+    function isValidPrices(list) {
+      return list is list && list.size() <= 10 &&
+        isValidPriceAt(list, 0) &&
+        isValidPriceAt(list, 1) &&
+        isValidPriceAt(list, 2) &&
+        isValidPriceAt(list, 3) &&
+        isValidPriceAt(list, 4) &&
+        isValidPriceAt(list, 5) &&
+        isValidPriceAt(list, 6) &&
+        isValidPriceAt(list, 7) &&
+        isValidPriceAt(list, 8) &&
+        isValidPriceAt(list, 9);
+    }
+
     function isValidReception(data) {
-      return data.keys().hasAll(['liveId', 'groupIds', 'oshiIds', 'type', 'name',
-          'applyEndAt', 'prices', 'winnersOnly'].concat(metaFields())) &&
-        data.keys().hasOnly(['liveId', 'groupIds', 'oshiIds', 'type', 'name',
-          'applyStartAt', 'applyEndAt', 'resultAt', 'paymentDeadline', 'prices',
-          'winnersOnly'].concat(metaFields())) &&
+      return data.keys().hasOnly(['liveId', 'groupIds', 'oshiIds', 'type',
+          'name', 'applyStartAt', 'applyEndAt', 'resultAt', 'paymentDeadline',
+          'prices', 'winnersOnly',
+          'createdBy', 'createdAt', 'updatedBy', 'updatedAt']) &&
+        data.keys().hasAll(['liveId', 'groupIds', 'oshiIds', 'type', 'name',
+          'applyEndAt', 'winnersOnly',
+          'createdBy', 'createdAt', 'updatedBy', 'updatedAt']) &&
         isStringOfSize(data.liveId, 1, 128) &&
-        hasValidPerformers(data) &&
         data.type in receptionTypes() &&
-        isStringOfSize(data.name, 1, 100) &&
+        isNonBlankString(data.name, 50) &&
         data.applyEndAt is timestamp &&
-        isValidOptionalTimestamp(data, 'applyStartAt') &&
-        isValidOptionalTimestamp(data, 'resultAt') &&
-        isValidOptionalTimestamp(data, 'paymentDeadline') &&
-        data.prices is list && data.prices.size() <= 20 &&
+        isOptionalTimestamp(data, 'applyStartAt') &&
+        isOptionalTimestamp(data, 'resultAt') &&
+        isOptionalTimestamp(data, 'paymentDeadline') &&
+        (!('prices' in data) || isValidPrices(data.prices)) &&
         data.winnersOnly is bool &&
-        hasValidCreateMeta(data);
+        isValidAuditOnCreate(data) &&
+        belongsToLiveCreatedNow(data);
     }
 
-    match /lives/{liveId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isValidLive(request.resource.data);
-      allow update, delete: if false;
+    function applicationStatuses() {
+      return ['applied', 'won', 'lost', 'paid'];
     }
 
-    match /performances/{performanceId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() &&
-        isValidPerformance(request.resource.data);
-      allow update, delete: if false;
-    }
-
-    match /receptions/{receptionId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() &&
-        isValidReception(request.resource.data);
-      allow update, delete: if false;
+    function isValidApplication(data) {
+      return data.keys().hasOnly(['liveId', 'status', 'updatedAt']) &&
+        data.keys().hasAll(['liveId', 'status', 'updatedAt']) &&
+        isStringOfSize(data.liveId, 1, 128) &&
+        data.status in applicationStatuses() &&
+        data.updatedAt == request.time;
     }
 
     // =============================================================
@@ -284,10 +373,45 @@ service cloud.firestore {
              request.resource.data.createdAt == request.time));
       allow delete: if isOwner(userId);
 
-      // サブコレクション以下（申込状況、動作確認用の test など）は従来どおり
+      // サブコレクション以下（動作確認用の test など）は従来どおり。
+      // ただし applications は下の専用ルールだけで検査する（ルールは OR で効くため、
+      // ここで除外しないと検査が素通りになる）
       match /{subcollection}/{document=**} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) && subcollection != 'applications';
       }
+
+      // 申込状況（Step2）
+      match /applications/{receptionId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) &&
+          isValidApplication(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // =============================================================
+    // ライブ・公演・受付（Step2。作成のみ）
+    // =============================================================
+
+    match /lives/{liveId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        isValidLive(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /performances/{performanceId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        isValidPerformance(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /receptions/{receptionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        isValidReception(request.resource.data);
+      allow update, delete: if false;
     }
   }
 }

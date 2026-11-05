@@ -7,7 +7,24 @@ DevFest GDGoC Japan Hackathon 2026 に提出する Flutter Web アプリ。推�
 - 仕様書（決定事項と未決定事項）: @markdown/app_config.md
 - データベース設計案: @markdown/Database_config.md
 - チームレビュー記録（すべて提案で、確定ではない）: `notes/2026-11-05_おしあし_チームレビュー.md`
-- 機能ごとの実装計画: `markdown/feature_*_plan.md`
+- 機能ごとの実装計画: `markdown/feature_*_plan.md`（Step1: `feature_A_oshi_plan.md`、Step2: `feature_step2_live_plan.md`）
+
+## 開発のステップ（Notion「開発タスク」）
+
+| Step | 内容 | 担当 |
+|---|---|---|
+| 0 | 土台（データ構造・モデル・フォルダ構成・Git 運用） | 全員 |
+| 1 | 推しの検索・フォロー・追加申請 | A（とし） |
+| 2 | ライブ・公演・受付の手入力登録と一覧、個人の申込状況 | A（とし） |
+| 3 | スクショ読み取り（Gemini → 確認・修正画面） | B（横山さん） |
+| 4 | 既存データとの照合・更新・変更履歴（Step2・3 の合流地点） | 全員 |
+| 5 | Google カレンダー連携 | B（横山さん） |
+| 6 | リマインド通知（FCM Web プッシュ） | B（横山さん） |
+| 7 | P1 の仕上げ（ルール整備・アプグレの表示条件・デモ用データ） | 全員 |
+| 8 | グッズ交換など | 全員 |
+
+- 作業中の Step の範囲を超えて作らない。ほかの Step の機能が必要になったら、提案としてリーダー（人間）に伝える。
+- ブランチは Step ごとに人間が用意する（例: `feature/step2`）。完成したら人間が `dev` へ Pull Request を出す。
 
 ## 守ること
 
