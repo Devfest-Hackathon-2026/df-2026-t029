@@ -160,6 +160,102 @@ service cloud.firestore {
     }
 
     // =============================================================
+    // ライブ・公演・受付（共通データ。機能B: 新規作成）
+    // DB 設計案 3.3〜3.5・6章。更新・削除・変更履歴は Step 4 で追加する
+    // =============================================================
+
+    // 作成時の記録項目: 作成者・更新者は本人、日時はサーバー時刻
+    function hasValidCreateMeta(data) {
+      return data.createdBy == request.auth.uid &&
+        data.createdAt == request.time &&
+        data.updatedBy == request.auth.uid &&
+        data.updatedAt == request.time;
+    }
+
+    // 出演者: groupIds と oshiIds の合計が1件以上（各30件以下）
+    function hasValidPerformers(data) {
+      return data.groupIds is list && data.oshiIds is list &&
+        data.groupIds.size() <= 30 && data.oshiIds.size() <= 30 &&
+        data.groupIds.size() + data.oshiIds.size() >= 1;
+    }
+
+    // 任意項目: 無いか、あれば timestamp
+    function isValidOptionalTimestamp(data, field) {
+      return !(field in data) || data[field] is timestamp;
+    }
+
+    function metaFields() {
+      return ['createdBy', 'createdAt', 'updatedBy', 'updatedAt'];
+    }
+
+    function isValidLive(data) {
+      return data.keys().hasAll(['title', 'groupIds', 'oshiIds'].concat(metaFields())) &&
+        data.keys().hasOnly(['title', 'groupIds', 'oshiIds', 'officialUrl']
+          .concat(metaFields())) &&
+        isStringOfSize(data.title, 1, 200) &&
+        hasValidPerformers(data) &&
+        isValidOptionalString(data, 'officialUrl', 1, 500) &&
+        hasValidCreateMeta(data);
+    }
+
+    function isValidPerformance(data) {
+      return data.keys().hasAll(['liveId', 'groupIds', 'oshiIds', 'startAt',
+          'venue'].concat(metaFields())) &&
+        data.keys().hasOnly(['liveId', 'groupIds', 'oshiIds', 'startAt',
+          'openAt', 'venue', 'prefecture'].concat(metaFields())) &&
+        isStringOfSize(data.liveId, 1, 128) &&
+        hasValidPerformers(data) &&
+        data.startAt is timestamp &&
+        isValidOptionalTimestamp(data, 'openAt') &&
+        isStringOfSize(data.venue, 1, 200) &&
+        isValidOptionalString(data, 'prefecture', 1, 20) &&
+        hasValidCreateMeta(data);
+    }
+
+    function receptionTypes() {
+      return ['fc', 'general', 'upgrade', 'other'];
+    }
+
+    function isValidReception(data) {
+      return data.keys().hasAll(['liveId', 'groupIds', 'oshiIds', 'type', 'name',
+          'applyEndAt', 'prices', 'winnersOnly'].concat(metaFields())) &&
+        data.keys().hasOnly(['liveId', 'groupIds', 'oshiIds', 'type', 'name',
+          'applyStartAt', 'applyEndAt', 'resultAt', 'paymentDeadline', 'prices',
+          'winnersOnly'].concat(metaFields())) &&
+        isStringOfSize(data.liveId, 1, 128) &&
+        hasValidPerformers(data) &&
+        data.type in receptionTypes() &&
+        isStringOfSize(data.name, 1, 100) &&
+        data.applyEndAt is timestamp &&
+        isValidOptionalTimestamp(data, 'applyStartAt') &&
+        isValidOptionalTimestamp(data, 'resultAt') &&
+        isValidOptionalTimestamp(data, 'paymentDeadline') &&
+        data.prices is list && data.prices.size() <= 20 &&
+        data.winnersOnly is bool &&
+        hasValidCreateMeta(data);
+    }
+
+    match /lives/{liveId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidLive(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /performances/{performanceId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        isValidPerformance(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /receptions/{receptionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        isValidReception(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    // =============================================================
     // ユーザー（個人データ）
     // =============================================================
 
