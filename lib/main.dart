@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -35,6 +36,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
+// ログインページ
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
 
@@ -60,6 +62,7 @@ class LoginPage extends StatelessWidget {
   }
 }
 
+// ログイン後のホームページ
 class HomePage extends StatelessWidget {
   const HomePage({super.key, required this.user});
 
@@ -67,9 +70,14 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final testRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('test');
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('おしあし'),
+        title: Text('${user.displayName ?? 'ゲスト'} さん'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -78,8 +86,27 @@ class HomePage extends StatelessWidget {
           ),
         ],
       ),
-      body: Center(
-        child: Text('ようこそ、${user.displayName ?? 'ゲスト'} さん'),
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: testRef.orderBy('createdAt', descending: true).snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text('エラー: ${snapshot.error}'));
+          }
+          final docs = snapshot.data?.docs ?? [];
+          return ListView(
+            children: [
+              for (final doc in docs)
+                ListTile(title: Text(doc.data()['message'] as String? ?? '')),
+            ],
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => testRef.add({
+          'message': 'テスト ${DateTime.now()}',
+          'createdAt': FieldValue.serverTimestamp(),
+        }),
+        child: const Icon(Icons.add),
       ),
     );
   }

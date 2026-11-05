@@ -1,1 +1,20 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"oshiashi-test","configurations":{"web":"1:809122136778:web:d667ab687d6755b7dd6a33"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "oshiashi-test",
+          "configurations": {
+            "web": "1:809122136778:web:d667ab687d6755b7dd6a33"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "asia-northeast1",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}
