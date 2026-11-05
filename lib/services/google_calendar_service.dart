@@ -1,3 +1,5 @@
+import 'calendar_events.dart';
+
 import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -82,6 +84,43 @@ class GoogleCalendarService {
       for (final e in items)
         (e as Map<String, dynamic>)['summary'] as String? ?? '（件名なし）',
     ];
+  }
+
+  /// 予定を追加する。同じ予定（同じ ID）がすでにあれば上書きする。
+  /// ボタンを押した処理の中で最初に呼ぶこと（ポップアップのため）
+  Future<void> upsertEvents(List<CalendarEvent> events) async {
+    final token = await _accessToken();
+    for (final e in events) {
+      await _upsert(token, e);
+    }
+  }
+
+  Future<void> _upsert(String token, CalendarEvent e) async {
+    final headers = {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+    final body = jsonEncode(e.toJson());
+
+    // まず新規に作り、同じ ID の予定がすでにあれば（409）上書きする
+    final created = await http.post(
+      Uri.parse('$_baseUrl/calendars/primary/events'),
+      headers: headers,
+      body: body,
+    );
+    if (created.statusCode == 200) return;
+
+    if (created.statusCode == 409) {
+      final updated = await http.put(
+        Uri.parse('$_baseUrl/calendars/primary/events/${e.eventId}'),
+        headers: headers,
+        body: body,
+      );
+      if (updated.statusCode == 200) return;
+      throw Exception(
+          '予定の更新に失敗しました（${updated.statusCode}）：${updated.body}');
+    }
+    throw Exception('予定の追加に失敗しました（${created.statusCode}）：${created.body}');
   }
 }
 
