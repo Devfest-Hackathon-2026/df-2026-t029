@@ -255,6 +255,7 @@ List<OshiSummary> searchOshis(List<OshiSummary> all, String query);  // lib/util
 > - T1: 完了（`fake_cloud_firestore: ^4.5.0` を dev_dependencies に追加。既存の依存は変わらない）
 > - D1〜D6、U1〜U5、Q1〜Q4、R1・R2: 完了（2026-11-05）
 > - L1（2026-11-05 リーダーが実行）: `flutter analyze` 0件。`flutter test` 181件すべて成功（qa が `firestoreRetry` などのテストを足した後にもう一度実行し、約9秒）。ルールのテスト 72/72 成功（CLAUDE.md のコマンド）。共有ファイル（`lib/main.dart`・`login_page.dart`・`auth_repository.dart`）に差分なし。秘密情報なし。ルールはまだデプロイしていない
+> - 動作確認（10章の手順1〜6）: 2026-11-05 ユーザーが実施し、完了
 
 | ID | 担当 | 内容 | 依存 |
 |---|---|---|---|
