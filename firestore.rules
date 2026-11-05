@@ -1,8 +1,197 @@
 rules_version = '2';
+
+// ===============================================================
+// 前提とするデータ構造（機能A: 推しの検索・フォロー・追加申請）
+// 計画書 markdown/feature_A_oshi_plan.md 3.4・3.5・3.7、
+// DB 設計案 markdown/Database_config.md 3.1・3.2・3.7
+// ===============================================================
+//
+// Collection: groups（グループ）/ oshis（推し・個人）
+// Document ID: 自動 ID
+// Fields（クライアントは作成のみ。更新・削除は運営がコンソールで行う）:
+//   - name: string（必須、1〜50文字、空白だけは不可）
+//   - genre: string（必須、idol / voice_actor / artist / anime_game / actor /
+//            vtuber / sports / other のどれか）
+//   - status: string（必須、作成時は 'pending' のみ。'approved' は運営が書く）
+//   - createdBy: string（必須、作成者の uid と一致）
+//   - createdAt: timestamp（必須、サーバー時刻 = request.time）
+//   - aliases: list<string>（任意、1〜10個、各1〜50文字）
+//   - agency: string（任意、1〜50文字）
+//   - officialUrl: string（任意、https:// で始まり空白を含まない、200文字以内）
+//   - officialX: string（任意、@ なし、英数字と _ の1〜15文字）
+//   - groupIds: list<string>（oshis のみ・任意、1〜10個、各1〜128文字）
+//   ※ 空の任意項目はキーごと省く（アプリの OshiRequest.toFirestore と同じ）
+//   ※ 同じ名前の推しが既にあるかはルールでは調べられない。
+//     重複防止はアプリ側の確認と運営の承認で担保する。
+//
+// Document: users/{userId}（本人だけが読み書きする個人データ）
+// Fields:
+//   - displayName: string（任意、1〜100文字。アプリは最初のフォロー時に必ず書く）
+//   - createdAt: timestamp（任意。書くときはサーバー時刻。一度入ったら変更不可）
+//   - followingGroupIds: list（任意、200件以下）
+//   - followingOshiIds: list（任意、200件以下）
+//   ※ ほかの機能が項目を足せるように、上記以外の項目は禁止していない。
+//   ※ ルールには繰り返しが無いため、配列の要素が文字列かは検査できない
+//     （件数だけ検査する）。申請中の推しをフォローしていないかも検査しない
+//     （本人だけのデータで、ほかのユーザーに影響しないため。アプリ側で拒否する）。
+//
+// Collection: users/{userId}/{subcollection}/**
+//   本人なら読み書きできる（従来どおり。申込状況・動作確認用の test など）。
+//
+// それ以外のパスは、すべて拒否する。
+// ===============================================================
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+    // =============================================================
+    // 共通の関数
+    // =============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // 文字列で、長さが minLen 以上 maxLen 以下
+    function isStringOfSize(value, minLen, maxLen) {
+      return value is string && value.size() >= minLen && value.size() <= maxLen;
+    }
+
+    // 任意項目: 無いか、あれば文字列で長さが範囲内
+    function isValidOptionalString(data, field, minLen, maxLen) {
+      return !(field in data) || isStringOfSize(data[field], minLen, maxLen);
+    }
+
+    // 配列の i 番目が無いか、あれば長さが範囲内の文字列
+    function isValidStringAt(list, i, maxLen) {
+      return list.size() <= i || isStringOfSize(list[i], 1, maxLen);
+    }
+
+    // 1〜10個の文字列の配列（要素は各 1〜maxLen 文字）
+    function isValidStringList10(list, maxLen) {
+      return list is list && list.size() >= 1 && list.size() <= 10 &&
+        isValidStringAt(list, 0, maxLen) &&
+        isValidStringAt(list, 1, maxLen) &&
+        isValidStringAt(list, 2, maxLen) &&
+        isValidStringAt(list, 3, maxLen) &&
+        isValidStringAt(list, 4, maxLen) &&
+        isValidStringAt(list, 5, maxLen) &&
+        isValidStringAt(list, 6, maxLen) &&
+        isValidStringAt(list, 7, maxLen) &&
+        isValidStringAt(list, 8, maxLen) &&
+        isValidStringAt(list, 9, maxLen);
+    }
+
+    // 任意項目: 無いか、あれば 1〜10個の文字列の配列
+    function isValidOptionalStringList10(data, field, maxLen) {
+      return !(field in data) || isValidStringList10(data[field], maxLen);
+    }
+
+    // 任意項目: 無いか、あれば maxSize 件以下の配列
+    function isValidOptionalList(data, field, maxSize) {
+      return !(field in data) || (data[field] is list && data[field].size() <= maxSize);
+    }
+
+    // =============================================================
+    // 推し（groups / oshis）の検査
+    // =============================================================
+
+    function genres() {
+      return ['idol', 'voice_actor', 'artist', 'anime_game', 'actor',
+              'vtuber', 'sports', 'other'];
+    }
+
+    function requiredOshiFields() {
+      return ['name', 'genre', 'status', 'createdBy', 'createdAt'];
+    }
+
+    // groups と oshis に共通する項目の検査（申請として作成する場合）
+    function isValidOshiCommon(data) {
+      return data.keys().hasAll(requiredOshiFields()) &&
+        isStringOfSize(data.name, 1, 50) &&
+        data.name.trim().size() >= 1 &&
+        // trim() は全角スペース・NBSP を除かないので、空白だけの名前を別に拒否する
+        !data.name.matches('^[\\s\\x{3000}\\x{00A0}]*$') &&
+        data.genre in genres() &&
+        data.status == 'pending' &&
+        data.createdBy == request.auth.uid &&
+        data.createdAt == request.time &&
+        isValidOptionalStringList10(data, 'aliases', 50) &&
+        isValidOptionalString(data, 'agency', 1, 50) &&
+        (!('officialUrl' in data) ||
+          (isStringOfSize(data.officialUrl, 9, 200) &&
+           data.officialUrl.matches('^https://\\S+$'))) &&
+        (!('officialX' in data) ||
+          (data.officialX is string &&
+           data.officialX.matches('^[A-Za-z0-9_]{1,15}$')));
+    }
+
+    function isValidGroupRequest(data) {
+      return data.keys().hasOnly(['name', 'aliases', 'genre', 'agency',
+          'officialUrl', 'officialX', 'status', 'createdBy', 'createdAt']) &&
+        isValidOshiCommon(data);
+    }
+
+    function isValidPersonRequest(data) {
+      return data.keys().hasOnly(['name', 'aliases', 'genre', 'groupIds',
+          'agency', 'officialUrl', 'officialX', 'status', 'createdBy',
+          'createdAt']) &&
+        isValidOshiCommon(data) &&
+        isValidOptionalStringList10(data, 'groupIds', 128);
+    }
+
+    match /groups/{groupId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        isValidGroupRequest(request.resource.data);
+      // 承認（status の変更）・修正・削除は運営がコンソールで行う
+      allow update, delete: if false;
+    }
+
+    match /oshis/{oshiId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        isValidPersonRequest(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    // =============================================================
+    // ユーザー（個人データ）
+    // =============================================================
+
+    // users/{userId} の既知の項目の検査（作成・更新の両方で使う）
+    function isValidUserFields(data) {
+      return isValidOptionalString(data, 'displayName', 1, 100) &&
+        (!('createdAt' in data) || data.createdAt is timestamp) &&
+        isValidOptionalList(data, 'followingGroupIds', 200) &&
+        isValidOptionalList(data, 'followingOshiIds', 200);
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      // 必須項目（displayName・createdAt）はルールでは求めない。既存のルール
+      // （本人なら自由に書ける）を壊さないため。機能A のフォローでは必ず書く。
+      allow create: if isOwner(userId) &&
+        isValidUserFields(request.resource.data) &&
+        (!('createdAt' in request.resource.data) ||
+          request.resource.data.createdAt == request.time);
+      allow update: if isOwner(userId) &&
+        isValidUserFields(request.resource.data) &&
+        // createdAt は一度入ったら変えられない。欠けていたときだけ補える
+        (('createdAt' in resource.data)
+          ? request.resource.data.createdAt == resource.data.createdAt
+          : (!('createdAt' in request.resource.data) ||
+             request.resource.data.createdAt == request.time));
+      allow delete: if isOwner(userId);
+
+      // サブコレクション以下（申込状況、動作確認用の test など）は従来どおり
+      match /{subcollection}/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
     }
   }
 }
