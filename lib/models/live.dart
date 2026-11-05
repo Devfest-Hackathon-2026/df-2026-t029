@@ -34,4 +34,13 @@ class Live {
         'oshiIds': oshiIds,
         if (officialUrl != null) 'officialUrl': officialUrl,
       };
+  
+  /// 保存後に ID を付けた複製
+  Live copyWithId(String id) => Live(
+        id: id,
+        title: title,
+        groupIds: groupIds,
+        oshiIds: oshiIds,
+        officialUrl: officialUrl,
+  );
 }

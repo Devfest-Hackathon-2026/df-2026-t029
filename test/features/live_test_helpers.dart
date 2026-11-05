@@ -76,7 +76,7 @@ class FakeLiveRepository implements LiveRepository {
   }
 
   @override
-  Future<String> create({
+  Future<SavedLive> create({
     required Live live,
     required List<Performance> performances,
     required List<Reception> receptions,
@@ -90,7 +90,28 @@ class FakeLiveRepository implements LiveRepository {
     ));
     await createGate?.future;
     if (createError case final e?) throw e;
-    return 'new-live-${created.length}';
+    final liveId = 'new-live-${created.length}';
+    return (
+      live: live.copyWithId(liveId),
+      performances: [
+        for (final (i, p) in performances.indexed)
+          p.copyWithIds(
+            id: '$liveId-p$i',
+            liveId: liveId,
+            groupIds: live.groupIds,
+            oshiIds: live.oshiIds,
+          ),
+      ],
+      receptions: [
+        for (final (i, r) in receptions.indexed)
+          r.copyWithIds(
+            id: '$liveId-r$i',
+            liveId: liveId,
+            groupIds: live.groupIds,
+            oshiIds: live.oshiIds,
+          ),
+      ],
+    );
   }
 
   @override

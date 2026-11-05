@@ -10,6 +10,9 @@ import '../../models/reception.dart';
 import '../../models/oshi.dart';
 import '../../providers/live_providers.dart';
 import '../../providers/oshi_providers.dart';
+import '../../repositories/live_repository.dart';
+import '../../services/calendar_events.dart';
+import '../calendar/calendar_add_sheet.dart';
 import 'performer_picker_sheet.dart';
 
 /// ライブ情報の確認・修正画面（空で開けば手入力の登録画面になる）
@@ -24,7 +27,7 @@ class LiveFormPage extends ConsumerStatefulWidget {
 
 class _LiveFormPageState extends ConsumerState<LiveFormPage> {
   late final LiveDraft _draft = widget.initial ?? LiveDraft();
-  
+
   /// 自動で対応付けられなかった、読み取った出演者名
   List<String> _unmatched = [];
   bool _autoMatched = false;
@@ -32,9 +35,14 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
   /// 保存中（ボタンを押せなくし、二重保存を防ぐ）
   bool _saving = false;
 
-  Future<void> _pickPerformer({String initialQuery = '', String? resolving}) async {
-    final picked =
-        await showPerformerPicker(context, initialQuery: initialQuery);
+  Future<void> _pickPerformer({
+    String initialQuery = '',
+    String? resolving,
+  }) async {
+    final picked = await showPerformerPicker(
+      context,
+      initialQuery: initialQuery,
+    );
     if (picked == null || !mounted) return;
     setState(() {
       _draft.addPerformer(picked);
@@ -65,16 +73,18 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
     }
     final uid = ref.read(currentUidProvider);
     if (uid == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ログインし直してから、もう一度保存してください')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ログインし直してから、もう一度保存してください')));
       return;
     }
     setState(() => _saving = true);
-    final String liveId;
+    final SavedLive saved;
     try {
       final m = _draft.toModels();
-      liveId = await ref.read(liveRepositoryProvider).create(
+      saved = await ref
+          .read(liveRepositoryProvider)
+          .create(
             live: m.live,
             performances: m.performances,
             receptions: m.receptions,
@@ -93,8 +103,26 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
       return;
     }
     if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('保存しました')));
+
+    // 保存後に、予定を選んで Google カレンダーへ追加できるようにする（Step5）
+    final events = buildCalendarEvents(
+      live: saved.live,
+      performances: saved.performances,
+      receptions: saved.receptions,
+    );
+    if (events.isNotEmpty) {
+      final added = await showCalendarAddSheet(context, events);
+      if (!mounted) return;
+      if (added) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Google カレンダーに追加しました')));
+      }
+    }
+    if (!mounted) return;
     // go で移動し、フォームを履歴から外す（戻るで同じ内容を再保存しない）
-    context.go('/lives/$liveId');
+    context.go('/lives/${saved.live.id}');
   }
 
   @override
@@ -109,12 +137,14 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
     final titleStyle = Theme.of(context).textTheme.titleLarge;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('ライブ情報の確認')),
+      appBar: AppBar(
+        title: Text(widget.initial == null ? 'ライブ情報の入力' : 'ライブ情報の確認'),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text('ライブ', style: titleStyle),
-          
+
           const SizedBox(height: 8),
           Text('出演者', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
@@ -167,8 +197,8 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
             children: [
               Expanded(child: Text('公演', style: titleStyle)),
               TextButton.icon(
-                onPressed: () => setState(
-                    () => _draft.performances.add(PerformanceDraft())),
+                onPressed: () =>
+                    setState(() => _draft.performances.add(PerformanceDraft())),
                 icon: const Icon(Icons.add),
                 label: const Text('追加'),
               ),
@@ -187,7 +217,7 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
               Expanded(child: Text('受付', style: titleStyle)),
               TextButton.icon(
                 onPressed: () =>
-                  setState(() => _draft.receptions.add(ReceptionDraft())),
+                    setState(() => _draft.receptions.add(ReceptionDraft())),
                 icon: const Icon(Icons.add),
                 label: const Text('追加'),
               ),
@@ -306,15 +336,14 @@ class _ReceptionCard extends StatelessWidget {
     String label,
     DateTime? value,
     void Function(DateTime?) set,
-  ) =>
-      DateTimeField(
-        label: label,
-        value: value,
-        onChanged: (v) {
-          set(v);
-          onChanged();
-        },
-      );
+  ) => DateTimeField(
+    label: label,
+    value: value,
+    onChanged: (v) {
+      set(v);
+      onChanged();
+    },
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -343,12 +372,18 @@ class _ReceptionCard extends StatelessWidget {
               decoration: const InputDecoration(labelText: '表示名（例：FC1次先行）'),
               onChanged: (v) => draft.name = v,
             ),
-            _dateField('申込開始', draft.applyStartAt,
-                (v) => draft.applyStartAt = v),
+            _dateField(
+              '申込開始',
+              draft.applyStartAt,
+              (v) => draft.applyStartAt = v,
+            ),
             _dateField('申込期限', draft.applyEndAt, (v) => draft.applyEndAt = v),
             _dateField('当落発表', draft.resultAt, (v) => draft.resultAt = v),
-            _dateField('入金期限', draft.paymentDeadline,
-                (v) => draft.paymentDeadline = v),
+            _dateField(
+              '入金期限',
+              draft.paymentDeadline,
+              (v) => draft.paymentDeadline = v,
+            ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('当選者のみが対象（アプグレなど）'),

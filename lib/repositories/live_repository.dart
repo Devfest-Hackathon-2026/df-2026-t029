@@ -61,10 +61,18 @@ class FollowTargets {
   String toString() => 'FollowTargets(groups: $groupIds, oshis: $oshiIds)';
 }
 
+/// 保存したライブ・公演・受付（ID と複製項目を付けたもの）
+typedef SavedLive = ({
+  Live live,
+  List<Performance> performances,
+  List<Reception> receptions,
+});
+
 /// ライブ・公演・受付（共通データ）
 abstract class LiveRepository {
-  /// ライブ1件・公演・受付を1つの WriteBatch で新規作成し、ライブの ID を返す
-  /// （照合・更新は Step4）。
+  /// ライブ1件・公演・受付を1つの WriteBatch で新規作成し、ID と複製項目を
+  /// 付けたもの（[SavedLive]）を返す（照合・更新は Step4）。
+  /// 戻り値は、保存後に Google カレンダーへ予定を追加するときに使う。
   ///
   /// - ID は自動 ID。公演・受付には `liveId` と、ライブと同じ `groupIds`・
   ///   `oshiIds` を入れる（引数の Performance・Reception の id・liveId・
@@ -72,7 +80,7 @@ abstract class LiveRepository {
   /// - 3つとも `createdBy`・`updatedBy` に [uid]、`createdAt`・`updatedAt` に
   ///   サーバー時刻を入れる
   /// - 失敗したら Firestore の例外をそのまま投げる（何も作られない）
-  Future<String> create({
+  Future<SavedLive> create({
     required Live live,
     required List<Performance> performances,
     required List<Reception> receptions,
@@ -118,7 +126,7 @@ class FirestoreLiveRepository implements LiveRepository {
       _db.collection('receptions');
 
   @override
-  Future<String> create({
+  Future<SavedLive> create({
     required Live live,
     required List<Performance> performances,
     required List<Reception> receptions,
@@ -142,16 +150,39 @@ class FirestoreLiveRepository implements LiveRepository {
       ...audit,
     };
 
+    // 書き込む前に ID を決め、ID 付きの形を作っておく
+    final saved = (
+      live: live.copyWithId(liveRef.id),
+      performances: [
+        for (final p in performances)
+          p.copyWithIds(
+            id: _performances.doc().id,
+            liveId: liveRef.id,
+            groupIds: live.groupIds,
+            oshiIds: live.oshiIds,
+          ),
+      ],
+      receptions: [
+        for (final r in receptions)
+          r.copyWithIds(
+            id: _receptions.doc().id,
+            liveId: liveRef.id,
+            groupIds: live.groupIds,
+            oshiIds: live.oshiIds,
+          ),
+      ],
+    );
+
     final batch = _db.batch();
     batch.set(liveRef, {...live.toFirestore(), ...performers, ...audit});
-    for (final p in performances) {
-      batch.set(_performances.doc(), {...p.toFirestore(), ...child});
+    for (final p in saved.performances) {
+      batch.set(_performances.doc(p.id), {...p.toFirestore(), ...child});
     }
-    for (final r in receptions) {
-      batch.set(_receptions.doc(), {...r.toFirestore(), ...child});
+    for (final r in saved.receptions) {
+      batch.set(_receptions.doc(r.id), {...r.toFirestore(), ...child});
     }
     await batch.commit();
-    return liveRef.id;
+    return saved;
   }
 
   @override

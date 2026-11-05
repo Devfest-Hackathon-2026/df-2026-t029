@@ -12,10 +12,10 @@ class LiveDraft {
     List<OshiSummary>? selectedPerformers,
     List<PerformanceDraft>? performances,
     List<ReceptionDraft>? receptions,
-  })  : performers = performers ?? [],
-        selectedPerformers = selectedPerformers ?? [],
-        performances = performances ?? [],
-        receptions = receptions ?? [];
+  }) : performers = performers ?? [],
+       selectedPerformers = selectedPerformers ?? [],
+       performances = performances ?? [],
+       receptions = receptions ?? [];
 
   String title;
   String officialUrl;
@@ -31,15 +31,15 @@ class LiveDraft {
 
   /// 出演グループの ID（lives.groupIds）
   List<String> get groupIds => [
-        for (final o in selectedPerformers)
-          if (o.kind == OshiKind.group) o.id,
-      ];
+    for (final o in selectedPerformers)
+      if (o.kind == OshiKind.group) o.id,
+  ];
 
   /// 個人名義で出演する推しの ID（lives.oshiIds）
   List<String> get oshiIds => [
-        for (final o in selectedPerformers)
-          if (o.kind == OshiKind.person) o.id,
-      ];
+    for (final o in selectedPerformers)
+      if (o.kind == OshiKind.person) o.id,
+  ];
 
   /// 出演者を追加する（すでに選んでいれば何もしない）
   void addPerformer(OshiSummary oshi) {
@@ -68,18 +68,18 @@ class LiveDraft {
 
   /// Gemini の抽出結果（JSON）から作る
   factory LiveDraft.fromGemini(Map<String, dynamic> json) => LiveDraft(
-        title: json['liveTitle'] as String? ?? '',
-        officialUrl: json['officialUrl'] as String? ?? '',
-        performers: toStringList(json['performers']),
-        performances: [
-          for (final p in json['performances'] as List? ?? const [])
-            PerformanceDraft.fromGemini(p as Map<String, dynamic>),
-        ],
-        receptions: [
-          for (final r in json['receptions'] as List? ?? const [])
-            ReceptionDraft.fromGemini(r as Map<String, dynamic>),
-        ],
-      );
+    title: json['liveTitle'] as String? ?? '',
+    officialUrl: json['officialUrl'] as String? ?? '',
+    performers: toStringList(json['performers']),
+    performances: [
+      for (final p in json['performances'] as List? ?? const [])
+        PerformanceDraft.fromGemini(p as Map<String, dynamic>),
+    ],
+    receptions: [
+      for (final r in json['receptions'] as List? ?? const [])
+        ReceptionDraft.fromGemini(r as Map<String, dynamic>),
+    ],
+  );
 
   /// 保存前の入力チェック（問題があれば、その内容の一覧を返す）
   List<String> validate() {
@@ -146,24 +146,24 @@ class ReceptionDraft {
   final List<PriceDraft> prices;
   bool winnersOnly;
 
-  factory ReceptionDraft.fromGemini(Map<String, dynamic> json) =>
-      ReceptionDraft(
-        type: ReceptionType.values.asNameMap()[json['type']] ??
-            ReceptionType.other,
-        name: json['name'] as String? ?? '',
-        applyStartAt: _parseDateTime(json['applyStartAt']),
-        applyEndAt: _parseDateTime(json['applyEndAt']),
-        resultAt: _parseDateTime(json['resultAt']),
-        paymentDeadline: _parseDateTime(json['paymentDeadline']),
-        prices: [
-          for (final p in json['prices'] as List? ?? const [])
-            PriceDraft(
-              seat: (p as Map)['seat'] as String? ?? '',
-              amount: (p['amount'] as num?)?.toInt(),
-            ),
-        ],
-        winnersOnly: json['winnersOnly'] as bool? ?? false,
-      );
+  factory ReceptionDraft.fromGemini(
+    Map<String, dynamic> json,
+  ) => ReceptionDraft(
+    type: ReceptionType.values.asNameMap()[json['type']] ?? ReceptionType.other,
+    name: json['name'] as String? ?? '',
+    applyStartAt: _parseDateTime(json['applyStartAt']),
+    applyEndAt: _parseDateTime(json['applyEndAt']),
+    resultAt: _parseDateTime(json['resultAt']),
+    paymentDeadline: _parseDateTime(json['paymentDeadline']),
+    prices: [
+      for (final p in json['prices'] as List? ?? const [])
+        PriceDraft(
+          seat: (p as Map)['seat'] as String? ?? '',
+          amount: (p['amount'] as num?)?.toInt(),
+        ),
+    ],
+    winnersOnly: json['winnersOnly'] as bool? ?? false,
+  );
 }
 
 class PriceDraft {

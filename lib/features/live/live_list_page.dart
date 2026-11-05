@@ -37,9 +37,20 @@ class LiveListPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rows = ref.watch(liveListRowsProvider);
+    // 下の switch と同じ順（エラーを先に見る）で、0件の表示かどうかを決める
+    final isEmpty = !rows.hasError && (rows.value?.isEmpty ?? false);
 
     return Scaffold(
       appBar: AppBar(title: const Text('ライブ一覧')),
+      // 0件のときだけ、ホームと同じ右下の「ライブを登録」を出す
+      floatingActionButton: isEmpty
+          ? FloatingActionButton.extended(
+              key: const Key('live_list_register_fab'),
+              onPressed: () => context.push('/register'),
+              icon: const Icon(Icons.add),
+              label: const Text('ライブを登録'),
+            )
+          : null,
       body: SafeArea(
         child: switch (rows) {
           AsyncError() => _ErrorView(
@@ -106,13 +117,6 @@ class _EmptyView extends StatelessWidget {
               'フォロー中の推しのライブはまだありません。\n'
               '推しをフォローするか、ライブを登録してみましょう',
               textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              key: const Key('live_list_register_button'),
-              onPressed: () => context.push('/live-form'),
-              icon: const Icon(Icons.add),
-              label: const Text('ライブを登録'),
             ),
           ],
         ),

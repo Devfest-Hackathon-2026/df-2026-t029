@@ -73,6 +73,10 @@ Future<GoRouter> pumpAt(
         path: '/live-form',
         builder: (_, _) => const Text('route:/live-form'),
       ),
+      GoRoute(
+        path: '/register',
+        builder: (_, _) => const Text('route:/register'),
+      ),
     ],
   );
   addTearDown(router.dispose);
@@ -122,17 +126,19 @@ void main() {
       expect(_key('live_list_loading'), findsOneWidget);
     });
 
-    testWidgets('0件: 「ライブを登録」へ行ける', (tester) async {
+    testWidgets('0件: 右下の「ライブを登録」から登録方法を選ぶ画面へ行ける', (tester) async {
       await pumpAt(tester, '/lives');
       expect(_key('live_list_empty'), findsOneWidget);
-      await tester.tap(_key('live_list_register_button'));
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+      await tester.tap(_key('live_list_register_fab'));
       await tester.pumpAndSettle();
-      expect(find.text('route:/live-form'), findsOneWidget);
+      expect(find.text('route:/register'), findsOneWidget);
     });
 
-    testWidgets('フォロー0件でも 0件の表示（落ちない）', (tester) async {
+    testWidgets('フォロー0件でも 0件の表示で、右下に「ライブを登録」を出す', (tester) async {
       await pumpAt(tester, '/lives', followRepo: FakeFollowRepository());
       expect(_key('live_list_empty'), findsOneWidget);
+      expect(_key('live_list_register_fab'), findsOneWidget);
     });
 
     testWidgets('エラー → もう一度読み込む', (tester) async {
@@ -226,6 +232,7 @@ void main() {
       final liveRepo = FakeLiveRepository();
       await pumpAt(tester, '/lives', liveRepo: liveRepo);
       expect(_key('live_list_empty'), findsOneWidget);
+      expect(_key('live_list_register_fab'), findsOneWidget);
       liveRepo
         ..setLives(const [
           Live(id: 'l1', title: 'A', groupIds: ['g1']),
@@ -233,6 +240,8 @@ void main() {
         ..setPerformances([perfOf('p1', 'l1', h(24))]);
       await tester.pumpAndSettle();
       expect(_key('live_list_tile_l1'), findsOneWidget);
+      // 1件以上あるときは右下のボタンを出さない
+      expect(_key('live_list_register_fab'), findsNothing);
     });
 
     testWidgets('スマホの幅（360px）で、長い名前でもはみ出さない', (tester) async {

@@ -83,4 +83,26 @@ class Reception {
         'prices': [for (final p in prices) p.toMap()],
         'winnersOnly': winnersOnly,
       };
+
+  /// 保存時に、ID とライブから複製する項目を付けた複製
+  Reception copyWithIds({
+    required String id,
+    required String liveId,
+    required List<String> groupIds,
+    required List<String> oshiIds,
+  }) =>
+      Reception(
+        id: id,
+        liveId: liveId,
+        groupIds: groupIds,
+        oshiIds: oshiIds,
+        type: type,
+        name: name,
+        applyStartAt: applyStartAt,
+        applyEndAt: applyEndAt,
+        resultAt: resultAt,
+        paymentDeadline: paymentDeadline,
+        prices: prices,
+        winnersOnly: winnersOnly,
+      );
 }

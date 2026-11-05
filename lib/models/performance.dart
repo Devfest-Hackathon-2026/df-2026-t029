@@ -44,4 +44,22 @@ class Performance {
         'venue': venue,
         if (prefecture != null) 'prefecture': prefecture,
       };
+  
+  /// 保存時に、ID とライブから複製する項目を付けた複製
+  Performance copyWithIds({
+    required String id,
+    required String liveId,
+    required List<String> groupIds,
+    required List<String> oshiIds,
+  }) =>
+      Performance(
+        id: id,
+        liveId: liveId,
+        groupIds: groupIds,
+        oshiIds: oshiIds,
+        startAt: startAt,
+        openAt: openAt,
+        venue: venue,
+        prefecture: prefecture,
+      );
 }

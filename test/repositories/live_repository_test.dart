@@ -79,12 +79,40 @@ void main() {
       ),
       List<Performance>? performances,
       List<Reception>? receptions,
-    }) => repo.create(
+    }) async => (await repo.create(
       live: live,
       performances: performances ?? [perf()],
       receptions: receptions ?? [rec()],
       uid: 'alice',
-    );
+    )).live.id!;
+
+    test('戻り値の ID と複製項目が、保存したドキュメントと一致する', () async {
+      final saved = await repo.create(
+        live: const Live(title: 'ツアー', groupIds: ['g1'], oshiIds: ['p1']),
+        performances: [
+          perf(),
+          perf(venue: '大阪城ホール'),
+        ],
+        receptions: [rec()],
+        uid: 'alice',
+      );
+      final liveId = saved.live.id!;
+      expect((await db.collection('lives').doc(liveId).get()).exists, isTrue);
+      expect(saved.performances, hasLength(2));
+      for (final p in saved.performances) {
+        final doc = await db.collection('performances').doc(p.id).get();
+        expect(doc.exists, isTrue);
+        expect(p.liveId, liveId);
+        expect(p.groupIds, ['g1']);
+        expect(p.oshiIds, ['p1']);
+        expect(doc.data()!['venue'], p.venue);
+      }
+      final r = saved.receptions.single;
+      final doc = await db.collection('receptions').doc(r.id).get();
+      expect(doc.exists, isTrue);
+      expect(r.liveId, liveId);
+      expect(doc.data()!['name'], r.name);
+    });
 
     test('ライブ・公演・受付を作り、ライブの ID を返す', () async {
       final id = await create(

@@ -126,6 +126,17 @@ Future<void> tapSave(WidgetTester tester) async {
   await tester.tap(_saveButton);
 }
 
+/// 保存が成功した後に開く、Google カレンダーへの追加シートを「追加しない」で
+/// 閉じ、移動が終わるまで待つ。シートが開いている間は保存ボタンの進捗表示が
+/// 回り続けるため、シートを閉じるまでは pumpAndSettle を使わない。
+Future<void> skipCalendarSheet(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(seconds: 1));
+  expect(find.text('Google カレンダーにも追加しますか？'), findsOneWidget);
+  await tester.tap(find.text('追加しない'));
+  await tester.pumpAndSettle();
+}
+
 String dialogText(WidgetTester tester) =>
     (tester.widget<AlertDialog>(find.byType(AlertDialog)).content! as Text)
         .data!;
@@ -151,7 +162,7 @@ void main() {
     expect(c.receptions.single.prices.single.amount, 9800);
 
     repo.createGate!.complete();
-    await tester.pumpAndSettle();
+    await skipCalendarSheet(tester);
     expect(find.text('route:/lives/new-live-1'), findsOneWidget);
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
@@ -186,7 +197,8 @@ void main() {
     );
 
     repo.createGate!.complete();
-    await tester.pumpAndSettle();
+    await skipCalendarSheet(tester);
+    expect(repo.created, hasLength(1));
   });
 
   testWidgets('失敗したら日本語の SnackBar を出し、入力を残して、もう一度押せる', (tester) async {
@@ -211,7 +223,7 @@ void main() {
       ..createError = null
       ..createGate = null;
     await tapSave(tester);
-    await tester.pumpAndSettle();
+    await skipCalendarSheet(tester);
     expect(repo.created, hasLength(2));
     expect(find.text('route:/lives/new-live-2'), findsOneWidget);
   });
@@ -247,8 +259,9 @@ void main() {
     final ok = FakeLiveRepository();
     await pumpFromScan(tester, ok, json: gemini(prices: max));
     await tapSave(tester);
-    await tester.pumpAndSettle();
+    await tester.pump();
     expect(find.byType(AlertDialog), findsNothing);
+    await skipCalendarSheet(tester);
     expect(ok.created.single.receptions.single.prices, hasLength(max));
   });
 
