@@ -1,22 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'date_time_field.dart';
 import 'live_draft.dart';
 
 import '../../models/reception.dart';
+import '../../models/oshi.dart';
+import '../../providers/oshi_providers.dart';
+import 'performer_picker_sheet.dart';
 
 /// ライブ情報の確認・修正画面（空で開けば手入力の登録画面になる）
-class LiveFormPage extends StatefulWidget {
+class LiveFormPage extends ConsumerStatefulWidget {
   const LiveFormPage({super.key, this.initial});
 
   final LiveDraft? initial;
 
   @override
-  State<LiveFormPage> createState() => _LiveFormPageState();
+  ConsumerState<LiveFormPage> createState() => _LiveFormPageState();
 }
 
-class _LiveFormPageState extends State<LiveFormPage> {
+class _LiveFormPageState extends ConsumerState<LiveFormPage> {
   late final LiveDraft _draft = widget.initial ?? LiveDraft();
+  
+  /// 自動で対応付けられなかった、読み取った出演者名
+  List<String> _unmatched = [];
+  bool _autoMatched = false;
+
+  Future<void> _pickPerformer({String initialQuery = '', String? resolving}) async {
+    final picked =
+        await showPerformerPicker(context, initialQuery: initialQuery);
+    if (picked == null || !mounted) return;
+    setState(() {
+      _draft.addPerformer(picked);
+      if (resolving != null) _unmatched.remove(resolving);
+    });
+  }
 
   void _save() {
     final errors = _draft.validate();
@@ -43,6 +61,13 @@ class _LiveFormPageState extends State<LiveFormPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 推しの一覧が読み込まれたら、読み取った出演者名を1回だけ自動で対応付ける
+    final all = ref.watch(allOshisProvider).value;
+    if (!_autoMatched && all != null) {
+      _autoMatched = true;
+      _unmatched = _draft.autoMatchPerformers(all);
+    }
+
     final titleStyle = Theme.of(context).textTheme.titleLarge;
 
     return Scaffold(
@@ -51,15 +76,44 @@ class _LiveFormPageState extends State<LiveFormPage> {
         padding: const EdgeInsets.all(16),
         children: [
           Text('ライブ', style: titleStyle),
-          TextFormField(
-            initialValue: _draft.performers.join('、'),
-            decoration: const InputDecoration(labelText: '出演者（「、」区切り）'),
-            onChanged: (v) => _draft.performers = v
-                .split('、')
-                .map((s) => s.trim())
-                .where((s) => s.isNotEmpty)
-                .toList(),
+          
+          const SizedBox(height: 8),
+          Text('出演者', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final o in _draft.selectedPerformers)
+                InputChip(
+                  avatar: Icon(
+                    o.kind == OshiKind.group ? Icons.groups : Icons.person,
+                    size: 18,
+                  ),
+                  label: Text(o.name),
+                  onDeleted: () =>
+                      setState(() => _draft.selectedPerformers.remove(o)),
+                ),
+              ActionChip(
+                avatar: const Icon(Icons.add, size: 18),
+                label: const Text('出演者を追加'),
+                onPressed: () => _pickPerformer(),
+              ),
+            ],
           ),
+          for (final name in _unmatched)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.help_outline),
+              title: Text('読み取った名前「$name」'),
+              subtitle: const Text('一致する推しが見つかりませんでした'),
+              trailing: TextButton(
+                onPressed: () =>
+                    _pickPerformer(initialQuery: name, resolving: name),
+                child: const Text('検索して選ぶ'),
+              ),
+            ),
+
           TextFormField(
             initialValue: _draft.title,
             decoration: const InputDecoration(labelText: 'ライブ名'),

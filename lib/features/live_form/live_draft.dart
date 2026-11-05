@@ -1,5 +1,7 @@
 import '../../models/converters.dart';
 import '../../models/reception.dart';
+import '../../models/oshi.dart';
+import '../../utils/oshi_search.dart';
 
 /// 確認・修正画面で編集する、保存前のライブ情報
 class LiveDraft {
@@ -7,17 +9,62 @@ class LiveDraft {
     this.title = '',
     this.officialUrl = '',
     List<String>? performers,
+    List<OshiSummary>? selectedPerformers,
     List<PerformanceDraft>? performances,
     List<ReceptionDraft>? receptions,
   })  : performers = performers ?? [],
+        selectedPerformers = selectedPerformers ?? [],
         performances = performances ?? [],
         receptions = receptions ?? [];
 
   String title;
   String officialUrl;
-  List<String> performers; // 出演者名（推しの ID との対応付けは Step 4）
+
+  /// 読み取った出演者名（対応付けの手がかり。保存はしない）
+  final List<String> performers;
+
+  /// 選んだ出演者（保存するのはこちら）
+  final List<OshiSummary> selectedPerformers;
+
   final List<PerformanceDraft> performances;
   final List<ReceptionDraft> receptions;
+
+  /// 出演グループの ID（lives.groupIds）
+  List<String> get groupIds => [
+        for (final o in selectedPerformers)
+          if (o.kind == OshiKind.group) o.id,
+      ];
+
+  /// 個人名義で出演する推しの ID（lives.oshiIds）
+  List<String> get oshiIds => [
+        for (final o in selectedPerformers)
+          if (o.kind == OshiKind.person) o.id,
+      ];
+
+  /// 出演者を追加する（すでに選んでいれば何もしない）
+  void addPerformer(OshiSummary oshi) {
+    if (selectedPerformers.every((o) => o.key != oshi.key)) {
+      selectedPerformers.add(oshi);
+    }
+  }
+
+  /// 読み取った出演者名と完全一致する承認済みの推しを、自動で選ぶ。
+  /// 候補が1件に絞れなかった名前を返す。
+  List<String> autoMatchPerformers(List<OshiSummary> all) {
+    final unmatched = <String>[];
+    for (final name in performers) {
+      final candidates = [
+        for (final kind in OshiKind.values)
+          ...findExactDuplicates(all, kind: kind, name: name),
+      ].where((o) => o.isApproved).toList();
+      if (candidates.length == 1) {
+        addPerformer(candidates.single);
+      } else {
+        unmatched.add(name);
+      }
+    }
+    return unmatched;
+  }
 
   /// Gemini の抽出結果（JSON）から作る
   factory LiveDraft.fromGemini(Map<String, dynamic> json) => LiveDraft(
@@ -33,11 +80,11 @@ class LiveDraft {
             ReceptionDraft.fromGemini(r as Map<String, dynamic>),
         ],
       );
-  
+
   /// 保存前の入力チェック（問題があれば、その内容の一覧を返す）
   List<String> validate() {
     final errors = <String>[];
-    if (performers.isEmpty) errors.add('出演者を入力してください');
+    if (selectedPerformers.isEmpty) errors.add('出演者を選んでください');
     if (title.trim().isEmpty) errors.add('ライブ名を入力してください');
     for (final (i, p) in performances.indexed) {
       final label = '公演${i + 1}';
