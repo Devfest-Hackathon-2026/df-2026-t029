@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import 'features/auth/login_page.dart';
 import 'features/home/home_page.dart';
+import 'features/scan/scan_page.dart';
 import 'repositories/auth_repository.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -27,6 +28,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/', builder: (context, state) => const HomePage()),
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
+      GoRoute(path: '/scan', builder: (context, state) => const ScanPage()),
     ],
   );
 });
