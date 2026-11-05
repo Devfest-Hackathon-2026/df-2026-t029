@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 
 import 'features/auth/login_page.dart';
 import 'features/home/home_page.dart';
+import 'features/oshi/oshi_request_page.dart';
+import 'features/oshi/oshi_search_page.dart';
 import 'repositories/auth_repository.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -25,7 +27,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/', builder: (context, state) => const HomePage()),
+      GoRoute(
+        path: '/',
+        builder: (context, state) => const HomePage(),
+        // ホームの下に置き、go で移動してもホームへ戻れるようにする
+        routes: [
+          GoRoute(
+            path: 'oshi/search',
+            builder: (context, state) => OshiSearchPage(
+              initialQuery: state.uri.queryParameters['q'] ?? '',
+            ),
+          ),
+          GoRoute(
+            path: 'oshi/request',
+            builder: (context, state) => OshiRequestPage(
+              initialName: state.uri.queryParameters['name'] ?? '',
+            ),
+          ),
+        ],
+      ),
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
     ],
   );
