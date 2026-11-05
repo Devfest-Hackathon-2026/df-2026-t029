@@ -45,6 +45,11 @@ class HomePage extends ConsumerWidget {
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push('/register'),
+        icon: const Icon(Icons.add),
+        label: const Text('ライブを登録'),
+      ),
     );
   }
 }
