@@ -23,6 +23,7 @@ import 'features/trade/chat_list_page.dart';
 import 'features/trade/chat_page.dart';
 import 'features/trade/trade_post_detail_page.dart';
 import 'features/trade/trade_post_form_page.dart';
+import 'features/profile/profile_page.dart';
 
 import 'repositories/auth_repository.dart';
 
@@ -135,6 +136,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           initialAttachId: state.uri.queryParameters['attach'],
         ),
       ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
+      GoRoute(path: '/profile', builder: (context, state) => const ProfilePage()),
     ],
   );
 });
