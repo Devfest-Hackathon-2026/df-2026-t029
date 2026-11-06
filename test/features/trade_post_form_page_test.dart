@@ -1,4 +1,4 @@
-// 投稿の作成・編集画面（/trade/new・/trade/:id/edit。G-2-4）のウィジェットテスト。
+// 投稿の作成・編集画面（/trade/new・/trade/:id/edit。G-2-4・G-2-5）のウィジェットテスト。
 // 本物のプロバイダを使い、リポジトリだけを偽物に差し替える。
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -6,9 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:oshiashi/features/trade/trade_post_form_page.dart';
+import 'package:oshiashi/models/goods.dart';
 import 'package:oshiashi/models/live.dart';
 import 'package:oshiashi/models/oshi.dart';
 import 'package:oshiashi/models/trade_post.dart';
+import 'package:oshiashi/providers/goods_providers.dart';
 import 'package:oshiashi/providers/live_providers.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
 import 'package:oshiashi/providers/trade_post_providers.dart';
@@ -33,6 +35,27 @@ final oshis = [
     status: OshiStatus.approved,
   ),
 ];
+
+/// g1 のメンバー
+const m1 = OshiSummary(
+  id: 'm1',
+  kind: OshiKind.person,
+  name: 'メンバー1',
+  genre: OshiGenre.idol,
+  status: OshiStatus.approved,
+  groupIds: ['g1'],
+);
+
+const acsta = Goods(
+  id: 'acsta',
+  name: 'ランダムアクスタ',
+  category: GoodsCategory.acrylic,
+  groupIds: ['g1'],
+  variants: [
+    GoodsVariant(id: 'v1', name: 'メンバー1', oshiId: 'm1'),
+    GoodsVariant(id: 'v2', name: 'メンバー2'),
+  ],
+);
 
 /// g1 と p1 をフォロー中（g3 はフォローしていない）
 FakeFollowRepository following() =>
@@ -60,12 +83,14 @@ Future<GoRouter> pumpForm(
   WidgetTester tester, {
   required FakeTradePostRepository repo,
   String location = '/trade/new',
+  FakeGoodsRepository? goodsRepo,
 }) async {
   usePhoneSize(tester);
   final router = GoRouter(
     initialLocation: '/',
     routes: [
       GoRoute(path: '/', builder: (_, _) => const Text('route:/')),
+      GoRoute(path: '/goods', builder: (_, _) => const Text('route:/goods')),
       GoRoute(path: '/trade/new', builder: (_, _) => const TradePostFormPage()),
       GoRoute(
         path: '/trade/:id/edit',
@@ -79,7 +104,9 @@ Future<GoRouter> pumpForm(
       overrides: [
         currentUidProvider.overrideWithValue('u1'),
         authStateProvider.overrideWith((ref) => Stream<User?>.value(null)),
-        oshiRepositoryProvider.overrideWithValue(FakeOshiRepository(oshis)),
+        oshiRepositoryProvider.overrideWithValue(
+          FakeOshiRepository([...oshis, m1]),
+        ),
         followRepositoryProvider.overrideWithValue(following()),
         liveRepositoryProvider.overrideWithValue(lives()),
         applicationRepositoryProvider.overrideWithValue(
@@ -87,6 +114,9 @@ Future<GoRouter> pumpForm(
         ),
         nowProvider.overrideWithValue(now),
         tradePostRepositoryProvider.overrideWithValue(repo),
+        goodsRepositoryProvider.overrideWithValue(
+          goodsRepo ?? FakeGoodsRepository(const [acsta]),
+        ),
       ],
       retry: (_, _) => null,
       child: MaterialApp.router(routerConfig: router),
@@ -195,7 +225,7 @@ void main() {
       final p = repo.updated.single;
       expect(p.id, 'post1');
       expect(p.groupIds, ['g1']);
-      expect(p.gives, [give]);
+      expect([for (final s in p.gives) s.toMap()], [give.toMap()]);
       expect(find.text('route:/'), findsOneWidget);
     });
 
@@ -220,6 +250,132 @@ void main() {
         location: '/trade/none/edit',
       );
       expect(find.text('投稿が見つかりません'), findsOneWidget);
+    });
+  });
+
+  group('譲セット・求セット', () {
+    Future<void> fillRequired(WidgetTester tester) async {
+      await tapKey(tester, 'trade_target_g1');
+      await tapKey(tester, 'trade_tag_trade');
+      await tapKey(tester, 'trade_handover_mail');
+    }
+
+    testWidgets('対象の推しを選ぶまで、品目を選ぶボタンは押せない', (tester) async {
+      await pumpForm(tester, repo: FakeTradePostRepository());
+      await tapKey(tester, 'trade_give_add');
+      await tester.scrollUntilVisible(
+        _key('trade_give_0_pick'),
+        200,
+        scrollable: listScrollable(),
+      );
+      expect(
+        tester.widget<ButtonStyleButton>(_key('trade_give_0_pick')).onPressed,
+        isNull,
+      );
+    });
+
+    testWidgets('シートで品目を選んで投稿すると、譲セットに入る', (tester) async {
+      final repo = FakeTradePostRepository();
+      await pumpForm(tester, repo: repo);
+      await fillRequired(tester);
+
+      await tapKey(tester, 'trade_give_add');
+      await tapKey(tester, 'trade_give_0_pick');
+      // 譲では「全種類」は出さない
+      await tester.tap(_key('trade_picker_goods_acsta'));
+      await tester.pumpAndSettle();
+      expect(_key('trade_picker_whole_acsta'), findsNothing);
+      await tester.tap(_key('trade_picker_item_acsta_v1'));
+      await tester.tap(_key('trade_picker_item_acsta_v2'));
+      await tester.pump();
+      await tester.tap(_key('trade_picker_done'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ランダムアクスタ（メンバー1）'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        _key('trade_give_0_pick_count'),
+        200,
+        scrollable: listScrollable(),
+      );
+      await tester.enterText(_key('trade_give_0_pick_count'), '1');
+      await tapKey(tester, 'trade_save_button');
+
+      final give = repo.created.single.post.gives.single;
+      expect(give.items.map((i) => i.variantId), ['v1', 'v2']);
+      expect(give.pickCount, 1);
+    });
+
+    testWidgets('求では全種類とメンバーを選べる', (tester) async {
+      final repo = FakeTradePostRepository();
+      await pumpForm(tester, repo: repo);
+      await fillRequired(tester);
+
+      await tapKey(tester, 'trade_want_add');
+      await tapKey(tester, 'trade_want_0_pick');
+      await tester.tap(_key('trade_picker_goods_acsta'));
+      await tester.pumpAndSettle();
+      await tester.tap(_key('trade_picker_whole_acsta'));
+      await tester.pump();
+      await tester.tap(_key('trade_picker_done'));
+      await tester.pumpAndSettle();
+
+      await tapKey(tester, 'trade_want_0_members');
+      // g1 のメンバーだけが候補
+      expect(_key('trade_member_m1'), findsOneWidget);
+      expect(_key('trade_member_p1'), findsNothing);
+      await tester.tap(_key('trade_member_m1'));
+      await tester.pump();
+      await tester.tap(_key('trade_member_done'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ランダムアクスタ（全種類）'), findsOneWidget);
+      expect(find.text('メンバー1（メンバー指定）'), findsOneWidget);
+      await tapKey(tester, 'trade_save_button');
+
+      final targets = repo.created.single.post.wants.single.targets;
+      expect(targets.map((t) => t.type), [WantType.goods, WantType.member]);
+      expect(targets.last.oshiId, 'm1');
+    });
+
+    testWidgets('空のセットのまま投稿するとエラー', (tester) async {
+      final repo = FakeTradePostRepository();
+      await pumpForm(tester, repo: repo);
+      await fillRequired(tester);
+      await tapKey(tester, 'trade_give_add');
+      await tapKey(tester, 'trade_save_button');
+
+      expect(find.text('譲セット1の品目を1つ以上選ぶか、セットを削除してください'), findsOneWidget);
+      expect(repo.created, isEmpty);
+    });
+
+    testWidgets('セットを削除できる', (tester) async {
+      await pumpForm(tester, repo: FakeTradePostRepository());
+      await tapKey(tester, 'trade_give_add');
+      expect(find.text('譲セット1'), findsOneWidget);
+      await tapKey(tester, 'trade_give_0_remove');
+      expect(find.text('譲セット1'), findsNothing);
+    });
+
+    testWidgets('グッズを登録する画面へ行き、戻るとグッズを読み直す', (tester) async {
+      final goodsRepo = FakeGoodsRepository(const []);
+      final router = await pumpForm(
+        tester,
+        repo: FakeTradePostRepository(),
+        goodsRepo: goodsRepo,
+      );
+      await tapKey(tester, 'trade_target_g1');
+      await tapKey(tester, 'trade_give_add');
+      await tapKey(tester, 'trade_give_0_pick');
+      expect(find.textContaining('グッズが見つかりません'), findsOneWidget);
+
+      await tester.tap(_key('trade_picker_register'));
+      await tester.pumpAndSettle();
+      expect(find.text('route:/goods'), findsOneWidget);
+
+      goodsRepo.goods = const [acsta];
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(_key('trade_picker_goods_acsta'), findsOneWidget);
     });
   });
 }

@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:oshiashi/models/goods.dart';
 import 'package:oshiashi/models/trade_post.dart';
+import 'package:oshiashi/repositories/goods_repository.dart';
 import 'package:oshiashi/repositories/trade_post_repository.dart';
 
 /// 呼ばれた引数を記録する、投稿の偽のリポジトリ
@@ -79,3 +81,40 @@ TradePost postOf(
   gives: gives,
   wants: wants,
 );
+
+/// fetchFor で、対象の推しに当てはまるグッズを返す偽のリポジトリ
+class FakeGoodsRepository implements GoodsRepository {
+  FakeGoodsRepository([this.goods = const []]);
+
+  List<Goods> goods;
+  int fetchForCount = 0;
+
+  @override
+  Future<List<Goods>> fetchFor({
+    List<String> groupIds = const [],
+    List<String> oshiIds = const [],
+  }) async {
+    fetchForCount++;
+    return [
+      for (final g in goods)
+        if (g.groupIds.any(groupIds.contains) ||
+            g.oshiIds.any(oshiIds.contains))
+          g,
+    ]..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  @override
+  Future<Goods?> fetch(String id) async =>
+      goods.where((g) => g.id == id).firstOrNull;
+
+  @override
+  Future<String> create(Goods goods, {required String uid}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> update({
+    required Goods before,
+    required Goods after,
+    required String uid,
+  }) => throw UnimplementedError();
+}

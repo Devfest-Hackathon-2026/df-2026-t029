@@ -139,9 +139,12 @@ void main() {
       expect(p.performanceIds, isEmpty);
     });
 
-    test('編集では ID・譲・求・写真を base から引き継ぐ', () {
+    test('編集では ID・写真を base から、譲・求を入力から作る', () {
       const give = GiveSet(
         items: [GiveItem(goodsId: 'a', variantId: 'v1', label: 'A')],
+        pickCount: 1,
+        images: ['img/set.jpg'],
+        note: 'セット',
       );
       const want = WantSet(
         targets: [
@@ -164,8 +167,8 @@ void main() {
         ..xAccount = '';
       final p = d.toPost(base: base);
       expect(p.id, 'post1');
-      expect(p.gives, [give]);
-      expect(p.wants, [want]);
+      expect([for (final s in p.gives) s.toMap()], [give.toMap()]);
+      expect([for (final s in p.wants) s.toMap()], [want.toMap()]);
       expect(p.images, ['img/1.jpg']);
       expect(p.tags, [TradeTag.trade, TradeTag.sell]);
       expect(p.xAccount, isNull);

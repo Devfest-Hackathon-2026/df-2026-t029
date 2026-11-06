@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../models/goods.dart';
 import '../../models/live.dart';
 import '../../models/oshi.dart';
 import '../../models/trade_post.dart';
+import '../../providers/goods_providers.dart';
 import '../../providers/live_providers.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/trade_post_providers.dart';
 import '../live_form/date_time_field.dart';
 import 'trade_post_draft.dart';
+import 'trade_sets_section.dart';
 
 /// 投稿の作成・編集画面。[postId] があれば編集、なければ新規作成
 class TradePostFormPage extends ConsumerStatefulWidget {
@@ -32,10 +35,31 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
   bool get _isEdit => widget.postId != null;
   String get _title => _isEdit ? '投稿を編集' : '交換・売買の投稿を作る';
 
+  /// 検索用キーの数を数えるための、譲の品目のグッズ。
+  /// 読めなかったときは空（キーはリポジトリが保存時に作り直す）
+  Future<Map<String, Goods>> _goodsForKeys(TradePostDraft draft) async {
+    if (draft.gives.isEmpty) return const {};
+    final scope = goodsScopeFor(
+      groupIds: draft.groupIds,
+      oshiIds: draft.oshiIds,
+      all: ref.read(allOshisProvider).value ?? const [],
+    );
+    try {
+      final list = await ref.read(goodsInScopeProvider(scope).future);
+      return {
+        for (final g in list)
+          if (g.id != null) g.id!: g,
+      };
+    } catch (_) {
+      return const {};
+    }
+  }
+
   Future<void> _save() async {
     final draft = _draft;
     if (draft == null) return;
-    final errors = draft.validate();
+    final errors = draft.validate(goodsById: await _goodsForKeys(draft));
+    if (!mounted) return;
     if (errors.isNotEmpty) {
       setState(() => _errors = errors);
       return;
@@ -197,6 +221,11 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
                 }),
               ),
             ],
+            heading('譲（出せるもの）'),
+            const Text('譲・求の片方だけでも、どちらもなくても投稿できます。品目を選ばない投稿は、自動のマッチングの対象外です'),
+            GiveSetsSection(draft: draft, onChanged: () => setState(() {})),
+            heading('求（欲しいもの）'),
+            WantSetsSection(draft: draft, onChanged: () => setState(() {})),
             heading('連絡先・備考'),
             TextFormField(
               key: const Key('trade_x_account'),
