@@ -30,7 +30,7 @@ final liveListRowsProvider = Provider<AsyncValue<List<LiveListRow>>>((ref) {
   ]);
 });
 
-/// フォロー中の推しのライブ一覧（/lives）
+/// 自分のライブ一覧（/lives）
 class LiveListPage extends ConsumerWidget {
   const LiveListPage({super.key});
 
@@ -42,13 +42,13 @@ class LiveListPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('ライブ一覧')),
-      // 0件のときだけ、ホームと同じ右下の「ライブを登録」を出す
+      // 0件のときだけ、ホームと同じ右下の「ライブを追加する」を出す
       floatingActionButton: isEmpty
           ? FloatingActionButton.extended(
               key: const Key('live_list_register_fab'),
-              onPressed: () => context.push('/register'),
+              onPressed: () => context.push('/lives/add'),
               icon: const Icon(Icons.add),
-              label: const Text('ライブを登録'),
+              label: const Text('ライブを追加する'),
             )
           : null,
       body: SafeArea(
@@ -56,9 +56,9 @@ class LiveListPage extends ConsumerWidget {
           AsyncError() => _ErrorView(
             onRetry: () {
               ref.invalidate(allOshisProvider);
-              ref.invalidate(followStateProvider);
-              ref.invalidate(livesProvider);
-              ref.invalidate(performancesProvider);
+              ref.invalidate(myLiveIdsProvider);
+              ref.invalidate(myLivesProvider);
+              ref.invalidate(myPerformancesProvider);
             },
           ),
           AsyncValue(value: final r?) when r.isEmpty => const _EmptyView(),
@@ -114,8 +114,8 @@ class _EmptyView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'フォロー中の推しのライブはまだありません。\n'
-              '推しをフォローするか、ライブを登録してみましょう',
+              'ライブ一覧はまだ空です。\n'
+              '右下の「ライブを追加する」から、行くライブを追加しましょう',
               textAlign: TextAlign.center,
             ),
           ],

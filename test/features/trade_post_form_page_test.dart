@@ -84,6 +84,7 @@ Future<GoRouter> pumpForm(
   required FakeTradePostRepository repo,
   String location = '/trade/new',
   FakeGoodsRepository? goodsRepo,
+  FakeMyLiveRepository? myRepo,
   String? displayName,
 }) async {
   usePhoneSize(tester);
@@ -110,6 +111,9 @@ Future<GoRouter> pumpForm(
         ),
         followRepositoryProvider.overrideWithValue(following()),
         liveRepositoryProvider.overrideWithValue(lives()),
+        myLiveRepositoryProvider.overrideWithValue(
+          myRepo ?? FakeMyLiveRepository(ids: ['l1']),
+        ),
         applicationRepositoryProvider.overrideWithValue(
           FakeApplicationRepository(),
         ),
@@ -242,6 +246,50 @@ void main() {
       expect(p.groupIds, ['g1']);
       expect([for (final s in p.gives) s.toMap()], [give.toMap()]);
       expect(find.text('route:/'), findsOneWidget);
+    });
+
+    testWidgets('手渡しの公演の候補は自分のライブ一覧のものだけ。0件なら追加の案内', (tester) async {
+      final repo = FakeTradePostRepository()
+        ..posts['post1'] = postOf('post1', handover: [HandoverMethod.hand]);
+      await pumpForm(
+        tester,
+        repo: repo,
+        location: '/trade/post1/edit',
+        myRepo: FakeMyLiveRepository(),
+      );
+      await tester.scrollUntilVisible(
+        _key('trade_performance_add_live_button'),
+        200,
+        scrollable: listScrollable(),
+      );
+      expect(_key('trade_performance_f1'), findsNothing);
+      expect(find.text('この推しのライブを、ライブ一覧に追加すると選べます'), findsOneWidget);
+      expect(_key('trade_performance_missing'), findsNothing);
+    });
+
+    testWidgets('選択済みの公演が一覧に無ければ件数を出し、「外す」で選択を外して保存できる', (tester) async {
+      final repo = FakeTradePostRepository()
+        ..posts['post1'] = postOf(
+          'post1',
+          handover: [HandoverMethod.hand],
+          performanceIds: ['f1'],
+        );
+      await pumpForm(
+        tester,
+        repo: repo,
+        location: '/trade/post1/edit',
+        myRepo: FakeMyLiveRepository(),
+      );
+      await tester.scrollUntilVisible(
+        _key('trade_performance_missing'),
+        200,
+        scrollable: listScrollable(),
+      );
+      expect(find.text('ライブ一覧に無い公演が1件選ばれています'), findsOneWidget);
+      await tapKey(tester, 'trade_performance_missing_remove');
+      expect(_key('trade_performance_missing'), findsNothing);
+      await tapKey(tester, 'trade_save_button');
+      expect(repo.updated.single.performanceIds, isEmpty);
     });
 
     testWidgets('他人の投稿は編集できない', (tester) async {

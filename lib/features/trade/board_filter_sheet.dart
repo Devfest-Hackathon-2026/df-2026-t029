@@ -165,8 +165,8 @@ class _BoardFilterSheetState extends ConsumerState<_BoardFilterSheet> {
   }
 
   Widget _performanceDropdown(List<OshiSummary> all) {
-    final performances = ref.watch(performancesProvider);
-    final lives = ref.watch(livesProvider).value ?? const <Live>[];
+    final performances = ref.watch(myPerformancesProvider);
+    final lives = ref.watch(myLivesProvider).value ?? const <Live>[];
     final now = ref.watch(nowProvider);
     return performances.when(
       loading: () => const LinearProgressIndicator(),

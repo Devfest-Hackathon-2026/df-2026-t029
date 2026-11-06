@@ -32,6 +32,7 @@ chats/{chatId}                    個人チャット
   └ messages/{messageId}          メッセージ
 users/{uid}                       ユーザー（個人データ）
   └ applications/{receptionId}    申込状況
+  └ myLives/{liveId}              自分のライブ一覧
 ```
 
 ## 3. 各コレクションの項目
@@ -143,6 +144,14 @@ users/{uid}                       ユーザー（個人データ）
 | liveId | string | ○ | ライブの ID（絞り込み用） |
 | status | string | ○ | 申込状況（4章） |
 | updatedAt | timestamp | ○ | 更新日時 |
+
+### 3.8.1 users/{uid}/myLives/{liveId}（自分のライブ一覧）
+
+ドキュメント ID はライブ ID と同じにし、1ライブにつき1件とする。ここに入っているライブだけが、ライブ一覧と次の締切に出る。外しても申込状況（`applications`）は消さない。
+
+| フィールド | 型 | 必須 | 内容 |
+|---|---|---|---|
+| addedAt | timestamp | ○ | 追加した日時（サーバー時刻） |
 
 ### 3.9 goods（グッズ）
 
@@ -382,7 +391,7 @@ tradePosts/p1
 - **推しの申請と承認**：ユーザーは `groups` または `oshis` に `status: pending` で作成する。運営は Firebase コンソールで `approved` に書き換えて公開する。申請時の検索候補には `pending` も「申請中」として表示し、重複申請を防ぐ。`pending` の推しはフォローできない。
 - **グループのメンバー**：`oshis` を `groupIds` で検索して求める。`groups` 側にはメンバー一覧を持たない。
 - **出演者の付け方**：グループとしての出演は `groupIds`、個人名義の出演は `oshiIds` に入れる。グループのライブに、メンバー個人の ID を重ねて入れる必要はない。
-- **表示するライブの範囲**：フォロー中のグループ、フォロー中の推しの所属グループ、フォロー中の推しのライブを表示する。`groupIds` と `oshiIds` でそれぞれ検索し、結果をまとめる。
+- **表示するライブの範囲**：自分のライブ一覧（`myLives`）に入っているライブ。ライブを追加する画面では、選んだ推しのライブ（グループ・本人・所属グループ）を探す（`groupIds` と `oshiIds` でそれぞれ検索し、結果をまとめる）。推しをフォローしただけでは、ライブは一覧に入らない。
 - **アプグレなどの表示条件**：自分の `applications` に、同じ `liveId` で `won` または `paid` のものがあれば、`winnersOnly` が `true` の受付を表示・通知する。
 - **複製した項目の整合**：ライブの `groupIds`・`oshiIds` を変更したときは、そのライブの公演・受付の値も合わせて更新する。
 
@@ -413,6 +422,7 @@ tradePosts/p1
 | chats | 参加者のみ読める。作成は投稿者のみで、同じバッチでその返信を承認する場合に限る。更新は参加者のみで、`lastMessage`・`lastMessageAt`・`lastReadAt`・`status` に限る |
 | messages | 参加者のみ読める・作成できる（`uid` が本人）。更新・削除は不可 |
 | users/{uid} 以下 | 本人のみ読み書きできる |
+| users/{uid}/myLives | 本人のみ読み書きできる。作成・更新は項目が `addedAt` だけで `addedAt == request.time`、そのライブが存在する場合のみ（同じバッチで作る場合があるので `existsAfter`）。削除は本人なら可 |
 
 ## 7. 未決定事項・今後の追加
 

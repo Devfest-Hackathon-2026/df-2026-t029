@@ -72,10 +72,10 @@ class HomePage extends ConsumerWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        key: const Key('home_register_live_fab'),
-        onPressed: () => context.push('/register'),
+        key: const Key('home_add_live_fab'),
+        onPressed: () => context.push('/lives/add'),
         icon: const Icon(Icons.add),
-        label: const Text('ライブを登録'),
+        label: const Text('ライブを追加する'),
       ),
     );
   }

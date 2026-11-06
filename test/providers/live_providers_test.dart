@@ -35,8 +35,18 @@ class _Env {
     AsyncValue<List<OshiSummary>>? following,
     FakeLiveRepository? liveRepo,
     FakeApplicationRepository? appRepo,
+    FakeMyLiveRepository? myRepo,
   }) : liveRepo = liveRepo ?? FakeLiveRepository(),
        appRepo = appRepo ?? FakeApplicationRepository() {
+    // 指定が無ければ、偽リポジトリのライブをすべて自分のライブ一覧に入れておく
+    this.myRepo =
+        myRepo ??
+        FakeMyLiveRepository(
+          ids: [
+            for (final l in this.liveRepo.lives)
+              if (l.id != null) l.id!,
+          ],
+        );
     followingState = StateProvider<AsyncValue<List<OshiSummary>>>(
       (ref) => following ?? AsyncData([g1, p1]),
     );
@@ -46,6 +56,7 @@ class _Env {
         followingOshisProvider.overrideWith((ref) => ref.watch(followingState)),
         liveRepositoryProvider.overrideWithValue(this.liveRepo),
         applicationRepositoryProvider.overrideWithValue(this.appRepo),
+        myLiveRepositoryProvider.overrideWithValue(this.myRepo),
         nowProvider.overrideWithValue(now),
       ],
       retry: (_, _) => null,
@@ -55,6 +66,7 @@ class _Env {
 
   final FakeLiveRepository liveRepo;
   final FakeApplicationRepository appRepo;
+  late final FakeMyLiveRepository myRepo;
   late final StateProvider<AsyncValue<List<OshiSummary>>> followingState;
   late final ProviderContainer container;
 
@@ -71,97 +83,6 @@ class _Env {
 Future<void> settle() => pumpEventQueue();
 
 void main() {
-  group('followTargetsProvider', () {
-    test('フォロー中のグループ・推し・推しの所属グループから作る', () {
-      final env = _Env();
-      expect(
-        env.read(followTargetsProvider).requireValue,
-        const FollowTargets(groupIds: {'g1', 'g2'}, oshiIds: {'p1'}),
-      );
-    });
-
-    test('読み込み中・エラーをそのまま伝える', () {
-      final loading = _Env(following: const AsyncLoading());
-      expect(loading.read(followTargetsProvider), isA<AsyncLoading<Object?>>());
-      final error = _Env(
-        following: AsyncError(permissionDenied(), StackTrace.empty),
-      );
-      expect(error.read(followTargetsProvider).hasError, isTrue);
-    });
-  });
-
-  group('livesProvider など', () {
-    test('未ログインなら [] で、リポジトリを呼ばない', () async {
-      final env = _Env(uid: null);
-      env.read(livesProvider);
-      env.read(performancesProvider);
-      env.read(receptionsProvider);
-      env.read(applicationsProvider);
-      await settle();
-      expect(env.container.read(livesProvider).requireValue, isEmpty);
-      expect(env.container.read(performancesProvider).requireValue, isEmpty);
-      expect(env.container.read(receptionsProvider).requireValue, isEmpty);
-      expect(env.container.read(applicationsProvider).requireValue, isEmpty);
-      expect(env.liveRepo.targetsSeen, isEmpty);
-    });
-
-    test('フォロー0件なら、空の対象でリポジトリを呼ぶ（リポジトリは問い合わせずに [] を返す契約）', () async {
-      final env = _Env(following: const AsyncData([]));
-      env.read(livesProvider);
-      await settle();
-      expect(env.liveRepo.targetsSeen, [FollowTargets.empty]);
-    });
-
-    test('フォローの読み込み中は読み込み中のまま、リポジトリを呼ばない', () async {
-      final env = _Env(following: const AsyncLoading());
-      env.read(livesProvider);
-      await settle();
-      expect(env.container.read(livesProvider).isLoading, isTrue);
-      expect(env.liveRepo.targetsSeen, isEmpty);
-    });
-
-    test('フォローのエラーは、そのままエラーとして流す', () async {
-      final env = _Env(
-        following: AsyncError(permissionDenied(), StackTrace.empty),
-      );
-      env.read(livesProvider);
-      await settle();
-      expect(env.container.read(livesProvider).error, isA<Object>());
-      expect(env.liveRepo.targetsSeen, isEmpty);
-    });
-
-    test('中身が同じフォロー状態に変わっても、購読し直さない', () async {
-      final env = _Env();
-      env.read(livesProvider);
-      await settle();
-      expect(env.liveRepo.targetsSeen, hasLength(1));
-
-      // 新しいリスト（順序も違う）だが、対象は同じ
-      env.setFollowing(AsyncData([p1, g1]));
-      await settle();
-      expect(env.liveRepo.targetsSeen, hasLength(1));
-    });
-
-    test('フォローが変われば、新しい対象で購読し直す', () async {
-      final env = _Env();
-      env.read(livesProvider);
-      await settle();
-      env.setFollowing(AsyncData([g1]));
-      await settle();
-      expect(
-        env.liveRepo.targetsSeen.last,
-        const FollowTargets(groupIds: {'g1'}),
-      );
-    });
-
-    test('リポジトリのエラーはエラーになる', () async {
-      final env = _Env(liveRepo: FakeLiveRepository()..fail = true);
-      env.read(livesProvider);
-      await settle();
-      expect(env.container.read(livesProvider).hasError, isTrue);
-    });
-  });
-
   group('liveListProvider', () {
     test('ライブと公演から buildLiveList で並べる', () async {
       final env = _Env(
@@ -306,6 +227,178 @@ void main() {
       env.read(upcomingDeadlinesProvider);
       await settle();
       expect(env.container.read(upcomingDeadlinesProvider).isLoading, isTrue);
+    });
+  });
+
+  group('自分のライブ一覧（myLives）', () {
+    FakeLiveRepository repoWith() => FakeLiveRepository(
+      lives: const [
+        Live(id: 'a', title: 'A', groupIds: ['g1']),
+        Live(id: 'b', title: 'B', groupIds: ['g1']),
+      ],
+      performances: [perfOf('pa', 'a', h(5)), perfOf('pb', 'b', h(6))],
+      receptions: [
+        recOf('ra', 'a', applyEndAt: h(2)),
+        recOf('rb', 'b', applyEndAt: h(3)),
+      ],
+    );
+
+    List<String?> listIds(_Env env) => [
+      for (final e in env.container.read(liveListProvider).requireValue)
+        e.live.id,
+    ];
+    List<String?> deadlineIds(_Env env) => [
+      for (final e
+          in env.container.read(upcomingDeadlinesProvider).requireValue)
+        e.deadline.reception.id,
+    ];
+
+    test('フォローしただけ（myLives が空）では、一覧にも次の締切にも出ない。問い合わせもしない', () async {
+      final env = _Env(liveRepo: repoWith(), myRepo: FakeMyLiveRepository());
+      env.read(liveListProvider);
+      env.read(upcomingDeadlinesProvider);
+      await settle();
+      expect(listIds(env), isEmpty);
+      expect(deadlineIds(env), isEmpty);
+      // 空の ID でもリポジトリへ渡す（空なら問い合わせず [] を返す契約）。渡す ID は空だけ
+      expect(env.liveRepo.idsSeen.every((s) => s.isEmpty), isTrue);
+    });
+
+    test('追加したライブだけが出る。追加すると増え、外すと消える', () async {
+      final my = FakeMyLiveRepository(ids: ['a']);
+      final env = _Env(liveRepo: repoWith(), myRepo: my);
+      env.read(liveListProvider);
+      env.read(upcomingDeadlinesProvider);
+      await settle();
+      expect(listIds(env), ['a']);
+      expect(deadlineIds(env), ['ra']);
+
+      await my.add('u1', 'b');
+      await settle();
+      expect(listIds(env), ['a', 'b']);
+      expect(deadlineIds(env), ['ra', 'rb']);
+
+      await my.remove('u1', 'a');
+      await settle();
+      expect(listIds(env), ['b']);
+      expect(deadlineIds(env), ['rb']);
+    });
+
+    test('ID の集合が変われば、新しい集合で購読し直す', () async {
+      final my = FakeMyLiveRepository(ids: ['a']);
+      final env = _Env(liveRepo: repoWith(), myRepo: my);
+      env.read(myLivesProvider);
+      await settle();
+      expect(env.liveRepo.idsSeen.last, {'a'});
+      await my.add('u1', 'b');
+      await settle();
+      expect(env.liveRepo.idsSeen.last, {'a', 'b'});
+    });
+
+    test('myLives に ID があっても、ライブが無ければ出ない', () async {
+      final env = _Env(
+        liveRepo: repoWith(),
+        myRepo: FakeMyLiveRepository(ids: ['gone']),
+      );
+      env.read(liveListProvider);
+      await settle();
+      expect(listIds(env), isEmpty);
+    });
+
+    test('未ログインなら空で、リポジトリを呼ばない', () async {
+      final env = _Env(uid: null, liveRepo: repoWith());
+      env.read(myLivesProvider);
+      env.read(myPerformancesProvider);
+      env.read(myReceptionsProvider);
+      await settle();
+      expect(env.container.read(myLivesProvider).requireValue, isEmpty);
+      expect(env.container.read(myPerformancesProvider).requireValue, isEmpty);
+      expect(env.container.read(myReceptionsProvider).requireValue, isEmpty);
+      expect(env.liveRepo.idsSeen, isEmpty);
+    });
+
+    test('myLives の読み込み中は読み込み中、エラーはエラー（ライブは購読しない）', () async {
+      final loading = _Env(
+        liveRepo: repoWith(),
+        myRepo: FakeMyLiveRepository()..emitInitial = false,
+      );
+      loading.read(liveListProvider);
+      await settle();
+      expect(loading.container.read(liveListProvider).isLoading, isTrue);
+      expect(loading.liveRepo.idsSeen, isEmpty);
+
+      final err = _Env(
+        liveRepo: repoWith(),
+        myRepo: FakeMyLiveRepository()..fail = true,
+      );
+      err.read(liveListProvider);
+      err.read(upcomingDeadlinesProvider);
+      await settle();
+      expect(err.container.read(liveListProvider).hasError, isTrue);
+      expect(err.container.read(upcomingDeadlinesProvider).hasError, isTrue);
+    });
+
+    test('isInMyLivesProvider: 入っていれば true、無ければ false、読み込み中は読み込み中', () async {
+      final env = _Env(
+        liveRepo: repoWith(),
+        myRepo: FakeMyLiveRepository(ids: ['a']),
+      );
+      env.read(isInMyLivesProvider('a'));
+      await settle();
+      expect(env.container.read(isInMyLivesProvider('a')).requireValue, isTrue);
+      expect(
+        env.container.read(isInMyLivesProvider('b')).requireValue,
+        isFalse,
+      );
+
+      final loading = _Env(myRepo: FakeMyLiveRepository()..emitInitial = false);
+      loading.read(isInMyLivesProvider('a'));
+      await settle();
+      expect(
+        loading.container.read(isInMyLivesProvider('a')).isLoading,
+        isTrue,
+      );
+    });
+  });
+
+  group('liveSearchProvider', () {
+    const targets = FollowTargets(groupIds: {'g1'});
+    FakeLiveRepository repo() => FakeLiveRepository(
+      lives: const [
+        Live(id: 'a', title: 'ＬＩＶＥ ツアー', groupIds: ['g1']),
+        Live(id: 'b', title: 'フェス', groupIds: ['g1']),
+      ],
+      performances: [perfOf('pa', 'a', h(5)), perfOf('pb', 'b', h(2))],
+    );
+
+    List<String?> ids(_Env env, String q) => [
+      for (final e
+          in env.container
+              .read(liveSearchProvider((targets: targets, query: q)))
+              .requireValue)
+        e.live.id,
+    ];
+
+    test('入力で絞り込み、空なら全件。myLives に入っていなくても出る', () async {
+      final env = _Env(liveRepo: repo(), myRepo: FakeMyLiveRepository());
+      env.read(liveSearchProvider((targets: targets, query: '')));
+      env.read(liveSearchProvider((targets: targets, query: 'live')));
+      await settle();
+      expect(ids(env, ''), ['b', 'a']);
+      expect(ids(env, 'live'), ['a']);
+      expect(env.liveRepo.targetsSeen, isNotEmpty);
+    });
+
+    test('リポジトリのエラーはエラー', () async {
+      final env = _Env(liveRepo: repo()..fail = true);
+      env.read(liveSearchProvider((targets: targets, query: '')));
+      await settle();
+      expect(
+        env.container
+            .read(liveSearchProvider((targets: targets, query: '')))
+            .hasError,
+        isTrue,
+      );
     });
   });
 

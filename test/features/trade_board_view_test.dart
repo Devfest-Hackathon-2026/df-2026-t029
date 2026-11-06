@@ -64,8 +64,9 @@ TradePost post(
 
 Future<void> pumpBoard(
   WidgetTester tester,
-  FakeTradePostRepository repo,
-) async {
+  FakeTradePostRepository repo, {
+  FakeMyLiveRepository? myRepo,
+}) async {
   usePhoneSize(tester);
   await tester.pumpWidget(
     ProviderScope(
@@ -88,6 +89,9 @@ Future<void> pumpBoard(
               ),
             ],
           ),
+        ),
+        myLiveRepositoryProvider.overrideWithValue(
+          myRepo ?? FakeMyLiveRepository(ids: ['l1']),
         ),
         goodsRepositoryProvider.overrideWithValue(
           FakeGoodsRepository(const [
@@ -333,6 +337,15 @@ void main() {
       );
       await apply(tester);
       expect(shown(tester), ['hand']);
+    });
+
+    testWidgets('手渡しの公演の候補は自分のライブ一覧の公演だけ', (tester) async {
+      await pumpBoard(tester, repoWithPosts(), myRepo: FakeMyLiveRepository());
+      await selectOshi(tester, 'グループ1（グループ）');
+      await openSheet(tester);
+      await tester.tap(_key('board_filter_performance'));
+      await tester.pumpAndSettle();
+      expect(find.text('ツアー 2026/11/20(金) 18:00 会場f1'), findsNothing);
     });
 
     testWidgets('条件に合う投稿がなければその旨を出す', (tester) async {
