@@ -1,4 +1,5 @@
-// lib/repositories/trade_post_repository.dart の掲示板用の取得（G-3-1）のテスト
+// lib/repositories/trade_post_repository.dart の掲示板用の取得（G-3-1）と
+// マッチの検索（G-4-1）のテスト
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,6 +16,7 @@ void main() {
     List<String> groupIds = const [],
     List<String> oshiIds = const [],
     String status = 'open',
+    List<String> giveKeys = const [],
     required int day,
   }) => db.collection('tradePosts').doc(id).set({
     'uid': 'u1',
@@ -24,7 +26,7 @@ void main() {
     'tags': ['trade'],
     'gives': [],
     'wants': [],
-    'giveKeys': [],
+    'giveKeys': giveKeys,
     'wantKeys': [],
     'handover': ['mail'],
     'performanceIds': [],
@@ -83,6 +85,39 @@ void main() {
 
       expect(results.first, ['new', 'other']);
       expect(results.last, ['other']);
+    });
+  });
+
+  group('fetchOpenGiving', () {
+    test('giveKeys にどれかを含む、募集中の投稿だけを返す', () async {
+      await put('a', giveKeys: ['item:x#v1', 'goods:x'], day: 1);
+      await put('b', giveKeys: ['member:m1'], day: 2);
+      await put('closed', giveKeys: ['goods:x'], status: 'closed', day: 3);
+      await put('hidden', giveKeys: ['goods:x'], status: 'hidden', day: 4);
+      await put('none', giveKeys: ['goods:y'], day: 5);
+
+      final posts = await repo.fetchOpenGiving(['goods:x', 'member:m1']);
+      expect(posts.map((p) => p.id).toSet(), {'a', 'b'});
+    });
+
+    test('30個を超えるキーは分けて検索し、重複を除く', () async {
+      final keys = [for (var i = 0; i < 65; i++) 'goods:g$i'];
+      await put('first', giveKeys: ['goods:g0'], day: 1);
+      await put('last', giveKeys: ['goods:g64'], day: 2);
+      // 2回の検索の両方に当たる投稿
+      await put('both', giveKeys: ['goods:g1', 'goods:g40'], day: 3);
+
+      final posts = await repo.fetchOpenGiving(keys);
+      expect(posts.map((p) => p.id).toList()..sort(), [
+        'both',
+        'first',
+        'last',
+      ]);
+    });
+
+    test('キーが空なら検索せずに空', () async {
+      await put('a', giveKeys: ['goods:x'], day: 1);
+      expect(await repo.fetchOpenGiving(const []), isEmpty);
     });
   });
 }

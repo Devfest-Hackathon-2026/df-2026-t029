@@ -105,6 +105,38 @@ final tradeBoardProvider = Provider.autoDispose
       );
     });
 
+/// 自分の募集中の投稿の求の検索用キー（重複なし・並べ替え済み）。
+/// 中身が変わったときだけ、[matchCandidatesProvider] を読み直させる
+final myOpenWantKeysProvider = FutureProvider<List<String>>((ref) async {
+  // selectAsync は == で比べるので、文字列にして比べる（投稿の更新日時が
+  // 変わっただけでは読み直さない）
+  final joined = await ref.watch(
+    myTradePostsProvider.selectAsync(
+      (posts) => ({
+        for (final p in posts)
+          if (p.status == TradePostStatus.open) ...p.wantKeys,
+      }.toList()..sort()).join('\n'),
+    ),
+  );
+  return joined.isEmpty ? const [] : joined.split('\n');
+});
+
+/// マッチの候補：自分の求のどれかを譲に含む、他人の募集中の投稿（順序は不定）。
+/// 自分の募集中の投稿に求がなければ空。判定は [matchTradePosts] で行う
+final matchCandidatesProvider = FutureProvider<List<TradePost>>((ref) async {
+  final uid = ref.watch(currentUidProvider);
+  if (uid == null) return const [];
+  final keys = await ref.watch(myOpenWantKeysProvider.future);
+  if (keys.isEmpty) return const [];
+  final posts = await ref
+      .watch(tradePostRepositoryProvider)
+      .fetchOpenGiving(keys);
+  return [
+    for (final p in posts)
+      if (p.uid != uid) p,
+  ];
+}, retry: firestoreRetry);
+
 /// ログイン中のユーザーの表示名。投稿・返信・チャットに保存し、画面にも出す。
 ///
 /// 表示名を決める処理はここだけにまとめる（仕様書 3.9）。G-8 でプロフィールを

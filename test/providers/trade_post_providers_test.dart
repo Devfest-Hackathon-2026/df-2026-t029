@@ -226,6 +226,95 @@ void main() {
     expect(env.container.read(boardTargetProvider), p1);
   });
 
+  group('matchCandidatesProvider', () {
+    TradePost mine(
+      String id, {
+      List<String> wantKeys = const [],
+      TradePostStatus status = TradePostStatus.open,
+    }) => TradePost(
+      id: id,
+      uid: 'u1',
+      tags: const [TradeTag.trade],
+      handover: const [HandoverMethod.mail],
+      wantKeys: wantKeys,
+      status: status,
+    );
+    TradePost theirs(
+      String id, {
+      String uid = 'u2',
+      List<String> giveKeys = const [],
+    }) => TradePost(
+      id: id,
+      uid: uid,
+      tags: const [TradeTag.trade],
+      handover: const [HandoverMethod.mail],
+      giveKeys: giveKeys,
+    );
+
+    // 購読者がいないプロバイダは止まるため、どのテストも先に env.read で購読する
+    test('自分の募集中の投稿の求のキーで探し、自分の投稿は除く', () async {
+      final env = _Env();
+      env.repo.mineInitial = [
+        mine('m1', wantKeys: ['goods:x', 'member:a']),
+        mine('m2', wantKeys: ['goods:x', 'item:y#v1']),
+        mine('closed', wantKeys: ['goods:z'], status: TradePostStatus.closed),
+      ];
+      env.repo.allPosts = [
+        theirs('t1', giveKeys: ['goods:x']),
+        theirs('t2', giveKeys: ['goods:z']),
+        theirs('own', uid: 'u1', giveKeys: ['goods:x']),
+      ];
+      env.read(matchCandidatesProvider);
+      final posts = await env.container.read(matchCandidatesProvider.future);
+      expect(posts.map((p) => p.id), ['t1']);
+      expect(env.repo.givingQueries.single, [
+        'goods:x',
+        'item:y#v1',
+        'member:a',
+      ]);
+    });
+
+    test('自分の求がなければ、検索しないで空', () async {
+      final env = _Env();
+      env.repo.mineInitial = [mine('m1')];
+      env.read(matchCandidatesProvider);
+      expect(await env.container.read(matchCandidatesProvider.future), isEmpty);
+      expect(env.repo.givingQueries, isEmpty);
+    });
+
+    test('求のキーが変わったときだけ検索し直す', () async {
+      final env = _Env();
+      env.repo.mineInitial = [
+        mine('m1', wantKeys: ['goods:x']),
+      ];
+      env.read(matchCandidatesProvider);
+      await env.container.read(matchCandidatesProvider.future);
+      expect(env.repo.givingQueries, hasLength(1));
+
+      // キーが同じ更新（備考を変えたなど）では検索しない
+      env.repo.mine.add([
+        mine('m1', wantKeys: ['goods:x']),
+      ]);
+      await pumpEventQueue();
+      await env.container.read(matchCandidatesProvider.future);
+      expect(env.repo.givingQueries, hasLength(1));
+
+      env.repo.mine.add([
+        mine('m1', wantKeys: ['goods:x', 'goods:w']),
+      ]);
+      await pumpEventQueue();
+      await env.container.read(matchCandidatesProvider.future);
+      expect(env.repo.givingQueries, hasLength(2));
+      expect(env.repo.givingQueries.last, ['goods:w', 'goods:x']);
+    });
+
+    test('未ログインなら空', () async {
+      final env = _Env(uid: null);
+      env.read(matchCandidatesProvider);
+      expect(await env.container.read(matchCandidatesProvider.future), isEmpty);
+    });
+  });
+
   test('myDisplayNameProvider：G-8 まで表示名は「匿名」', () {
     final env = _Env();
     expect(env.container.read(myDisplayNameProvider), '匿名');
