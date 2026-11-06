@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/live_memory.dart';
 import '../repositories/memory_repository.dart';
+import '../utils/memory_album.dart';
+
+import 'live_providers.dart';
 import 'oshi_providers.dart';
 
 /// ライブの記録のリポジトリ。テストでは `overrideWithValue` で差し替える
@@ -24,3 +27,11 @@ final memoryProvider = Provider.autoDispose
           .watch(myMemoriesProvider)
           .whenData((memories) => memories[performanceId]),
     );
+
+/// メモリー一覧（参戦予定・参戦済み）。[nowProvider] で1分ごとに判定し直す
+final memoryAlbumProvider = Provider<AsyncValue<MemoryAlbum>>((ref) {
+  final now = ref.watch(nowProvider);
+  return ref
+      .watch(myMemoriesProvider)
+      .whenData((memories) => buildMemoryAlbum(memories.values, now));
+});
