@@ -3,8 +3,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:oshiashi/models/goods.dart';
 import 'package:oshiashi/models/oshi.dart';
 import 'package:oshiashi/models/trade_post.dart';
+import 'package:oshiashi/providers/goods_providers.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
 import 'package:oshiashi/providers/trade_post_providers.dart';
 
@@ -30,6 +32,7 @@ class _Env {
         currentUidProvider.overrideWithValue(uid),
         allOshisProvider.overrideWith((ref) => Stream.value(oshis)),
         tradePostRepositoryProvider.overrideWithValue(repo),
+        goodsRepositoryProvider.overrideWithValue(goodsRepo),
       ],
       retry: (_, _) => null,
     );
@@ -39,6 +42,14 @@ class _Env {
   }
 
   final repo = FakeTradePostRepository();
+  final goodsRepo = FakeGoodsRepository(const [
+    Goods(
+      id: 'acsta',
+      name: 'アクスタ',
+      category: GoodsCategory.acrylic,
+      variants: [GoodsVariant(id: 'v1', name: 'A', oshiId: 'mA')],
+    ),
+  ]);
   late final ProviderContainer container;
 
   /// 購読者がいないプロバイダは止まるので、先に listen してから読む
@@ -312,6 +323,64 @@ void main() {
       final env = _Env(uid: null);
       env.read(matchCandidatesProvider);
       expect(await env.container.read(matchCandidatesProvider.future), isEmpty);
+    });
+  });
+
+  group('tradeMatchesProvider', () {
+    const itemA = GiveItem(goodsId: 'acsta', variantId: 'v1', label: 'アクスタ（A）');
+    const itemTowel = GiveItem(goodsId: 'towel', variantId: 'v1', label: 'タオル');
+
+    test('マッチを判定し、マッチした投稿のグッズだけを読む', () async {
+      final env = _Env();
+      env.repo.mineInitial = [
+        const TradePost(
+          id: 'mine',
+          uid: 'u1',
+          tags: [TradeTag.trade],
+          handover: [HandoverMethod.mail],
+          wants: [
+            WantSet(
+              targets: [
+                WantTarget(type: WantType.member, oshiId: 'mA', label: 'A'),
+              ],
+            ),
+          ],
+          wantKeys: ['member:mA'],
+        ),
+      ];
+      env.repo.allPosts = [
+        const TradePost(
+          id: 'theirs',
+          uid: 'u2',
+          tags: [TradeTag.trade],
+          handover: [HandoverMethod.mail],
+          gives: [
+            GiveSet(items: [itemA, itemTowel]),
+          ],
+          giveKeys: [
+            'item:acsta#v1',
+            'goods:acsta',
+            'member:mA',
+            'goods:towel',
+          ],
+        ),
+      ];
+      env.read(tradeMatchesProvider);
+      final matches = await env.container.read(tradeMatchesProvider.future);
+
+      expect(matches.single.theirs.id, 'theirs');
+      expect(matches.single.isMutual, isFalse);
+      // メンバー A の品目だけが一致（グッズを読んで種類のメンバーを調べた）
+      expect(matches.single.best.theyGive.map((i) => i.label), ['アクスタ（A）']);
+      expect(env.goodsRepo.fetchedIds.toSet(), {'acsta', 'towel'});
+    });
+
+    test('候補がなければ、グッズを読まずに空', () async {
+      final env = _Env();
+      env.repo.mineInitial = const [];
+      env.read(tradeMatchesProvider);
+      expect(await env.container.read(tradeMatchesProvider.future), isEmpty);
+      expect(env.goodsRepo.fetchedIds, isEmpty);
     });
   });
 

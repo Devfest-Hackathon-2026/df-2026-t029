@@ -152,9 +152,14 @@ class FakeGoodsRepository implements GoodsRepository {
     ]..sort((a, b) => a.name.compareTo(b.name));
   }
 
+  /// fetch に渡された ID
+  final fetchedIds = <String>[];
+
   @override
-  Future<Goods?> fetch(String id) async =>
-      goods.where((g) => g.id == id).firstOrNull;
+  Future<Goods?> fetch(String id) async {
+    fetchedIds.add(id);
+    return goods.where((g) => g.id == id).firstOrNull;
+  }
 
   @override
   Future<String> create(Goods goods, {required String uid}) =>
