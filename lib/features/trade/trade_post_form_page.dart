@@ -78,7 +78,7 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
         await repository.create(
           draft.toPost(),
           uid: uid,
-          displayName: anonymousDisplayName,
+          displayName: ref.read(myDisplayNameProvider),
         );
       } else {
         await repository.update(draft.toPost(base: base));
@@ -149,7 +149,7 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const Text('投稿者名は「$anonymousDisplayName」と表示されます'),
+            Text('投稿者名は「${ref.watch(myDisplayNameProvider)}」と表示されます'),
             heading('対象の推し（必須・複数可）'),
             _TargetChips(
               draft: draft,

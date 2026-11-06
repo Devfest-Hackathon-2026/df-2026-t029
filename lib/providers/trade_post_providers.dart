@@ -24,3 +24,10 @@ final tradePostByIdProvider = FutureProvider.family<TradePost?, String>(
   (ref, id) => ref.watch(tradePostRepositoryProvider).fetch(id),
   retry: firestoreRetry,
 );
+
+/// ログイン中のユーザーの表示名。投稿・返信・チャットに保存し、画面にも出す。
+///
+/// 表示名を決める処理はここだけにまとめる（仕様書 3.9）。G-8 でプロフィールを
+/// 作るまでは、全員「匿名」とする。セキュリティルールで1文字以上が必須のため、
+/// 空欄にはしない。G-8 ではこのプロバイダの中身だけを差し替える
+final myDisplayNameProvider = Provider<String>((ref) => '匿名');

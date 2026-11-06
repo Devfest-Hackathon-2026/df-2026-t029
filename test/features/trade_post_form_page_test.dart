@@ -84,6 +84,7 @@ Future<GoRouter> pumpForm(
   required FakeTradePostRepository repo,
   String location = '/trade/new',
   FakeGoodsRepository? goodsRepo,
+  String? displayName,
 }) async {
   usePhoneSize(tester);
   final router = GoRouter(
@@ -114,6 +115,8 @@ Future<GoRouter> pumpForm(
         ),
         nowProvider.overrideWithValue(now),
         tradePostRepositoryProvider.overrideWithValue(repo),
+        if (displayName != null)
+          myDisplayNameProvider.overrideWithValue(displayName),
         goodsRepositoryProvider.overrideWithValue(
           goodsRepo ?? FakeGoodsRepository(const [acsta]),
         ),
@@ -188,6 +191,18 @@ void main() {
     expect(c.post.xAccount, 'oshi_fan');
     expect(c.post.note, '送料はご負担ください');
     expect(find.text('route:/'), findsOneWidget);
+  });
+
+  testWidgets('表示名は myDisplayNameProvider から取る（G-8 で差し替える所）', (tester) async {
+    final repo = FakeTradePostRepository();
+    await pumpForm(tester, repo: repo, displayName: 'テスト名');
+    expect(find.text('投稿者名は「テスト名」と表示されます'), findsOneWidget);
+
+    await tapKey(tester, 'trade_target_g1');
+    await tapKey(tester, 'trade_tag_trade');
+    await tapKey(tester, 'trade_handover_mail');
+    await tapKey(tester, 'trade_save_button');
+    expect(repo.created.single.displayName, 'テスト名');
   });
 
   testWidgets('保存に失敗したら、エラーを出して画面に残る', (tester) async {

@@ -7,7 +7,6 @@ import '../../models/trade_post.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/trade_post_providers.dart';
 import '../live_form/date_time_field.dart';
-import 'trade_post_draft.dart';
 import 'trade_post_summary.dart';
 
 /// 自分の投稿の一覧（更新日時の新しい順）。編集・募集終了・再開ができる
@@ -35,7 +34,7 @@ class MyTradePostsPage extends ConsumerWidget {
             // 右下のボタンで最後の投稿が隠れないようにする
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
             children: [
-              const Text('投稿者名：$anonymousDisplayName'),
+              Text('投稿者名：${ref.watch(myDisplayNameProvider)}'),
               const SizedBox(height: 12),
               if (list.isEmpty)
                 const Padding(

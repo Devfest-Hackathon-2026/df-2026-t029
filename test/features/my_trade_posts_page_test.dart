@@ -44,6 +44,7 @@ Future<void> pumpList(
   WidgetTester tester,
   FakeTradePostRepository repo, {
   List<TradePost>? posts,
+  String? displayName,
 }) async {
   usePhoneSize(tester);
   final router = GoRouter(
@@ -69,6 +70,8 @@ Future<void> pumpList(
         liveRepositoryProvider.overrideWithValue(FakeLiveRepository()),
         nowProvider.overrideWithValue(DateTime(2026, 11, 5, 12)),
         tradePostRepositoryProvider.overrideWithValue(repo),
+        if (displayName != null)
+          myDisplayNameProvider.overrideWithValue(displayName),
       ],
       retry: (_, _) => null,
       child: MaterialApp.router(routerConfig: router),
@@ -111,6 +114,16 @@ void main() {
     await pumpList(tester, FakeTradePostRepository(), posts: []);
     expect(find.text('投稿者名：匿名'), findsOneWidget);
     expect(find.text('まだ投稿がありません'), findsOneWidget);
+  });
+
+  testWidgets('投稿者名は myDisplayNameProvider から取る', (tester) async {
+    await pumpList(
+      tester,
+      FakeTradePostRepository(),
+      posts: [],
+      displayName: 'テスト名',
+    );
+    expect(find.text('投稿者名：テスト名'), findsOneWidget);
   });
 
   testWidgets('投稿の要約（状態・推し・タグ・譲・求）を出す', (tester) async {

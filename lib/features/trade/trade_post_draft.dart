@@ -7,10 +7,6 @@ import '../../utils/oshi_search.dart';
 import '../../utils/trade_keys.dart';
 import '../goods/goods_draft.dart';
 
-/// 投稿者の表示名。ハンドルネームの仕組みができるまでは、全員この名前で投稿する
-/// （セキュリティルールで1文字以上が必須のため、空欄にはしない）
-const String anonymousDisplayName = '匿名';
-
 /// 入力中の譲セット
 class GiveSetDraft {
   GiveSetDraft({

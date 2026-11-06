@@ -101,4 +101,9 @@ void main() {
       expect(env.repo.fetchCount, 2);
     });
   });
+
+  test('myDisplayNameProvider：G-8 まで表示名は「匿名」', () {
+    final env = _Env();
+    expect(env.container.read(myDisplayNameProvider), '匿名');
+  });
 }
