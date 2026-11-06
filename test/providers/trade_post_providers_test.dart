@@ -1,58 +1,16 @@
 // lib/providers/trade_post_providers.dart（G-2-3）のテスト。
 // リポジトリは偽物に差し替える。
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:oshiashi/models/trade_post.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
 import 'package:oshiashi/providers/trade_post_providers.dart';
-import 'package:oshiashi/repositories/trade_post_repository.dart';
 
-/// 呼ばれた引数を記録する偽のリポジトリ
-class _FakeTradePostRepository implements TradePostRepository {
-  final posts = <String, TradePost>{};
-  final mine = StreamController<List<TradePost>>.broadcast();
-  final watchedUids = <String>[];
-  int fetchCount = 0;
-
-  @override
-  Future<TradePost?> fetch(String id) async {
-    fetchCount++;
-    return posts[id];
-  }
-
-  @override
-  Stream<List<TradePost>> watchMine(String uid) {
-    watchedUids.add(uid);
-    return mine.stream;
-  }
-
-  @override
-  Future<String> create(
-    TradePost post, {
-    required String uid,
-    required String displayName,
-  }) => throw UnimplementedError();
-
-  @override
-  Future<void> update(TradePost post) => throw UnimplementedError();
-
-  @override
-  Future<void> setStatus(String postId, TradePostStatus status) =>
-      throw UnimplementedError();
-}
+import '../features/trade_test_helpers.dart';
 
 TradePost _post(String id, {TradePostStatus status = TradePostStatus.open}) =>
-    TradePost(
-      id: id,
-      uid: 'u1',
-      groupIds: const ['g1'],
-      tags: const [TradeTag.trade],
-      handover: const [HandoverMethod.mail],
-      status: status,
-    );
+    postOf(id, status: status);
 
 class _Env {
   _Env({String? uid = 'u1'}) {
@@ -67,7 +25,7 @@ class _Env {
     addTearDown(repo.mine.close);
   }
 
-  final repo = _FakeTradePostRepository();
+  final repo = FakeTradePostRepository();
   late final ProviderContainer container;
 
   /// 購読者がいないプロバイダは止まるので、先に listen してから読む

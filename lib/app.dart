@@ -17,6 +17,7 @@ import 'features/oshi/oshi_search_page.dart';
 import 'features/calendar/calendar_test_page.dart';
 import 'features/goods/goods_search_page.dart';
 import 'features/goods/goods_form_page.dart';
+import 'features/trade/trade_post_form_page.dart';
 
 import 'repositories/auth_repository.dart';
 
@@ -82,7 +83,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/goods/:id/edit',
         builder: (context, state) => GoodsFormPage(goodsId: state.pathParameters['id']),
-      )
+      ),
+      GoRoute(
+        path: '/trade/new',
+        builder: (context, state) => const TradePostFormPage(),
+      ),
+      GoRoute(
+        path: '/trade/:id/edit',
+        builder: (context, state) =>
+            TradePostFormPage(postId: state.pathParameters['id']),
+      ),
     ],
   );
 });
