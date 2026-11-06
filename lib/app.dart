@@ -25,6 +25,9 @@ import 'features/trade/chat_page.dart';
 import 'features/trade/trade_post_detail_page.dart';
 import 'features/trade/trade_post_form_page.dart';
 import 'features/profile/profile_page.dart';
+import 'features/memory/memory_form_page.dart';
+import 'features/memory/memory_detail_page.dart';
+import 'features/memory/memory_list_page.dart';
 
 import 'repositories/auth_repository.dart';
 
@@ -95,6 +98,34 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'edit',
                     builder: (context, state) => LiveEditPage(
                       liveId: state.pathParameters['liveId']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'memory/:performanceId',
+                    builder: (context, state) => MemoryFormPage(
+                      performanceId: state.pathParameters['performanceId']!,
+                      liveId: state.pathParameters['liveId']!,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          // メモリー（M-4）: 一覧 → 記録の詳細 → 編集
+          GoRoute(
+            path: 'memories',
+            builder: (context, state) => const MemoryListPage(),
+            routes: [
+              GoRoute(
+                path: ':performanceId',
+                builder: (context, state) => MemoryDetailPage(
+                  performanceId: state.pathParameters['performanceId']!,
+                ),
+                routes: [
+                  GoRoute(
+                    path: 'edit',
+                    builder: (context, state) => MemoryFormPage(
+                      performanceId: state.pathParameters['performanceId']!,
                     ),
                   ),
                 ],
