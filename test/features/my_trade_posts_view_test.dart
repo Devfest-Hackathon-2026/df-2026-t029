@@ -1,10 +1,10 @@
-// 自分の投稿の一覧（/trade/mine。G-2-6）と、要約の関数のテスト
+// 自分の投稿の一覧（交換トップの「自分の投稿」タブ。G-2-6）と、要約の関数のテスト
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:oshiashi/features/trade/my_trade_posts_page.dart';
+import 'package:oshiashi/features/trade/my_trade_posts_view.dart';
 import 'package:oshiashi/features/trade/trade_post_summary.dart';
 import 'package:oshiashi/models/oshi.dart';
 import 'package:oshiashi/models/trade_post.dart';
@@ -50,7 +50,10 @@ Future<void> pumpList(
   final router = GoRouter(
     initialLocation: '/trade/mine',
     routes: [
-      GoRoute(path: '/trade/mine', builder: (_, _) => const MyTradePostsPage()),
+      GoRoute(
+        path: '/trade/mine',
+        builder: (_, _) => const Scaffold(body: MyTradePostsView()),
+      ),
       GoRoute(path: '/trade/new', builder: (_, _) => const Text('route:new')),
       GoRoute(
         path: '/trade/:id/edit',
@@ -214,12 +217,5 @@ void main() {
     );
     expect(_key('my_trade_menu_a'), findsNothing);
     expect(find.textContaining('運営により非表示'), findsOneWidget);
-  });
-
-  testWidgets('右下のボタンで作成画面へ行く', (tester) async {
-    await pumpList(tester, FakeTradePostRepository(), posts: []);
-    await tester.tap(_key('my_trade_new_button'));
-    await tester.pumpAndSettle();
-    expect(find.text('route:new'), findsOneWidget);
   });
 }

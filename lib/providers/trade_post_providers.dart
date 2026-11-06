@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/oshi.dart';
 import '../models/trade_post.dart';
 import '../repositories/trade_post_repository.dart';
+import '../utils/trade_board.dart';
 import 'oshi_providers.dart';
 
 /// 交換・売買の投稿のリポジトリ。テストでは `overrideWithValue` で差し替える
@@ -24,6 +26,84 @@ final tradePostByIdProvider = FutureProvider.family<TradePost?, String>(
   (ref, id) => ref.watch(tradePostRepositoryProvider).fetch(id),
   retry: firestoreRetry,
 );
+
+/// 掲示板で最初に読む件数と、「もっと見る」で増やす件数
+const int boardPageSize = 50;
+
+/// 推しの募集中の投稿（更新日時の新しい順・最大 limit 件）。
+/// 掲示板は [tradeBoardProvider] を使う。未ログインなら空。
+/// 推しや件数を変えたら古い購読が残らないよう、autoDispose にする
+final openTradePostsProvider = StreamProvider.autoDispose
+    .family<List<TradePost>, ({OshiKind kind, String id, int limit})>((ref, q) {
+      if (ref.watch(currentUidProvider) == null) return Stream.value(const []);
+      return ref
+          .watch(tradePostRepositoryProvider)
+          .watchOpenFor(q.kind, q.id, limit: q.limit);
+    }, retry: firestoreRetry);
+
+/// 掲示板で選んでいる推し。未選択なら null
+class BoardTargetNotifier extends Notifier<OshiSummary?> {
+  @override
+  OshiSummary? build() => null;
+
+  void select(OshiSummary? oshi) => state = oshi;
+}
+
+final boardTargetProvider = NotifierProvider<BoardTargetNotifier, OshiSummary?>(
+  BoardTargetNotifier.new,
+);
+
+/// 掲示板の絞り込みの条件。掲示板の推しを変えたら、条件なしに戻る
+class BoardFilterNotifier extends Notifier<BoardFilter> {
+  @override
+  BoardFilter build() {
+    ref.watch(boardTargetProvider);
+    return BoardFilter.none;
+  }
+
+  void set(BoardFilter filter) => state = filter;
+}
+
+final boardFilterProvider = NotifierProvider<BoardFilterNotifier, BoardFilter>(
+  BoardFilterNotifier.new,
+);
+
+/// 推しの掲示板（募集中の投稿を更新日時の新しい順に limit 件）。
+///
+/// 個人の推しなら、所属グループを対象にした投稿もまとめて出す。
+/// 検索は推しごとに分けて行い、[mergeBoardPosts] でまとめる。
+/// どれかがエラーならエラー、どれかが読み込み中なら読み込み中
+final tradeBoardProvider = Provider.autoDispose
+    .family<AsyncValue<TradeBoard>, ({OshiKind kind, String id, int limit})>((
+      ref,
+      q,
+    ) {
+      final targets = <(OshiKind, String)>[(q.kind, q.id)];
+      if (q.kind == OshiKind.person) {
+        final all = ref.watch(allOshisProvider).value ?? const <OshiSummary>[];
+        final self = all
+            .where((o) => o.kind == OshiKind.person && o.id == q.id)
+            .firstOrNull;
+        for (final g in self?.groupIds ?? const <String>[]) {
+          targets.add((OshiKind.group, g));
+        }
+      }
+      final values = [
+        for (final (kind, id) in targets)
+          ref.watch(
+            openTradePostsProvider((kind: kind, id: id, limit: q.limit)),
+          ),
+      ];
+      for (final v in values) {
+        if (v case AsyncError(:final error, :final stackTrace)) {
+          return AsyncError(error, stackTrace);
+        }
+      }
+      if (values.any((v) => !v.hasValue)) return const AsyncLoading();
+      return AsyncData(
+        mergeBoardPosts([for (final v in values) v.requireValue], q.limit),
+      );
+    });
 
 /// ログイン中のユーザーの表示名。投稿・返信・チャットに保存し、画面にも出す。
 ///

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/goods.dart';
+import '../models/oshi.dart';
 import '../models/trade_post.dart';
 import '../utils/trade_keys.dart';
 
@@ -11,6 +12,17 @@ abstract class TradePostRepository {
 
   /// 自分の投稿（更新日時の新しい順。非表示にされたものも含む）
   Stream<List<TradePost>> watchMine(String uid);
+
+  /// 推しの募集中の投稿（更新日時の新しい順。掲示板で使う）。
+  ///
+  /// グループ（[kind] が group）なら `groupIds`、個人なら `oshiIds` に
+  /// [oshiId] を含む投稿を探す。募集終了・非表示の投稿は含めない。
+  /// [limit] 件まで（「もっと見る」で増やす）
+  Stream<List<TradePost>> watchOpenFor(
+    OshiKind kind,
+    String oshiId, {
+    required int limit,
+  });
 
   /// 投稿を新規作成し、ID を返す。
   ///
@@ -52,6 +64,22 @@ class FirestoreTradePostRepository implements TradePostRepository {
   Stream<List<TradePost>> watchMine(String uid) => _posts
       .where('uid', isEqualTo: uid)
       .orderBy('updatedAt', descending: true)
+      .snapshots()
+      .map((s) => [for (final d in s.docs) TradePost.fromFirestore(d)]);
+
+  @override
+  Stream<List<TradePost>> watchOpenFor(
+    OshiKind kind,
+    String oshiId, {
+    required int limit,
+  }) => _posts
+      .where(
+        kind == OshiKind.group ? 'groupIds' : 'oshiIds',
+        arrayContains: oshiId,
+      )
+      .where('status', isEqualTo: TradePostStatus.open.name)
+      .orderBy('updatedAt', descending: true)
+      .limit(limit)
       .snapshots()
       .map((s) => [for (final d in s.docs) TradePost.fromFirestore(d)]);
 

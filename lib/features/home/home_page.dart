@@ -51,14 +51,13 @@ class HomePage extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 8),
-            // 仮の導線。交換トップ（G-3-4）ができたらそちらへ移す
             Align(
               alignment: Alignment.centerLeft,
               child: OutlinedButton.icon(
-                key: const Key('home_my_trade_button'),
-                onPressed: () => context.push('/trade/mine'),
+                key: const Key('home_trade_button'),
+                onPressed: () => context.push('/trade'),
                 icon: const Icon(Icons.swap_horiz),
-                label: const Text('自分の投稿'),
+                label: const Text('グッズ交換'),
               ),
             ),
             const SizedBox(height: 24),

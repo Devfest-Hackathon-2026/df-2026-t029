@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:oshiashi/models/goods.dart';
+import 'package:oshiashi/models/oshi.dart';
 import 'package:oshiashi/models/trade_post.dart';
 import 'package:oshiashi/repositories/goods_repository.dart';
 import 'package:oshiashi/repositories/trade_post_repository.dart';
@@ -30,10 +31,42 @@ class FakeTradePostRepository implements TradePostRepository {
     return posts[id];
   }
 
+  /// 設定すると、watchMine は購読した時点でこの一覧を流す
+  /// （本物の Firestore と同じく、あとから購読しても今の値が届く）
+  List<TradePost>? mineInitial;
+
   @override
   Stream<List<TradePost>> watchMine(String uid) {
     watchedUids.add(uid);
-    return mine.stream;
+    // async* は購読の開始が一拍遅れるので、初期値がないときは使わない
+    final initial = mineInitial;
+    if (initial == null) return mine.stream;
+    return _withInitial(initial, mine.stream);
+  }
+
+  static Stream<T> _withInitial<T>(T initial, Stream<T> rest) async* {
+    yield initial;
+    yield* rest;
+  }
+
+  /// watchOpenFor の中身（推しの種類と ID → 流すストリーム）
+  final open = StreamController<List<TradePost>>.broadcast();
+  final watchedOpen = <(OshiKind, String, int)>[];
+
+  /// 設定すると、watchOpenFor は推しごとにこの一覧を返す（[open] は使わない）
+  Map<(OshiKind, String), List<TradePost>>? openByTarget;
+
+  @override
+  Stream<List<TradePost>> watchOpenFor(
+    OshiKind kind,
+    String oshiId, {
+    required int limit,
+  }) {
+    watchedOpen.add((kind, oshiId, limit));
+    if (openByTarget case final m?) {
+      return Stream.value((m[(kind, oshiId)] ?? const []).take(limit).toList());
+    }
+    return open.stream;
   }
 
   @override
