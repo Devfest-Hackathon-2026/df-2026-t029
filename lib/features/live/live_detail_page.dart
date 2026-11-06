@@ -381,10 +381,9 @@ class _PerformanceTile extends StatelessWidget {
           ? null
           : TextButton(
               key: Key('live_detail_memory_button_$id'),
-              // TODO(M-4): 「記録を見る」は記録の詳細画面へ
-              onPressed: () => context.go(
-                has ? '/memories/$id/edit' : '/lives/$liveId/memory/$id',
-              ),
+              onPressed: () => has
+                  ? context.push('/memories/$id')
+                  : context.go('/lives/$liveId/memory/$id'),
               child: Text(has ? '記録を見る' : '記録する'),
             ),
     );

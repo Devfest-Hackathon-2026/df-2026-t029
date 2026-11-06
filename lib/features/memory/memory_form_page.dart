@@ -182,8 +182,10 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
         );
       return;
     }
-    // TODO(M-4): 編集のときは記録の詳細画面に戻す
-    router.go('/lives/${memory.liveId}');
+    // 作成はライブの詳細へ、編集は記録の詳細へ戻る
+    router.go(
+      isNew ? '/lives/${memory.liveId}' : '/memories/${memory.performanceId}',
+    );
   }
 
   Future<void> _delete() async {
@@ -227,7 +229,7 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
         );
       return;
     }
-    router.go('/lives/${memory.liveId}');
+    router.go('/memories');
   }
 
   @override

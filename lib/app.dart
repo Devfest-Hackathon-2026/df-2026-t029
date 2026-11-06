@@ -25,6 +25,8 @@ import 'features/trade/trade_post_detail_page.dart';
 import 'features/trade/trade_post_form_page.dart';
 import 'features/profile/profile_page.dart';
 import 'features/memory/memory_form_page.dart';
+import 'features/memory/memory_detail_page.dart';
+import 'features/memory/memory_list_page.dart';
 
 import 'repositories/auth_repository.dart';
 
@@ -103,12 +105,26 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // 記録の編集（M-3）。M-4 で /memories の一覧・詳細の下へ移す
+          // メモリー（M-4）: 一覧 → 記録の詳細 → 編集
           GoRoute(
-            path: 'memories/:performanceId/edit',
-            builder: (context, state) => MemoryFormPage(
-              performanceId: state.pathParameters['performanceId']!,
-            ),
+            path: 'memories',
+            builder: (context, state) => const MemoryListPage(),
+            routes: [
+              GoRoute(
+                path: ':performanceId',
+                builder: (context, state) => MemoryDetailPage(
+                  performanceId: state.pathParameters['performanceId']!,
+                ),
+                routes: [
+                  GoRoute(
+                    path: 'edit',
+                    builder: (context, state) => MemoryFormPage(
+                      performanceId: state.pathParameters['performanceId']!,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),

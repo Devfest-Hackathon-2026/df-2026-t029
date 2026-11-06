@@ -67,6 +67,16 @@ class HomePage extends ConsumerWidget {
                 label: const Text('グッズ交換'),
               ),
             ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                key: const Key('home_memory_button'),
+                onPressed: () => context.push('/memories'),
+                icon: const Icon(Icons.photo_album),
+                label: const Text('メモリー'),
+              ),
+            ),
             const SizedBox(height: 24),
             Text('次の締切', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
