@@ -52,14 +52,23 @@ class HomePage extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             // 仮の導線。交換トップ（G-3-4）ができたらそちらへ移す
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                key: const Key('home_my_trade_button'),
-                onPressed: () => context.push('/trade/mine'),
-                icon: const Icon(Icons.swap_horiz),
-                label: const Text('自分の投稿'),
-              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  key: const Key('home_trade_board_button'),
+                  onPressed: () => context.push('/trade/board'),
+                  icon: const Icon(Icons.forum),
+                  label: const Text('交換の掲示板'),
+                ),
+                OutlinedButton.icon(
+                  key: const Key('home_my_trade_button'),
+                  onPressed: () => context.push('/trade/mine'),
+                  icon: const Icon(Icons.swap_horiz),
+                  label: const Text('自分の投稿'),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             Text('次の締切', style: Theme.of(context).textTheme.titleMedium),

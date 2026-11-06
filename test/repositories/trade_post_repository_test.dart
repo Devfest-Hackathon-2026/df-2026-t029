@@ -51,17 +51,28 @@ void main() {
     });
 
     test('グループは groupIds で探し、募集中だけを更新日時の新しい順に返す', () async {
-      final posts = await repo.watchOpenFor(OshiKind.group, 'g1').first;
+      final posts = await repo
+          .watchOpenFor(OshiKind.group, 'g1', limit: 50)
+          .first;
       expect(posts.map((p) => p.id), ['personInGroup', 'new', 'old']);
     });
 
     test('個人は oshiIds で探す', () async {
-      final posts = await repo.watchOpenFor(OshiKind.person, 'p1').first;
+      final posts = await repo
+          .watchOpenFor(OshiKind.person, 'p1', limit: 50)
+          .first;
       expect(posts.map((p) => p.id), ['personInGroup', 'person']);
     });
 
+    test('limit 件までを新しい順に返す', () async {
+      final posts = await repo
+          .watchOpenFor(OshiKind.group, 'g1', limit: 2)
+          .first;
+      expect(posts.map((p) => p.id), ['personInGroup', 'new']);
+    });
+
     test('募集終了にした投稿は、一覧から消える', () async {
-      final stream = repo.watchOpenFor(OshiKind.group, 'g2');
+      final stream = repo.watchOpenFor(OshiKind.group, 'g2', limit: 50);
       final results = <List<String?>>[];
       final sub = stream.listen((l) => results.add([for (final p in l) p.id]));
       await pumpEventQueue();

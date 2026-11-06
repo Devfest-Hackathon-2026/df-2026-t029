@@ -6,8 +6,8 @@ import '../../models/oshi.dart';
 import '../../models/trade_post.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/trade_post_providers.dart';
-import '../live_form/date_time_field.dart';
 import 'trade_post_summary.dart';
+import 'trade_post_summary_lines.dart';
 
 /// 自分の投稿の一覧（更新日時の新しい順）。編集・募集終了・再開ができる
 class MyTradePostsPage extends ConsumerWidget {
@@ -116,15 +116,6 @@ class _PostCardState extends ConsumerState<_PostCard> {
     final isOpen = post.status == TradePostStatus.open;
     final isHidden = post.status == TradePostStatus.hidden;
     final targets = targetNames(post, widget.all);
-    final gives = summarizeLabels([
-      for (final s in post.gives)
-        for (final i in s.items) i.label,
-    ]);
-    final wants = summarizeLabels([
-      for (final s in post.wants)
-        for (final t in s.targets) t.label,
-    ]);
-    final updatedAt = post.updatedAt;
 
     return Opacity(
       // 募集終了・非表示は薄く表示する
@@ -177,15 +168,7 @@ class _PostCardState extends ConsumerState<_PostCard> {
                     ),
                 ],
               ),
-              Text(post.tags.map((t) => t.label).join('・')),
-              if (gives.isNotEmpty) Text('譲：$gives'),
-              if (wants.isNotEmpty) Text('求：$wants'),
-              if (post.isTextOnly) const Text('品目なし（自動のマッチングの対象外）'),
-              const SizedBox(height: 4),
-              Text(
-                updatedAt == null ? '保存中…' : '更新：${formatDateTime(updatedAt)}',
-                style: theme.textTheme.bodySmall,
-              ),
+              TradePostSummaryLines(post: post),
               if (isHidden)
                 Text(
                   '運営により非表示にされています。編集・再開はできません',

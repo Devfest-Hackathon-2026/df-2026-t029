@@ -16,8 +16,13 @@ abstract class TradePostRepository {
   /// 推しの募集中の投稿（更新日時の新しい順。掲示板で使う）。
   ///
   /// グループ（[kind] が group）なら `groupIds`、個人なら `oshiIds` に
-  /// [oshiId] を含む投稿を探す。募集終了・非表示の投稿は含めない
-  Stream<List<TradePost>> watchOpenFor(OshiKind kind, String oshiId);
+  /// [oshiId] を含む投稿を探す。募集終了・非表示の投稿は含めない。
+  /// [limit] 件まで（「もっと見る」で増やす）
+  Stream<List<TradePost>> watchOpenFor(
+    OshiKind kind,
+    String oshiId, {
+    required int limit,
+  });
 
   /// 投稿を新規作成し、ID を返す。
   ///
@@ -63,13 +68,18 @@ class FirestoreTradePostRepository implements TradePostRepository {
       .map((s) => [for (final d in s.docs) TradePost.fromFirestore(d)]);
 
   @override
-  Stream<List<TradePost>> watchOpenFor(OshiKind kind, String oshiId) => _posts
+  Stream<List<TradePost>> watchOpenFor(
+    OshiKind kind,
+    String oshiId, {
+    required int limit,
+  }) => _posts
       .where(
         kind == OshiKind.group ? 'groupIds' : 'oshiIds',
         arrayContains: oshiId,
       )
       .where('status', isEqualTo: TradePostStatus.open.name)
       .orderBy('updatedAt', descending: true)
+      .limit(limit)
       .snapshots()
       .map((s) => [for (final d in s.docs) TradePost.fromFirestore(d)]);
 

@@ -17,3 +17,22 @@ String targetNames(TradePost post, List<OshiSummary> all) {
     for (final id in post.oshiIds) ?byKey[(OshiKind.person, id)],
   ].join('、');
 }
+
+/// タグの行（例：交換希望・買取希望／価格：定価以下）
+String tagLine(TradePost post) {
+  final tags = post.tags.map((t) => t.label).join('・');
+  final price = post.priceType;
+  return post.hasPrice && price != null ? '$tags／価格：${price.label}' : tags;
+}
+
+/// 譲の品目名の要約（なければ空文字）
+String giveSummary(TradePost post) => summarizeLabels([
+  for (final s in post.gives)
+    for (final i in s.items) i.label,
+]);
+
+/// 求の対象名の要約（なければ空文字）
+String wantSummary(TradePost post) => summarizeLabels([
+  for (final s in post.wants)
+    for (final t in s.targets) t.label,
+]);

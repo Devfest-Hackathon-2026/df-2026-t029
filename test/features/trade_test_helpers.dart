@@ -39,11 +39,21 @@ class FakeTradePostRepository implements TradePostRepository {
 
   /// watchOpenFor の中身（推しの種類と ID → 流すストリーム）
   final open = StreamController<List<TradePost>>.broadcast();
-  final watchedOpen = <(OshiKind, String)>[];
+  final watchedOpen = <(OshiKind, String, int)>[];
+
+  /// 設定すると、watchOpenFor は推しごとにこの一覧を返す（[open] は使わない）
+  Map<(OshiKind, String), List<TradePost>>? openByTarget;
 
   @override
-  Stream<List<TradePost>> watchOpenFor(OshiKind kind, String oshiId) {
-    watchedOpen.add((kind, oshiId));
+  Stream<List<TradePost>> watchOpenFor(
+    OshiKind kind,
+    String oshiId, {
+    required int limit,
+  }) {
+    watchedOpen.add((kind, oshiId, limit));
+    if (openByTarget case final m?) {
+      return Stream.value((m[(kind, oshiId)] ?? const []).take(limit).toList());
+    }
     return open.stream;
   }
 

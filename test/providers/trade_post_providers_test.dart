@@ -8,16 +8,27 @@ import 'package:oshiashi/models/trade_post.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
 import 'package:oshiashi/providers/trade_post_providers.dart';
 
+import '../features/oshi_test_helpers.dart' show permissionDenied;
 import '../features/trade_test_helpers.dart';
+
+const p1 = OshiSummary(
+  id: 'p1',
+  kind: OshiKind.person,
+  name: '個人1',
+  genre: OshiGenre.idol,
+  status: OshiStatus.approved,
+  groupIds: ['g1', 'g2'],
+);
 
 TradePost _post(String id, {TradePostStatus status = TradePostStatus.open}) =>
     postOf(id, status: status);
 
 class _Env {
-  _Env({String? uid = 'u1'}) {
+  _Env({String? uid = 'u1', List<OshiSummary> oshis = const []}) {
     container = ProviderContainer(
       overrides: [
         currentUidProvider.overrideWithValue(uid),
+        allOshisProvider.overrideWith((ref) => Stream.value(oshis)),
         tradePostRepositoryProvider.overrideWithValue(repo),
       ],
       retry: (_, _) => null,
@@ -105,32 +116,114 @@ void main() {
   });
 
   group('openTradePostsProvider', () {
-    test('推しの種類と ID で購読し、届いた一覧をそのまま返す', () async {
+    test('推しの種類・ID・件数で購読し、届いた一覧をそのまま返す', () async {
       final env = _Env();
-      final p = openTradePostsProvider((OshiKind.person, 'p1'));
+      final p = openTradePostsProvider((
+        kind: OshiKind.person,
+        id: 'p1',
+        limit: 50,
+      ));
       expect(env.read(p).isLoading, isTrue);
-      expect(env.repo.watchedOpen, [(OshiKind.person, 'p1')]);
+      expect(env.repo.watchedOpen, [(OshiKind.person, 'p1', 50)]);
 
       env.repo.open.add([_post('a'), _post('b')]);
       await pumpEventQueue();
       expect(env.read(p).requireValue.map((p) => p.id), ['a', 'b']);
     });
 
-    test('同じ推しなら同じプロバイダとして扱う', () {
-      expect(
-        openTradePostsProvider((OshiKind.group, 'g1')),
-        openTradePostsProvider((OshiKind.group, 'g1')),
-      );
-    });
-
     test('未ログインなら空で、リポジトリを呼ばない', () async {
       final env = _Env(uid: null);
-      final p = openTradePostsProvider((OshiKind.group, 'g1'));
+      final p = openTradePostsProvider((
+        kind: OshiKind.group,
+        id: 'g1',
+        limit: 50,
+      ));
       env.read(p);
       await pumpEventQueue();
       expect(env.read(p).requireValue, isEmpty);
       expect(env.repo.watchedOpen, isEmpty);
     });
+  });
+
+  group('tradeBoardProvider', () {
+    TradePost at(String id, int day) => TradePost(
+      id: id,
+      groupIds: const ['g1'],
+      tags: const [TradeTag.trade],
+      handover: const [HandoverMethod.mail],
+      updatedAt: DateTime(2026, 11, day),
+    );
+
+    test('グループなら、そのグループの投稿だけ', () async {
+      final env = _Env(oshis: [p1]);
+      env.repo.openByTarget = {
+        (OshiKind.group, 'g1'): [at('a', 2), at('b', 1)],
+      };
+      final p = tradeBoardProvider((kind: OshiKind.group, id: 'g1', limit: 50));
+      env.read(p);
+      await pumpEventQueue();
+      final board = env.read(p).requireValue;
+      expect(board.posts.map((p) => p.id), ['a', 'b']);
+      expect(board.hasMore, isFalse);
+      expect(env.repo.watchedOpen, [(OshiKind.group, 'g1', 50)]);
+    });
+
+    test('個人なら、所属グループの投稿もまとめて新しい順に出す', () async {
+      final env = _Env(oshis: [p1]);
+      env.repo.openByTarget = {
+        (OshiKind.person, 'p1'): [at('solo', 3), at('both', 1)],
+        (OshiKind.group, 'g1'): [at('group', 2), at('both', 1)],
+        (OshiKind.group, 'g2'): [at('g2', 4)],
+      };
+      final p = tradeBoardProvider((
+        kind: OshiKind.person,
+        id: 'p1',
+        limit: 50,
+      ));
+      env.read(p);
+      await pumpEventQueue();
+      expect(env.read(p).requireValue.posts.map((p) => p.id), [
+        'g2',
+        'solo',
+        'group',
+        'both',
+      ]);
+    });
+
+    test('limit 件で切り、続きがあれば hasMore', () async {
+      final env = _Env(oshis: [p1]);
+      env.repo.openByTarget = {
+        (OshiKind.group, 'g1'): [at('a', 3), at('b', 2), at('c', 1)],
+      };
+      final p = tradeBoardProvider((kind: OshiKind.group, id: 'g1', limit: 2));
+      env.read(p);
+      await pumpEventQueue();
+      final board = env.read(p).requireValue;
+      expect(board.posts.map((p) => p.id), ['a', 'b']);
+      expect(board.hasMore, isTrue);
+    });
+
+    test('どれかの検索がエラーなら、エラー', () async {
+      final env = _Env(oshis: [p1]);
+      final p = tradeBoardProvider((
+        kind: OshiKind.person,
+        id: 'p1',
+        limit: 50,
+      ));
+      env.read(p);
+      await pumpEventQueue();
+      expect(env.read(p).isLoading, isTrue);
+      env.repo.open.addError(permissionDenied());
+      await pumpEventQueue();
+      expect(env.read(p).hasError, isTrue);
+    });
+  });
+
+  test('boardTargetProvider：選んだ推しを覚える', () {
+    final env = _Env();
+    expect(env.container.read(boardTargetProvider), isNull);
+    env.container.read(boardTargetProvider.notifier).select(p1);
+    expect(env.container.read(boardTargetProvider), p1);
   });
 
   test('myDisplayNameProvider：G-8 まで表示名は「匿名」', () {
