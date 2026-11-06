@@ -31,7 +31,7 @@ tradePosts/{postId}               交換・売買の投稿
 chats/{chatId}                    個人チャット
   └ messages/{messageId}          メッセージ
 users/{uid}                       ユーザー（個人データ）
-  └ applications/{receptionId}    申込状況
+  ├ applications/{receptionId}    申込状況
   └ memories/{performanceId}      ライブの記録
 ```
 
@@ -440,4 +440,4 @@ tradePosts/p1
 - **共通データを更新できる範囲**：当面はログイン済みユーザー全員とし、誤った更新は履歴から戻す。照合・更新機能の開発時に確定する。
 - **申込の席種・枚数・支払額**：費用管理（P3）の開発時に、`applications` に追加する。
 - **写真の保存先（Cloud Storage のパス構成）**：グッズ交換の G-0-6 で追記する。
-- **遠征・ライブの記録・カレンダー連携・通知（FCM トークンなど）**：各機能の開発時に追加する。
+- **遠征・通知（FCM トークンなど）**：各機能の開発時に追加する。
