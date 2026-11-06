@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/history_entry.dart';
 import '../models/live.dart';
 import '../models/oshi.dart';
 import '../models/performance.dart';
 import '../models/reception.dart';
+import '../utils/live_diff.dart';
 
 /// 一覧の対象（計画書 3.2）
 ///
@@ -68,6 +70,49 @@ typedef SavedLive = ({
   List<Reception> receptions,
 });
 
+/// 既存のライブ一式（照合・差分の確認・編集用。Step4）
+@immutable
+class ExistingLive {
+  const ExistingLive({
+    required this.live,
+    required this.performances,
+    required this.receptions,
+    this.versions = const {},
+  });
+
+  /// ID 付き
+  final Live live;
+
+  /// 開演日時の順
+  final List<Performance> performances;
+
+  /// 申込期限の順
+  final List<Reception> receptions;
+
+  /// ドキュメントのパス（例: `lives/abc`・`performances/def`）→ 読んだときの
+  /// `updatedAt`（Firestore の値のまま。欠けていれば null）。
+  /// [LiveRepository.applyMerge] が同時更新の検出に使う
+  final Map<String, Object?> versions;
+
+  /// 最初の公演（開演日時が最も早いもの）。無ければ null
+  Performance? get firstPerformance =>
+      performances.isEmpty ? null : performances.first;
+}
+
+/// 読んだ後に、ほかの人がドキュメントを更新していた（何も書いていない）。
+///
+/// [LiveRepository.applyMerge] では「ほかの人が先に更新しました」、
+/// [LiveRepository.revert] では「その後に別の変更があります」と知らせる。
+class LiveConflictException implements Exception {
+  const LiveConflictException(this.paths);
+
+  /// 変わっていた（または消えていた）ドキュメントのパス
+  final List<String> paths;
+
+  @override
+  String toString() => 'LiveConflictException($paths)';
+}
+
 /// ライブ・公演・受付（共通データ）
 abstract class LiveRepository {
   /// ライブ1件・公演・受付を1つの WriteBatch で新規作成し、ID と複製項目を
@@ -107,6 +152,53 @@ abstract class LiveRepository {
 
   /// そのライブの受付（申込期限の順）。読めないドキュメントは飛ばす
   Stream<List<Reception>> watchReceptionsOf(String liveId);
+
+  // ---- Step4: 照合・更新・変更履歴 ----
+
+  /// 出演者（[groupIds]・[oshiIds]）が1つでも重なるライブ一式を1回だけ読む
+  /// （候補探し用。順序は不定）。両方空なら読まずに空のリスト。
+  /// 30件を超える ID は分割する。読めないドキュメントは飛ばす。
+  Future<List<ExistingLive>> fetchCandidates({
+    required List<String> groupIds,
+    required List<String> oshiIds,
+  });
+
+  /// ライブ1件の一式を読む（編集・差分の確認のやり直し用）。無い・読めないなら null
+  Future<ExistingLive?> fetchExisting(String liveId);
+
+  /// 差分（[plan]。`withoutUnselected` を通したもの）を1つのトランザクションで
+  /// 反映する。
+  ///
+  /// - ドキュメント ID は変えない（既存は update、追加は自動 ID で set）
+  /// - ライブ本体は必ず読み直し、`updatedBy`・`updatedAt` を必ず書き直す。
+  ///   変更する公演・受付も読み直す。`plan.base.versions` の `updatedAt` と
+  ///   違っていたら（消えていたら）[LiveConflictException] を投げ、何も書かない
+  /// - 変わった項目ごとに `history` を1件作る（ライブ・公演・受付それぞれ）。
+  ///   追加した公演・受付には履歴を作らない
+  /// - ライブの出演者が増えたら、そのライブの公演・受付すべての `groupIds`・
+  ///   `oshiIds` をライブと同じにする（この同期には履歴を作らない）。
+  ///   変更する公演・受付には、出演者が変わらなくても常にライブと同じ値を書く
+  /// - 戻り値: live は反映後のライブ、performances・receptions は
+  ///   追加・変更したものだけ（反映後の値・ID 付き）。カレンダー追加シート用
+  /// - `plan.isEmpty` なら何も書かず、[ArgumentError] を投げる
+  Future<SavedLive> applyMerge(LiveMergePlan plan, {required String uid});
+
+  /// ドキュメント1件の変更履歴（新しい順。changedAt が未確定のものは先頭）。
+  /// 読めない履歴は飛ばさず、欠けた項目を空にして流す
+  Stream<List<HistoryEntry>> watchHistory(HistoryTarget target);
+
+  /// そのライブ本体と、その公演・受付の作成日時・更新日時（ライブ詳細の
+  /// 「追加」の判定用。順序は不定）
+  Stream<List<DocStamp>> watchDocStamps(String liveId);
+
+  /// 履歴1件を元に戻す（トランザクション）。
+  ///
+  /// - 対象の項目の今の値が [HistoryEntry.after] と同じとき（`hasAfter` が
+  ///   false なら項目が無いとき）だけ、[HistoryEntry.before] に戻す
+  ///   （`hasBefore` が false なら項目を消す）。違えば [LiveConflictException]
+  /// - 戻す操作も「変更」として履歴を1件作る（before = 今の値、after = 戻した値）
+  /// - `canRevert(entry)` が false の履歴（出演者など）は [ArgumentError]
+  Future<void> revert(HistoryEntry entry, {required String uid});
 }
 
 /// Firestore 版の [LiveRepository]
@@ -223,6 +315,347 @@ class FirestoreLiveRepository implements LiveRepository {
               ..sort((a, b) => a.applyEndAt.compareTo(b.applyEndAt)),
       );
 
+  @override
+  Future<List<ExistingLive>> fetchCandidates({
+    required List<String> groupIds,
+    required List<String> oshiIds,
+  }) async {
+    final queries = [
+      for (final chunk in chunks(groupIds.toSet(), queryChunkSize))
+        _lives.where('groupIds', arrayContainsAny: chunk),
+      for (final chunk in chunks(oshiIds.toSet(), queryChunkSize))
+        _lives.where('oshiIds', arrayContainsAny: chunk),
+    ];
+    if (queries.isEmpty) return const [];
+    final snaps = await Future.wait([for (final q in queries) q.get()]);
+    final liveDocs = <String, DocumentSnapshot<Map<String, dynamic>>>{
+      for (final snap in snaps)
+        for (final doc in snap.docs) doc.id: doc,
+    };
+    return _withChildren(liveDocs.values.toList());
+  }
+
+  @override
+  Future<ExistingLive?> fetchExisting(String liveId) async {
+    final doc = await _lives.doc(liveId).get();
+    if (!doc.exists) return null;
+    final found = await _withChildren([doc]);
+    return found.firstOrNull;
+  }
+
+  /// ライブのドキュメントに、その公演・受付を読んで付ける（読めないライブは飛ばす）
+  Future<List<ExistingLive>> _withChildren(
+    List<DocumentSnapshot<Map<String, dynamic>>> liveDocs,
+  ) async {
+    final lives = <String, ({Live live, Object? version})>{};
+    for (final doc in liveDocs) {
+      final live = _tryParse(doc, Live.fromFirestore);
+      if (live != null) {
+        lives[doc.id] = (live: live, version: doc.data()?['updatedAt']);
+      }
+    }
+    if (lives.isEmpty) return const [];
+
+    final ids = lives.keys.toSet();
+    final childSnaps = await Future.wait([
+      for (final chunk in chunks(ids, queryChunkSize)) ...[
+        _performances.where('liveId', whereIn: chunk).get(),
+        _receptions.where('liveId', whereIn: chunk).get(),
+      ],
+    ]);
+    final perfDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    final recDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    for (final (i, snap) in childSnaps.indexed) {
+      (i.isEven ? perfDocs : recDocs).addAll(snap.docs);
+    }
+
+    final versions = <String, Map<String, Object?>>{
+      for (final id in ids) id: {'lives/$id': lives[id]!.version},
+    };
+    final perfs = <String, List<Performance>>{};
+    for (final doc in perfDocs) {
+      final p = _tryParse(doc, Performance.fromFirestore);
+      final liveId = p?.liveId;
+      if (p == null || liveId == null || !ids.contains(liveId)) continue;
+      perfs.putIfAbsent(liveId, () => []).add(p);
+      versions[liveId]!['performances/${doc.id}'] = doc.data()['updatedAt'];
+    }
+    final recs = <String, List<Reception>>{};
+    for (final doc in recDocs) {
+      final r = _tryParse(doc, Reception.fromFirestore);
+      final liveId = r?.liveId;
+      if (r == null || liveId == null || !ids.contains(liveId)) continue;
+      recs.putIfAbsent(liveId, () => []).add(r);
+      versions[liveId]!['receptions/${doc.id}'] = doc.data()['updatedAt'];
+    }
+
+    return [
+      for (final id in ids)
+        ExistingLive(
+          live: lives[id]!.live,
+          performances: List.unmodifiable(
+            (perfs[id] ?? [])..sort((a, b) => a.startAt.compareTo(b.startAt)),
+          ),
+          receptions: List.unmodifiable(
+            (recs[id] ?? [])
+              ..sort((a, b) => a.applyEndAt.compareTo(b.applyEndAt)),
+          ),
+          versions: Map.unmodifiable(versions[id]!),
+        ),
+    ];
+  }
+
+  @override
+  Future<SavedLive> applyMerge(
+    LiveMergePlan plan, {
+    required String uid,
+  }) async {
+    if (plan.isEmpty) throw ArgumentError('反映する変更がありません');
+    final base = plan.base;
+    final liveId = base.live.id;
+    if (liveId == null) throw ArgumentError('既存のライブに ID がありません');
+
+    final merged = plan.mergedLive;
+    final performersChanged = plan.liveChanges.any(
+      (c) => c.field == 'groupIds' || c.field == 'oshiIds',
+    );
+    final performers = <String, dynamic>{
+      'groupIds': List<String>.of(merged.groupIds),
+      'oshiIds': List<String>.of(merged.oshiIds),
+    };
+
+    // 書き込む前に ID を決め、戻り値の形を作っておく
+    final saved = (
+      live: liveWithChanges(base.live, plan.liveChanges),
+      performances: [
+        for (final d in plan.changedPerformances)
+          d.merged.copyWithIds(
+            id: d.existing.id!,
+            liveId: liveId,
+            groupIds: merged.groupIds,
+            oshiIds: merged.oshiIds,
+          ),
+        for (final a in plan.addedPerformances)
+          a.doc.copyWithIds(
+            id: _performances.doc().id,
+            liveId: liveId,
+            groupIds: merged.groupIds,
+            oshiIds: merged.oshiIds,
+          ),
+      ],
+      receptions: [
+        for (final d in plan.changedReceptions)
+          d.merged.copyWithIds(
+            id: d.existing.id!,
+            liveId: liveId,
+            groupIds: merged.groupIds,
+            oshiIds: merged.oshiIds,
+          ),
+        for (final a in plan.addedReceptions)
+          a.doc.copyWithIds(
+            id: _receptions.doc().id,
+            liveId: liveId,
+            groupIds: merged.groupIds,
+            oshiIds: merged.oshiIds,
+          ),
+      ],
+    );
+
+    // 同時更新を確かめるドキュメント: ライブ本体（必ず）と、変更する公演・受付
+    final checked = <String>[
+      'lives/$liveId',
+      for (final d in plan.changedPerformances) 'performances/${d.existing.id}',
+      for (final d in plan.changedReceptions) 'receptions/${d.existing.id}',
+    ];
+
+    final conflicts = await _db.runTransaction<List<String>>((tx) async {
+      // 読み取り（書き込みより先に、すべて読む）
+      final snaps = await Future.wait([
+        for (final path in checked) tx.get(_db.doc(path)),
+      ]);
+      final changed = <String>[
+        for (final (i, snap) in snaps.indexed)
+          if (!snap.exists ||
+              !firestoreValueEquals(
+                snap.data()?['updatedAt'],
+                base.versions[checked[i]],
+              ))
+            checked[i],
+      ];
+      if (changed.isNotEmpty) return changed;
+
+      final now = FieldValue.serverTimestamp();
+      final audit = <String, dynamic>{'updatedBy': uid, 'updatedAt': now};
+
+      void writeChanges(
+        DocumentReference<Map<String, dynamic>> ref,
+        List<FieldChange> changes, {
+        bool syncPerformers = false,
+      }) {
+        tx.update(ref, {
+          for (final c in changes)
+            c.field: c.hasAfter ? c.after : FieldValue.delete(),
+          if (syncPerformers) ...performers,
+          ...audit,
+        });
+        for (final c in changes) {
+          tx.set(ref.collection('history').doc(), {
+            'field': c.field,
+            if (c.hasBefore) 'before': c.before,
+            if (c.hasAfter) 'after': c.after,
+            'changedBy': uid,
+            'changedAt': now,
+          });
+        }
+      }
+
+      // ライブ本体: 項目が変わらなくても updatedBy・updatedAt は必ず書く
+      writeChanges(_lives.doc(liveId), plan.liveChanges);
+
+      final changedPerfIds = {
+        for (final d in plan.changedPerformances) d.existing.id,
+      };
+      final changedRecIds = {
+        for (final d in plan.changedReceptions) d.existing.id,
+      };
+      for (final d in plan.changedPerformances) {
+        // 出演者は常にライブ（反映後）と同じにする。ルールの外で書かれた
+        // ずれたデータも、次の変更で直るように（qa の D4 レビュー）
+        writeChanges(
+          _performances.doc(d.existing.id),
+          d.changes,
+          syncPerformers: true,
+        );
+      }
+      for (final d in plan.changedReceptions) {
+        writeChanges(
+          _receptions.doc(d.existing.id),
+          d.changes,
+          syncPerformers: true,
+        );
+      }
+      // 出演者が増えたら、変更の無い公演・受付の複製項目もそろえる（履歴なし）
+      if (performersChanged) {
+        for (final p in base.performances) {
+          if (changedPerfIds.contains(p.id)) continue;
+          tx.update(_performances.doc(p.id), {...performers, ...audit});
+        }
+        for (final r in base.receptions) {
+          if (changedRecIds.contains(r.id)) continue;
+          tx.update(_receptions.doc(r.id), {...performers, ...audit});
+        }
+      }
+
+      final create = <String, dynamic>{
+        'liveId': liveId,
+        ...performers,
+        'createdBy': uid,
+        'createdAt': now,
+        ...audit,
+      };
+      final added = plan.changedPerformances.length;
+      for (final p in saved.performances.skip(added)) {
+        tx.set(_performances.doc(p.id), {...p.toFirestore(), ...create});
+      }
+      final addedR = plan.changedReceptions.length;
+      for (final r in saved.receptions.skip(addedR)) {
+        tx.set(_receptions.doc(r.id), {...r.toFirestore(), ...create});
+      }
+      return const [];
+    });
+
+    if (conflicts.isNotEmpty) throw LiveConflictException(conflicts);
+    return saved;
+  }
+
+  @override
+  Stream<List<HistoryEntry>> watchHistory(HistoryTarget target) => _db
+      .collection(target.collection.name)
+      .doc(target.docId)
+      .collection('history')
+      .snapshots()
+      .map(
+        (snap) => [
+          for (final doc in snap.docs) HistoryEntry.fromFirestore(target, doc),
+        ]..sort(_historyNewestFirst),
+      );
+
+  @override
+  Stream<List<DocStamp>> watchDocStamps(String liveId) {
+    DocStamp stamp(
+      HistoryCollection c,
+      DocumentSnapshot<Map<String, dynamic>> doc,
+    ) {
+      final data = doc.data() ?? const <String, dynamic>{};
+      return DocStamp(
+        target: HistoryTarget(c, doc.id),
+        createdAt: _timestampToDate(data['createdAt']),
+        updatedAt: _timestampToDate(data['updatedAt']),
+      );
+    }
+
+    return _combineLatest<DocStamp>([
+      _lives
+          .doc(liveId)
+          .snapshots()
+          .map((doc) => [if (doc.exists) stamp(HistoryCollection.lives, doc)]),
+      _performances
+          .where('liveId', isEqualTo: liveId)
+          .snapshots()
+          .map(
+            (snap) => [
+              for (final doc in snap.docs)
+                stamp(HistoryCollection.performances, doc),
+            ],
+          ),
+      _receptions
+          .where('liveId', isEqualTo: liveId)
+          .snapshots()
+          .map(
+            (snap) => [
+              for (final doc in snap.docs)
+                stamp(HistoryCollection.receptions, doc),
+            ],
+          ),
+    ]);
+  }
+
+  @override
+  Future<void> revert(HistoryEntry entry, {required String uid}) async {
+    if (!canRevert(entry)) {
+      throw ArgumentError('この変更は元に戻せません（${entry.field}）');
+    }
+    final ref = _db.doc(entry.target.path);
+    final field = entry.field;
+    final conflict = await _db.runTransaction<bool>((tx) async {
+      final snap = await tx.get(ref);
+      if (!snap.exists) return true;
+      final data = snap.data() ?? const <String, dynamic>{};
+      final hasCurrent = data.containsKey(field) && data[field] != null;
+      final current = data[field];
+      final same = entry.hasAfter
+          ? hasCurrent && firestoreValueEquals(current, entry.after)
+          : !hasCurrent;
+      if (!same) return true;
+
+      final now = FieldValue.serverTimestamp();
+      tx.update(ref, {
+        field: entry.hasBefore ? entry.before : FieldValue.delete(),
+        'updatedBy': uid,
+        'updatedAt': now,
+      });
+      tx.set(ref.collection('history').doc(), {
+        'field': field,
+        if (hasCurrent) 'before': current,
+        if (entry.hasBefore) 'after': entry.before,
+        'changedBy': uid,
+        'changedAt': now,
+      });
+      return false;
+    });
+    if (conflict) throw LiveConflictException([entry.target.path]);
+  }
+
   /// groupIds・oshiIds を30件ずつに分けて購読し、まとめて流す。
   /// すべてのクエリが1回ずつ値を流してから、最初の値を流す。
   Stream<List<T>> _watchTargets<T extends Object>(
@@ -336,4 +769,68 @@ T? _tryParse<T extends Object>(
     debugPrint('読めないドキュメントを飛ばしました: ${doc.reference.path}（$e）');
     return null;
   }
+}
+
+/// 履歴を新しい順に並べる（changedAt が未確定のものは先頭。同じなら ID の順）
+int _historyNewestFirst(HistoryEntry a, HistoryEntry b) {
+  final at = a.changedAt, bt = b.changedAt;
+  if (at == null && bt != null) return -1;
+  if (at != null && bt == null) return 1;
+  if (at != null && bt != null) {
+    final c = bt.compareTo(at);
+    if (c != 0) return c;
+  }
+  return a.id.compareTo(b.id);
+}
+
+DateTime? _timestampToDate(Object? v) => v is Timestamp ? v.toDate() : null;
+
+/// 複数のストリームの最新の値をつなげて流す。すべてが1回ずつ値を流してから、
+/// 最初の値を流す。どれかがエラーになったら、エラーを1回流して閉じる
+Stream<List<T>> _combineLatest<T>(List<Stream<List<T>>> streams) {
+  late final StreamController<List<T>> controller;
+  final subscriptions = <StreamSubscription<List<T>>>[];
+  final latest = List<List<T>?>.filled(streams.length, null);
+  var failed = false;
+
+  Future<void> cancelAll() async {
+    final subs = [...subscriptions];
+    subscriptions.clear();
+    await Future.wait([for (final s in subs) s.cancel()]);
+  }
+
+  controller = StreamController<List<T>>(
+    onListen: () {
+      for (final (i, stream) in streams.indexed) {
+        subscriptions.add(
+          stream.listen(
+            (value) {
+              if (failed) return;
+              latest[i] = value;
+              if (latest.any((v) => v == null)) return;
+              controller.add([for (final v in latest) ...v!]);
+            },
+            onError: (Object error, StackTrace stackTrace) {
+              if (failed) return;
+              failed = true;
+              controller.addError(error, stackTrace);
+              cancelAll().whenComplete(controller.close);
+            },
+          ),
+        );
+      }
+    },
+    onPause: () {
+      for (final s in subscriptions) {
+        s.pause();
+      }
+    },
+    onResume: () {
+      for (final s in subscriptions) {
+        s.resume();
+      }
+    },
+    onCancel: cancelAll,
+  );
+  return controller.stream;
 }

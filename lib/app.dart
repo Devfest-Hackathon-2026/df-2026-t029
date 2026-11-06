@@ -12,6 +12,7 @@ import 'features/live/live_list_page.dart';
 import 'features/scan/scan_page.dart';
 import 'features/live_form/live_draft.dart';
 import 'features/live_form/live_form_page.dart';
+import 'features/live_merge/live_edit_page.dart';
 import 'features/oshi/oshi_request_page.dart';
 import 'features/oshi/oshi_search_page.dart';
 import 'features/calendar/calendar_test_page.dart';
@@ -62,6 +63,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => LiveDetailPage(
                   liveId: state.pathParameters['liveId']!,
                 ),
+                routes: [
+                  // ライブの編集（Step4・計画書 3.7）
+                  GoRoute(
+                    path: 'edit',
+                    builder: (context, state) => LiveEditPage(
+                      liveId: state.pathParameters['liveId']!,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

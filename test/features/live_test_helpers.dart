@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:oshiashi/models/application.dart';
+import 'package:oshiashi/models/history_entry.dart';
 import 'package:oshiashi/models/live.dart';
 import 'package:oshiashi/models/performance.dart';
 import 'package:oshiashi/models/reception.dart';
 import 'package:oshiashi/repositories/application_repository.dart';
 import 'package:oshiashi/repositories/live_repository.dart';
+import 'package:oshiashi/utils/live_diff.dart';
 
 import 'oshi_test_helpers.dart';
 
@@ -149,6 +151,96 @@ class FakeLiveRepository implements LiveRepository {
         receptions.where((r) => r.liveId == liveId).toList()
           ..sort((a, b) => a.applyEndAt.compareTo(b.applyEndAt)),
   );
+
+  // ---- Step4: 照合・更新・変更履歴 ----
+
+  /// fetchCandidates が返すもの（出演者での絞り込みはしない）
+  List<ExistingLive> candidates = const [];
+
+  /// fetchCandidates に渡されたもの
+  final candidateCalls = <({List<String> groupIds, List<String> oshiIds})>[];
+
+  /// fetchExisting が返すもの（ライブ ID → 一式）
+  Map<String, ExistingLive> existing = {};
+
+  /// 設定すると、fetchCandidates・fetchExisting はこれを投げる
+  Object? fetchError;
+
+  /// applyMerge に渡されたもの
+  final merged = <({LiveMergePlan plan, String uid})>[];
+
+  /// 設定すると、applyMerge はこれが完了するまで待つ
+  Completer<void>? mergeGate;
+
+  /// 設定すると、applyMerge はこれを投げる（LiveConflictException など）
+  Object? mergeError;
+
+  /// watchHistory が流すもの（対象 → 履歴）
+  Map<HistoryTarget, List<HistoryEntry>> history = {};
+
+  /// watchDocStamps が流すもの（ライブ ID → 日時）
+  Map<String, List<DocStamp>> docStamps = {};
+
+  /// revert に渡されたもの
+  final reverted = <({HistoryEntry entry, String uid})>[];
+
+  /// 設定すると、revert はこれを投げる
+  Object? revertError;
+
+  void setHistory(HistoryTarget target, List<HistoryEntry> entries) {
+    history = {...history, target: entries};
+    _changes.add(null);
+  }
+
+  void setDocStamps(String liveId, List<DocStamp> stamps) {
+    docStamps = {...docStamps, liveId: stamps};
+    _changes.add(null);
+  }
+
+  @override
+  Future<List<ExistingLive>> fetchCandidates({
+    required List<String> groupIds,
+    required List<String> oshiIds,
+  }) async {
+    candidateCalls.add((groupIds: groupIds, oshiIds: oshiIds));
+    if (fetchError case final e?) throw e;
+    return candidates;
+  }
+
+  @override
+  Future<ExistingLive?> fetchExisting(String liveId) async {
+    if (fetchError case final e?) throw e;
+    return existing[liveId];
+  }
+
+  @override
+  Future<SavedLive> applyMerge(
+    LiveMergePlan plan, {
+    required String uid,
+  }) async {
+    merged.add((plan: plan, uid: uid));
+    await mergeGate?.future;
+    if (mergeError case final e?) throw e;
+    return (
+      live: plan.base.live,
+      performances: const <Performance>[],
+      receptions: const <Reception>[],
+    );
+  }
+
+  @override
+  Stream<List<HistoryEntry>> watchHistory(HistoryTarget target) =>
+      _watch(() => history[target] ?? const <HistoryEntry>[]);
+
+  @override
+  Stream<List<DocStamp>> watchDocStamps(String liveId) =>
+      _watch(() => docStamps[liveId] ?? const <DocStamp>[]);
+
+  @override
+  Future<void> revert(HistoryEntry entry, {required String uid}) async {
+    reverted.add((entry: entry, uid: uid));
+    if (revertError case final e?) throw e;
+  }
 }
 
 /// 申込状況を覚えておく偽の ApplicationRepository

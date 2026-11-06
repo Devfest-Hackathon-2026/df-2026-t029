@@ -12,14 +12,22 @@ import '../../providers/live_providers.dart';
 import '../../providers/oshi_providers.dart';
 import '../../repositories/live_repository.dart';
 import '../../services/calendar_events.dart';
+import '../../utils/live_match.dart';
 import '../calendar/calendar_add_sheet.dart';
+import '../live_merge/live_candidates_sheet.dart';
+import '../live_merge/merge_review_page.dart';
 import 'performer_picker_sheet.dart';
 
 /// ライブ情報の確認・修正画面（空で開けば手入力の登録画面になる）
 class LiveFormPage extends ConsumerStatefulWidget {
-  const LiveFormPage({super.key, this.initial});
+  const LiveFormPage({super.key, this.initial, this.editSeed, this.editBase});
 
   final LiveDraft? initial;
+
+  /// 編集中のライブ（Step4・計画書 3.7）。指定があれば、保存で照合を飛ばし、
+  /// [editBase] との差分の確認へ進む
+  final LiveEditSeed? editSeed;
+  final ExistingLive? editBase;
 
   @override
   ConsumerState<LiveFormPage> createState() => _LiveFormPageState();
@@ -79,17 +87,68 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
       return;
     }
     setState(() => _saving = true);
+    final repo = ref.read(liveRepositoryProvider);
+    final m = _draft.toModels();
+
+    // 編集: 照合は飛ばし、そのライブとの差分の確認へ（計画書 3.7）
+    final editSeed = widget.editSeed;
+    final editBase = widget.editBase;
+    if (editSeed != null && editBase != null) {
+      final ids = editSeed.idsInOrder();
+      await _mergeInto(
+        MergeReviewRequest(
+          base: editBase,
+          input: m,
+          performanceIds: ids.performanceIds,
+          receptionIds: ids.receptionIds,
+          editing: true,
+        ),
+      );
+      return;
+    }
+
+    // 同じライブが登録済みか照合する（Step4・計画書 3.1）
+    final List<LiveCandidate> candidates;
+    try {
+      candidates = await fetchLiveCandidates(repo, m);
+    } catch (e) {
+      debugPrint('ライブの照合に失敗: $e');
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('登録済みのライブを確認できませんでした。通信状況を確かめて、もう一度お試しください'),
+          ),
+        );
+      return;
+    }
+    if (!mounted) return;
+    if (candidates.isNotEmpty) {
+      final choice = await showLiveCandidatesSheet(context, candidates);
+      if (!mounted) return;
+      switch (choice) {
+        case null:
+          // 閉じたら何もしない（入力は残す）
+          setState(() => _saving = false);
+          return;
+        case UseExistingLive(:final existing):
+          await _mergeInto(MergeReviewRequest(base: existing, input: m));
+          return;
+        case CreateNewLive():
+          break;
+      }
+    }
+
     final SavedLive saved;
     try {
-      final m = _draft.toModels();
-      saved = await ref
-          .read(liveRepositoryProvider)
-          .create(
-            live: m.live,
-            performances: m.performances,
-            receptions: m.receptions,
-            uid: uid,
-          );
+      saved = await repo.create(
+        live: m.live,
+        performances: m.performances,
+        receptions: m.receptions,
+        uid: uid,
+      );
     } catch (e) {
       debugPrint('ライブの保存に失敗: $e');
       // State.context を使うので、State の mounted で確認する
@@ -103,8 +162,64 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
       return;
     }
     if (!mounted) return;
+    await _afterSaved(saved, '保存しました');
+  }
+
+  /// 既存のライブとの差分を確認して反映する（Step4・計画書 3.2・3.3）
+  Future<void> _mergeInto(MergeReviewRequest request) async {
+    final liveId = request.base.live.id!;
+    final plan = request.diff();
+    if (plan.isEmpty) {
+      // 出演者を外そうとしただけなら、外れないことを名前つきで知らせる
+      final removals = plan.ignoredPerformerRemovals;
+      final names = {
+        for (final o
+            in ref.read(allOshisProvider).value ?? const <OshiSummary>[])
+          o.id: o.name,
+      };
+      _goAlreadyRegistered(
+        liveId,
+        keptPerformers: [
+          for (final id in [...removals.groupIds, ...removals.oshiIds])
+            names[id] ?? id,
+        ],
+      );
+      return;
+    }
+    final result = await showMergeReview(context, request);
+    if (!mounted) return;
+    switch (result) {
+      case null:
+        // 戻るで閉じたら何もしない（入力は残す）
+        setState(() => _saving = false);
+      case MergeNothingToApply(:final liveId):
+        _goAlreadyRegistered(liveId);
+      case MergeApplied(:final saved):
+        await _afterSaved(saved, '反映しました');
+    }
+  }
+
+  /// 変更も追加も無い: 書き込まずに、そのライブの詳細へ移る
+  void _goAlreadyRegistered(
+    String liveId, {
+    List<String> keptPerformers = const [],
+  }) {
+    // 編集で何も変えなかったときは「変更はありません」。出演者を外そうと
+    // しただけのときは、外れないことを知らせる（ルールで減らせないため）
+    final message = widget.editSeed == null
+        ? 'すでに登録済みです'
+        : keptPerformers.isNotEmpty
+        ? '出演者は外せません（${keptPerformers.join('、')}はそのまま残ります）'
+        : '変更はありません';
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('保存しました')));
+        .showSnackBar(SnackBar(content: Text(message)));
+    context.go('/lives/$liveId');
+  }
+
+  /// 保存・反映の後: カレンダー追加シートを出し、ライブ詳細へ移る
+  Future<void> _afterSaved(SavedLive saved, String message) async {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
 
     // 保存後に、予定を選んで Google カレンダーへ追加できるようにする（Step5）
     final events = buildCalendarEvents(
@@ -138,7 +253,13 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.initial == null ? 'ライブ情報の入力' : 'ライブ情報の確認'),
+        title: Text(
+          widget.editSeed != null
+              ? 'ライブ情報の編集'
+              : widget.initial == null
+              ? 'ライブ情報の入力'
+              : 'ライブ情報の確認',
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),

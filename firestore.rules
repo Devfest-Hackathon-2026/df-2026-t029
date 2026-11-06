@@ -42,30 +42,43 @@ rules_version = '2';
 // Step2: ライブ・公演・受付（共通データ）と申込状況
 // 計画書 markdown/feature_step2_live_plan.md 3.1・3.6、DB 設計案 3.3〜3.5・3.8
 // ---------------------------------------------------------------
-// クライアントは作成のみ（1つの WriteBatch で、ライブ1件＋公演1〜50件＋受付0〜30件）。
-// 更新・削除は Step2 では不可（Step4 で開ける）。読み取りはログイン済みなら可。
+// 作成は1つの WriteBatch で、ライブ1件＋公演1〜50件＋受付0〜30件（Step2）。
+// 更新はログイン済みなら誰でも可（Step4。計画書 feature_step4_merge_plan.md 3.8）。
+// 削除は不可。読み取りはログイン済みなら可。
 // 3つに共通の項目:
-//   - createdBy / updatedBy: string（必須、作成者の uid と一致）
-//   - createdAt / updatedAt: timestamp（必須、サーバー時刻 = request.time）
+//   - createdBy / updatedBy: string（必須。作成時は作成者の uid。更新時は
+//     createdBy は変えず、updatedBy は更新した人の uid）
+//   - createdAt / updatedAt: timestamp（必須、サーバー時刻 = request.time。
+//     更新時は createdAt は変えず、updatedAt は request.time）
 //   - groupIds / oshiIds: list<string>（必須、各20個以下、合わせて1個以上）。
 //     公演・受付ではライブと同じ値（getAfter で照合）。
 //     ※ 件数だけを検査し、要素の型・長さは検査しない（ユーザー決定・案A。
 //       users の followingGroupIds と同じ方針）。ルールで評価できる式は
 //       1ドキュメントあたり1000個までで、20個＋20個の要素を検査すると上限に
 //       近づくため。要素が文字列でないドキュメントは、アプリが読むときに飛ばす
+//     ライブの更新では減らせない（既存の値をすべて含む。Step4）
+//   - 公演・受付の作成は、同じバッチでこのユーザーがライブを作成または更新
+//     （updatedAt = request.time）している場合に限る。更新では liveId を変えない
+//
+// Subcollection: lives / performances / receptions の {docId}/history（変更履歴。Step4）
+//   - field: string（必須、そのコレクションの項目名） / before・after: 任意の値（任意。
+//     after は親の反映後の値と同じ。after が無いのは項目を消したとき）
+//   - changedBy: string（必須、uid と一致） / changedAt: timestamp（必須、request.time）
+//   ※ 作成は、同じバッチで親のドキュメントをこのユーザーが更新している
+//     （新規作成ではない）場合に限る。更新・削除は不可
 //
 // Collection: lives（ライブ）
 //   - title: string（必須、1〜100文字、空白だけは不可）
 //   - officialUrl: string（任意、https:// で始まり空白を含まない、200文字以内）
 //
 // Collection: performances（公演）
-//   - liveId: string（必須。同じバッチで作られたライブの ID）
+//   - liveId: string（必須。同じバッチで作成・更新したライブの ID。変更不可）
 //   - startAt: timestamp（必須） / openAt: timestamp（任意）
 //   - venue: string（必須、1〜100文字、空白だけは不可）
 //   - prefecture: string（任意、1〜10文字）
 //
 // Collection: receptions（受付）
-//   - liveId: string（必須。同じバッチで作られたライブの ID）
+//   - liveId: string（必須。同じバッチで作成・更新したライブの ID。変更不可）
 //   - type: string（必須、fc / general / upgrade / other）
 //   - name: string（必須、1〜50文字、空白だけは不可）
 //   - applyEndAt: timestamp（必須）
@@ -323,7 +336,8 @@ service cloud.firestore {
               'createdBy', 'createdAt', 'updatedBy', 'updatedAt'];
     }
 
-    function isValidLive(data) {
+    // 項目・型・長さ（作成・更新で共通）
+    function isValidLiveFields(data) {
       return data.keys().hasOnly(liveFields()) &&
         data.keys().hasAll(['title', 'groupIds', 'oshiIds',
           'createdBy', 'createdAt', 'updatedBy', 'updatedAt']) &&
@@ -333,23 +347,80 @@ service cloud.firestore {
         data.groupIds.size() + data.oshiIds.size() >= 1 &&
         (!('officialUrl' in data) ||
           (isStringOfSize(data.officialUrl, 9, 200) &&
-           data.officialUrl.matches('^https://\\S+$'))) &&
-        isValidAuditOnCreate(data);
+           data.officialUrl.matches('^https://\\S+$')));
     }
 
-    // 公演・受付が、同じバッチ（＝同じ request.time）で作られたライブに属し、
-    // groupIds・oshiIds がライブと同じか。
-    // 計画書 3.6 の「条件付き」: ルールでほかのドキュメントを読める回数には
-    // 上限がある。上限の件数（公演50件・受付30件）でエミュレータのテストが
-    // 通らなければ、この関数の呼び出しを外す。
-    function belongsToLiveCreatedNow(data) {
+    function isValidLive(data) {
+      return isValidLiveFields(data) && isValidAuditOnCreate(data);
+    }
+
+    // ライブの更新（Step4）: 出演者は減らせない（外すと、その推しをフォロー
+    // している人の一覧から消えるため。計画書 3.3）
+    function isValidLiveUpdate(data) {
+      return isValidLiveFields(data) &&
+        isValidAuditOnUpdate(data) &&
+        data.groupIds.hasAll(resource.data.groupIds) &&
+        data.oshiIds.hasAll(resource.data.oshiIds);
+    }
+
+    // 公演・受付の作成: 同じバッチ（＝同じ request.time）で、このユーザーが
+    // 作成または更新したライブに属し、groupIds・oshiIds がライブと同じか。
+    // Step2 では「同じバッチで作られたライブ」だけだったが、Step4 で既存の
+    // ライブへの追加を許すために広げた（追加するときはライブの updatedAt も
+    // 書き直す。計画書 3.8）。作成と同じバッチなら、ライブの updatedAt・
+    // updatedBy は isValidAuditOnCreate で request.time・本人になっている。
+    // ルールでほかのドキュメントを読める回数には上限がある（Step2 で実測済み）。
+    function belongsToLiveWrittenNow(data) {
       let live = getAfter(/databases/$(database)/documents/lives/$(data.liveId)).data;
-      return live.createdAt == request.time &&
+      return live.updatedAt == request.time &&
+        live.updatedBy == request.auth.uid &&
         live.groupIds == data.groupIds &&
         live.oshiIds == data.oshiIds;
     }
 
-    function isValidPerformance(data) {
+    // 公演・受付の更新: liveId は変えず、groupIds・oshiIds は（このバッチの後の）
+    // ライブと同じ。ライブの出演者が増えたときは、同じバッチで子もそろえる
+    function isValidChildUpdate(data) {
+      let live = getAfter(/databases/$(database)/documents/lives/$(data.liveId)).data;
+      return data.liveId == resource.data.liveId &&
+        isValidAuditOnUpdate(data) &&
+        live.groupIds == data.groupIds &&
+        live.oshiIds == data.oshiIds;
+    }
+
+    // 変更履歴に書ける項目名（アプリの MergeFields と同じ）
+    function historyFieldsOf(collectionName) {
+      return collectionName == 'lives'
+        ? ['title', 'officialUrl', 'groupIds', 'oshiIds']
+        : (collectionName == 'performances'
+          ? ['startAt', 'openAt', 'venue', 'prefecture']
+          : ['type', 'name', 'applyStartAt', 'applyEndAt', 'resultAt',
+             'paymentDeadline', 'prices', 'winnersOnly']);
+    }
+
+    // 変更履歴の作成（Step4）:
+    // - 同じバッチで、このユーザーが親のドキュメントを更新している（新規作成は
+    //   除く）。グッズの isGoodsUpdatedNow と同じ考え方
+    // - field はそのコレクションの項目名
+    // - after は親の反映後の値と同じ（after が無ければ、親にその項目が無い）
+    // ※ before は書き込み前の値（get）が要り、別々のドキュメントを get で読める
+    //   数に上限があるため検査しない（既知の限界。誰でも直接更新できる設計なので、
+    //   偽の before で得られる力は直接更新と同じ範囲）。getAfter は上限に
+    //   当たらないことをエミュレータで実測済み（qa の Q3）
+    function isValidHistoryOf(collectionName, docId, data) {
+      let parent = getAfter(/databases/$(database)/documents/$(collectionName)/$(docId)).data;
+      return isValidHistory(data) &&
+        data.field in historyFieldsOf(collectionName) &&
+        parent.updatedAt == request.time &&
+        parent.updatedBy == request.auth.uid &&
+        parent.createdAt != request.time &&
+        (('after' in data)
+          ? (data.field in parent && parent[data.field] == data.after)
+          : !(data.field in parent));
+    }
+
+    // 項目・型・長さ（作成・更新で共通）
+    function isValidPerformanceFields(data) {
       return data.keys().hasOnly(['liveId', 'groupIds', 'oshiIds', 'startAt',
           'openAt', 'venue', 'prefecture',
           'createdBy', 'createdAt', 'updatedBy', 'updatedAt']) &&
@@ -359,9 +430,13 @@ service cloud.firestore {
         data.startAt is timestamp &&
         isOptionalTimestamp(data, 'openAt') &&
         isNonBlankString(data.venue, 100) &&
-        isValidOptionalString(data, 'prefecture', 1, 10) &&
+        isValidOptionalString(data, 'prefecture', 1, 10);
+    }
+
+    function isValidPerformance(data) {
+      return isValidPerformanceFields(data) &&
         isValidAuditOnCreate(data) &&
-        belongsToLiveCreatedNow(data);
+        belongsToLiveWrittenNow(data);
     }
 
     function receptionTypes() {
@@ -397,7 +472,8 @@ service cloud.firestore {
         isValidPriceAt(list, 9);
     }
 
-    function isValidReception(data) {
+    // 項目・型・長さ（作成・更新で共通）
+    function isValidReceptionFields(data) {
       return data.keys().hasOnly(['liveId', 'groupIds', 'oshiIds', 'type',
           'name', 'applyStartAt', 'applyEndAt', 'resultAt', 'paymentDeadline',
           'prices', 'winnersOnly',
@@ -413,9 +489,13 @@ service cloud.firestore {
         isOptionalTimestamp(data, 'resultAt') &&
         isOptionalTimestamp(data, 'paymentDeadline') &&
         (!('prices' in data) || isValidPrices(data.prices)) &&
-        data.winnersOnly is bool &&
+        data.winnersOnly is bool;
+    }
+
+    function isValidReception(data) {
+      return isValidReceptionFields(data) &&
         isValidAuditOnCreate(data) &&
-        belongsToLiveCreatedNow(data);
+        belongsToLiveWrittenNow(data);
     }
 
     function applicationStatuses() {
@@ -476,28 +556,57 @@ service cloud.firestore {
     }
 
     // =============================================================
-    // ライブ・公演・受付（Step2。作成のみ）
+    // ライブ・公演・受付（作成は Step2、更新と変更履歴は Step4。削除は不可）
     // =============================================================
 
     match /lives/{liveId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() &&
         isValidLive(request.resource.data);
-      allow update, delete: if false;
+      allow update: if isAuthenticated() &&
+        isValidLiveUpdate(request.resource.data);
+      allow delete: if false;
+
+      match /history/{historyId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() &&
+          isValidHistoryOf('lives', liveId, request.resource.data);
+        allow update, delete: if false;
+      }
     }
 
     match /performances/{performanceId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() &&
         isValidPerformance(request.resource.data);
-      allow update, delete: if false;
+      allow update: if isAuthenticated() &&
+        isValidPerformanceFields(request.resource.data) &&
+        isValidChildUpdate(request.resource.data);
+      allow delete: if false;
+
+      match /history/{historyId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() &&
+          isValidHistoryOf('performances', performanceId, request.resource.data);
+        allow update, delete: if false;
+      }
     }
 
     match /receptions/{receptionId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() &&
         isValidReception(request.resource.data);
-      allow update, delete: if false;
+      allow update: if isAuthenticated() &&
+        isValidReceptionFields(request.resource.data) &&
+        isValidChildUpdate(request.resource.data);
+      allow delete: if false;
+
+      match /history/{historyId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() &&
+          isValidHistoryOf('receptions', receptionId, request.resource.data);
+        allow update, delete: if false;
+      }
     }
 
     // =============================================================

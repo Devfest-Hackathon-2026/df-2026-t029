@@ -86,3 +86,13 @@ NextActionText describeNextDeadline(NextDeadline deadline, DateTime now) {
     opensText: opensText,
   );
 }
+
+/// [at] から [now] までの経過の表示（例：「たった今」「30分前」「2時間前」「3日前」）。
+/// 変更履歴と「変更あり」の1行で使う。[at] が [now] より後でも「たった今」
+String elapsedLabel(DateTime at, DateTime now) {
+  final d = now.difference(at);
+  if (d < const Duration(minutes: 1)) return 'たった今';
+  if (d < const Duration(hours: 1)) return '${d.inMinutes}分前';
+  if (d < const Duration(hours: 24)) return '${d.inHours}時間前';
+  return '${d.inDays}日前';
+}
