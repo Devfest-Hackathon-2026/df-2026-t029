@@ -32,6 +32,7 @@ chats/{chatId}                    個人チャット
   └ messages/{messageId}          メッセージ
 users/{uid}                       ユーザー（個人データ）
   └ applications/{receptionId}    申込状況
+  └ memories/{performanceId}      ライブの記録
 ```
 
 ## 3. 各コレクションの項目
@@ -291,6 +292,26 @@ tradePosts/p1
 | createdAt | timestamp | ○ | 送信日時 |
 
 メッセージは文字のみとし、作成後の編集・削除はできない。
+
+### 3.14 users/{uid}/memories/{performanceId}（ライブの記録）
+
+ドキュメント ID は公演 ID と同じにし、1公演につき1件とする。
+
+| フィールド | 型 | 必須 | 内容 |
+|---|---|---|---|
+| liveId | string | ○ | ライブの ID |
+| liveTitle | string | ○ | ライブ名（複製。一覧の表示用） |
+| startAt | timestamp | ○ | 開演日時（複製。並び順と状態の判定に使う） |
+| venue | string | ○ | 会場名（複製） |
+| seat | string | | 座席（100文字まで） |
+| setlist | array | | 曲名（string の配列。100曲まで、各100文字まで） |
+| impression | string | | 感想（2,000文字まで） |
+| images | array | ○ | 写真（Storage のパスの配列。8枚まで）。M-5 までは空 |
+| createdAt | timestamp | ○ | 作成日時 |
+| updatedAt | timestamp | ○ | 更新日時 |
+
+「参戦予定」「参戦済み」の状態は保存せず、`startAt` と現在時刻から判定する。
+写真の保存先は `users/{uid}/memories/{performanceId}/{ファイル名}` とする（M-5）。
 
 ## 4. 値の定義
 
