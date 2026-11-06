@@ -16,6 +16,7 @@ import '../utils/deadline.dart';
 import '../utils/live_diff.dart';
 import '../utils/live_match.dart';
 import '../utils/live_search.dart';
+import '../utils/winners_only.dart';
 import 'oshi_providers.dart';
 
 /// ライブ・公演・受付のリポジトリ。テストでは `overrideWithValue` で差し替える
@@ -124,8 +125,14 @@ final applicationsProvider = StreamProvider<Map<String, Application>>((ref) {
   return ref.watch(applicationRepositoryProvider).watchAll(uid);
 }, retry: firestoreRetry);
 
+/// 当選者のみの受付を見られるライブの ID（won か paid のあるライブ）。
+/// 申込状況が読み込み中・エラーのときは、そのまま伝える
+final winnerLiveIdsProvider = Provider<AsyncValue<Set<String>>>(
+  (ref) => ref.watch(applicationsProvider).whenData(winnerLiveIds),
+);
+
 /// ホームの「次の締切」（近い順・期限切れを除く・件数は絞らない）。
-/// ライブが見つからない受付は除く
+/// ライブが見つからない受付と、当選者でない人の当選者のみの受付は除く
 final upcomingDeadlinesProvider = Provider<AsyncValue<List<DeadlineEntry>>>((
   ref,
 ) {
@@ -142,7 +149,12 @@ final upcomingDeadlinesProvider = Provider<AsyncValue<List<DeadlineEntry>>>((
     final (receptions, applications) = pair;
     final byId = <String, Live>{for (final l in lives) ?l.id: l};
     return [
-      for (final d in upcomingDeadlines(receptions, applications, now))
+      for (final d in upcomingDeadlines(
+        receptions,
+        applications,
+        now,
+        winnerLiveIds: winnerLiveIds(applications),
+      ))
         if (d.reception.liveId case final liveId?)
           if (byId[liveId] case final live?)
             DeadlineEntry(deadline: d, live: live),
@@ -170,6 +182,17 @@ final receptionsOfLiveProvider = StreamProvider.autoDispose
       (ref, liveId) =>
           ref.watch(liveRepositoryProvider).watchReceptionsOf(liveId),
       retry: firestoreRetry,
+    );
+
+/// ライブ詳細用: 見せる受付と、隠した（当選すると表示される）件数。
+/// 差分の確認・編集は絞らない [receptionsOfLiveProvider] を使うこと
+final visibleReceptionsOfLiveProvider = Provider.autoDispose
+    .family<AsyncValue<VisibleReceptions>, String>(
+      (ref, liveId) => _combine2(
+        ref.watch(receptionsOfLiveProvider(liveId)),
+        ref.watch(winnerLiveIdsProvider),
+        splitVisibleReceptions,
+      ),
     );
 
 // ---------------------------------------------------------------------------

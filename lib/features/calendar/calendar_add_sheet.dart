@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../providers/live_providers.dart';
 import '../../services/calendar_events.dart';
 import '../../services/google_calendar_service.dart';
 import '../live_form/date_time_field.dart';
@@ -8,20 +9,25 @@ import '../live_form/date_time_field.dart';
 /// 予定を選んで Google カレンダーに追加するシート。追加したら true を返す
 Future<bool> showCalendarAddSheet(
   BuildContext context,
-  List<CalendarEvent> events,
-) async {
+  List<CalendarEvent> events, {
+  String? liveId,
+}) async {
   final added = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (context) => _CalendarAddSheet(events: events),
+    builder: (context) => _CalendarAddSheet(events: events, liveId: liveId),
   );
   return added ?? false;
 }
 
 class _CalendarAddSheet extends ConsumerStatefulWidget {
-  const _CalendarAddSheet({required this.events});
+  const _CalendarAddSheet({required this.events, this.liveId});
 
   final List<CalendarEvent> events;
+
+  /// 予定のライブの ID。当選者のみの受付の予定を出すかどうかの判定に使う。
+  /// 無いときは、当選者のみの予定は出さない
+  final String? liveId;
 
   @override
   ConsumerState<_CalendarAddSheet> createState() => _CalendarAddSheetState();
@@ -32,6 +38,19 @@ class _CalendarAddSheetState extends ConsumerState<_CalendarAddSheet> {
   late Set<String> _selected = _selectionFor(_preset);
   bool _adding = false;
   String? _error;
+
+  /// 出す予定。当選者のみの受付の予定は、当選者にだけ出す
+  /// （申込状況が読み込み中・エラーのあいだは出さない）
+  List<CalendarEvent> get _events {
+    final liveId = widget.liveId;
+    final isWinner =
+        liveId != null &&
+        (ref.watch(winnerLiveIdsProvider).value?.contains(liveId) ?? false);
+    return [
+      for (final e in widget.events)
+        if (!e.winnersOnly || isWinner) e,
+    ];
+  }
 
   /// プリセットに含まれる種類の予定を選ぶ（当選者のみが対象の受付は外す）
   Set<String> _selectionFor(CalendarPreset preset) => {
@@ -52,7 +71,7 @@ class _CalendarAddSheetState extends ConsumerState<_CalendarAddSheet> {
     });
     try {
       await ref.read(googleCalendarServiceProvider).upsertEvents([
-        for (final e in widget.events)
+        for (final e in _events)
           if (_selected.contains(e.eventId)) e,
       ]);
       if (!mounted) return;
@@ -98,7 +117,7 @@ class _CalendarAddSheetState extends ConsumerState<_CalendarAddSheet> {
               Expanded(
                 child: ListView(
                   children: [
-                    for (final e in widget.events)
+                    for (final e in _events)
                       CheckboxListTile(
                         value: _selected.contains(e.eventId),
                         onChanged: _adding

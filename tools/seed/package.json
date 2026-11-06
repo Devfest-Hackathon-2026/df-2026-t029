@@ -1,0 +1,13 @@
+{
+  "name": "oshiashi-seed-demo",
+  "private": true,
+  "type": "module",
+  "description": "デモ用データ（架空）を Firestore に入れる・消すスクリプト",
+  "scripts": {
+    "seed": "node seed_demo.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "firebase-admin": "13.0.2"
+  }
+}

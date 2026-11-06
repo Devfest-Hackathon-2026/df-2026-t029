@@ -439,4 +439,97 @@ void main() {
       },
     );
   });
+
+  group('当選者のみの受付（winnersOnly）', () {
+    final fcR = recOf('fc', 'l1', applyEndAt: h(48));
+    Reception upg() => Reception(
+      id: 'up',
+      liveId: 'l1',
+      type: ReceptionType.upgrade,
+      name: 'アプグレ',
+      applyEndAt: h(24),
+      winnersOnly: true,
+    );
+    _Env env0(FakeApplicationRepository appRepo) => _Env(
+      liveRepo: FakeLiveRepository(
+        lives: const [
+          Live(id: 'l1', title: 'A', groupIds: ['g1']),
+        ],
+        receptions: [
+          recOf('fc', 'l1', applyEndAt: h(48)),
+          upg(),
+        ],
+      ),
+      appRepo: appRepo,
+    );
+    Application app(ApplicationStatus s) =>
+        Application(receptionId: 'fc', liveId: 'l1', status: s);
+
+    test('winnerLiveIdsProvider: won・paid のライブだけ', () async {
+      final env = env0(
+        FakeApplicationRepository({'fc': app(ApplicationStatus.applied)}),
+      );
+      env.read(winnerLiveIdsProvider);
+      await settle();
+      expect(env.container.read(winnerLiveIdsProvider).requireValue, isEmpty);
+      await env.appRepo.setStatus('u1', fcR, ApplicationStatus.won);
+      await settle();
+      expect(env.container.read(winnerLiveIdsProvider).requireValue, {'l1'});
+    });
+
+    test('winnerLiveIdsProvider: 読み込み中・エラーはそのまま伝える', () async {
+      final err = env0(FakeApplicationRepository()..fail = true);
+      err.read(winnerLiveIdsProvider);
+      await settle();
+      expect(err.container.read(winnerLiveIdsProvider).hasError, isTrue);
+    });
+
+    test('次の締切: 当選するまで出ず、当選すると出る。落選すると消える', () async {
+      final appRepo = FakeApplicationRepository();
+      final env = env0(appRepo);
+      env.read(upcomingDeadlinesProvider);
+      await settle();
+      List<String?> ids() => [
+        for (final e
+            in env.container.read(upcomingDeadlinesProvider).requireValue)
+          e.deadline.reception.id,
+      ];
+      expect(ids(), ['fc']);
+      await appRepo.setStatus('u1', fcR, ApplicationStatus.won);
+      await settle();
+      expect(ids(), contains('up'));
+      await appRepo.setStatus('u1', fcR, ApplicationStatus.lost);
+      await settle();
+      expect(ids(), isNot(contains('up')));
+    });
+
+    test('visibleReceptionsOfLiveProvider: 見せる受付と隠した件数', () async {
+      final appRepo = FakeApplicationRepository();
+      final env = env0(appRepo);
+      env.read(visibleReceptionsOfLiveProvider('l1'));
+      await settle();
+      var v = env.container
+          .read(visibleReceptionsOfLiveProvider('l1'))
+          .requireValue;
+      expect([for (final r in v.visible) r.id], ['fc']);
+      expect(v.hiddenCount, 1);
+      await appRepo.setStatus('u1', fcR, ApplicationStatus.paid);
+      await settle();
+      v = env.container
+          .read(visibleReceptionsOfLiveProvider('l1'))
+          .requireValue;
+      expect(v.visible.length, 2);
+      expect(v.hiddenCount, 0);
+    });
+
+    test('visibleReceptionsOfLiveProvider: 申込状況のエラーはエラー', () async {
+      final env = env0(FakeApplicationRepository()..fail = true);
+      env.read(visibleReceptionsOfLiveProvider('l1'));
+      await settle();
+      expect(
+        env.container.read(visibleReceptionsOfLiveProvider('l1')).hasError,
+        isTrue,
+      );
+    });
+  });
 }

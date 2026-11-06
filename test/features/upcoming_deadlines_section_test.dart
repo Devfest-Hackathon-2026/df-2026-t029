@@ -297,6 +297,13 @@ void main() {
   testWidgets('1行の中身: ライブ名・受付名・次にやること', (tester) async {
     await pumpSection(
       tester,
+      appRepo: FakeApplicationRepository({
+        'won1': const Application(
+          receptionId: 'won1',
+          liveId: 'l1',
+          status: ApplicationStatus.won,
+        ),
+      }),
       oshiRepo: FakeOshiRepository(oshis),
       followRepo: following(),
       liveRepo: FakeLiveRepository(
@@ -460,6 +467,13 @@ void main() {
     usePhoneSize(tester);
     await pumpSection(
       tester,
+      appRepo: FakeApplicationRepository({
+        'won1': const Application(
+          receptionId: 'won1',
+          liveId: 'l1',
+          status: ApplicationStatus.won,
+        ),
+      }),
       oshiRepo: FakeOshiRepository(oshis),
       followRepo: following(),
       liveRepo: FakeLiveRepository(
@@ -480,5 +494,22 @@ void main() {
     );
     expect(tester.takeException(), isNull);
     expect(_key('home_deadline_tile_r1'), findsOneWidget);
+  });
+
+  testWidgets('当選者でなければ、当選者のみの受付は次の締切に出ない', (tester) async {
+    await pumpSection(
+      tester,
+      oshiRepo: FakeOshiRepository(oshis),
+      followRepo: following(),
+      liveRepo: FakeLiveRepository(
+        lives: [live1],
+        receptions: [
+          recOf('r1', 'l1', applyEndAt: h(48)),
+          recOf('r2', 'l1', applyEndAt: h(72), winnersOnly: true),
+        ],
+      ),
+    );
+    expect(_key('home_deadline_tile_r1'), findsOneWidget);
+    expect(_key('home_deadline_tile_r2'), findsNothing);
   });
 }

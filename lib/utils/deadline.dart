@@ -2,6 +2,7 @@ import '../models/application.dart';
 import '../models/live.dart';
 import '../models/performance.dart';
 import '../models/reception.dart';
+import 'winners_only.dart';
 
 /// 次の締切の種類（計画書 3.3）
 enum DeadlineKind {
@@ -50,7 +51,7 @@ class NextDeadline {
 /// - 落選・入金済、または該当の日時が無いときは null
 /// - 期限を過ぎていても null にせず、[NextDeadline.isExpired] を true にして返す
 ///   （ライブ詳細で「期限切れ」と出すため）。期限ちょうど（now == at）は期限切れ
-/// - winnersOnly の受付も対象にする（当選者だけに絞るのは Step7）
+/// - winnersOnly の受付も対象にする（当選者だけに絞るのは [upcomingDeadlines]）
 NextDeadline? nextDeadlineOf(
   Reception reception,
   ApplicationStatus? status,
@@ -81,16 +82,20 @@ NextDeadline? nextDeadlineOf(
 ///
 /// [applications] は receptionId → 申込状況（無ければ未申込）。
 /// 期限が同じときは受付の ID の順。件数は絞らない（ホームでは画面が5件に絞る）。
+/// [winnerLiveIds] を渡すと、当選者でない人の当選者のみの受付を除く
+/// （null なら絞らない）。
 List<NextDeadline> upcomingDeadlines(
   List<Reception> receptions,
   Map<String, Application> applications,
-  DateTime now,
-) {
+  DateTime now, {
+  Set<String>? winnerLiveIds,
+}) {
   final result = <NextDeadline>[
     for (final r in receptions)
-      if (nextDeadlineOf(r, _statusOf(r, applications), now) case final d?
-          when !d.isExpired)
-        d,
+      if (winnerLiveIds == null || isReceptionVisible(r, winnerLiveIds))
+        if (nextDeadlineOf(r, _statusOf(r, applications), now) case final d?
+            when !d.isExpired)
+          d,
   ];
   result.sort((a, b) {
     final byTime = a.at.compareTo(b.at);

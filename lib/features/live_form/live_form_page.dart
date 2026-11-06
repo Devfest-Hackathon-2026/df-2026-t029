@@ -228,7 +228,11 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
       receptions: saved.receptions,
     );
     if (events.isNotEmpty) {
-      final added = await showCalendarAddSheet(context, events);
+      final added = await showCalendarAddSheet(
+        context,
+        events,
+        liveId: saved.live.id,
+      );
       if (!mounted) return;
       if (added) {
         ScaffoldMessenger.of(context)

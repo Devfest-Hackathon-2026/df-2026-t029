@@ -9,8 +9,17 @@ import 'oshi_test_helpers.dart';
 
 Finder _key(String k) => find.byKey(Key(k));
 
+/// ホームはボタンが増えて縦に長いので、フォロー中の一覧まで描画される高さにする
+/// （ListView は画面外の項目を作らないため）
+void _useTallScreen(WidgetTester tester) {
+  tester.view.physicalSize = const Size(800, 2000);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+}
+
 void main() {
   testWidgets('読み込み中', (tester) async {
+    _useTallScreen(tester);
     await pumpPage(
       tester,
       const HomePage(),
@@ -23,6 +32,7 @@ void main() {
   });
 
   testWidgets('ライブを追加するボタンは右下の1つだけ', (tester) async {
+    _useTallScreen(tester);
     await pumpPage(
       tester,
       const HomePage(),
@@ -38,6 +48,7 @@ void main() {
   });
 
   testWidgets('0件: フォローしていない', (tester) async {
+    _useTallScreen(tester);
     await pumpPage(
       tester,
       const HomePage(),
@@ -49,6 +60,7 @@ void main() {
 
   testWidgets('エラー → もう一度読み込む', (tester) async {
     final repo = FakeOshiRepository([oshi('g1', 'A')])..fail = true;
+    _useTallScreen(tester);
     await pumpPage(
       tester,
       const HomePage(),
@@ -68,6 +80,7 @@ void main() {
     final follow = FakeFollowRepository(
       const FollowState(groupIds: {'g1', 'g2', 'gone'}),
     );
+    _useTallScreen(tester);
     await pumpPage(
       tester,
       const HomePage(),
@@ -92,6 +105,7 @@ void main() {
   testWidgets('解除の処理中はボタンを押せず、連打しても1回だけ', (tester) async {
     final follow = FakeFollowRepository(const FollowState(groupIds: {'g1'}))
       ..gate = Completer();
+    _useTallScreen(tester);
     await pumpPage(
       tester,
       const HomePage(),
@@ -111,6 +125,7 @@ void main() {
   testWidgets('解除に失敗したら SnackBar を出す', (tester) async {
     final follow = FakeFollowRepository(const FollowState(groupIds: {'g1'}))
       ..error = Exception('network');
+    _useTallScreen(tester);
     await pumpPage(
       tester,
       const HomePage(),
@@ -128,6 +143,7 @@ void main() {
     final list = [
       for (var i = 0; i < 20; i++) oshi('g$i', '${'とても長いグループの名前' * 4}$i'),
     ];
+    _useTallScreen(tester);
     await pumpPage(
       tester,
       const HomePage(),
