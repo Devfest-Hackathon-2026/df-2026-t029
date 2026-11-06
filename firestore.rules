@@ -35,7 +35,11 @@ rules_version = '2';
 //     （件数だけ検査する）。申請中の推しをフォローしていないかも検査しない
 //     （本人だけのデータで、ほかのユーザーに影響しないため。アプリ側で拒否する）。
 //
-// Collection: users/{userId}/{subcollection}/**（applications を除く）
+// Document: users/{userId}/myLives/{liveId}（自分のライブ一覧。本人のみ。Step4.5）
+//   - addedAt: timestamp（必須、サーバー時刻 = request.time。ほかの項目は禁止）
+//   - 同じ ID のライブが存在すること（existsAfter）
+//
+// Collection: users/{userId}/{subcollection}/**（applications・myLives を除く）
 //   本人なら読み書きできる（従来どおり。動作確認用の test など）。
 //
 // ---------------------------------------------------------------
@@ -522,6 +526,17 @@ service cloud.firestore {
         isValidOptionalList(data, 'followingOshiIds', 200);
     }
 
+    // users/{userId}/myLives/{liveId}（自分のライブ一覧。Step4.5）
+    // 項目は addedAt（サーバー時刻）だけ。ライブが存在すること（新規作成の
+    // バッチで同時に作る場合があるので、書き込み後の状態を見る existsAfter）
+    function isValidMyLive(liveId, data) {
+      return data.keys().hasOnly(['addedAt']) &&
+        data.keys().hasAll(['addedAt']) &&
+        data.addedAt == request.time &&
+        isStringOfSize(liveId, 1, 128) &&
+        existsAfter(/databases/$(database)/documents/lives/$(liveId));
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId);
       // 必須項目（displayName・createdAt）はルールでは求めない。既存のルール
@@ -540,10 +555,19 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
 
       // サブコレクション以下（動作確認用の test など）は従来どおり。
-      // ただし applications は下の専用ルールだけで検査する（ルールは OR で効くため、
-      // ここで除外しないと検査が素通りになる）
+      // ただし applications・myLives は下の専用ルールだけで検査する（ルールは
+      // OR で効くため、ここで除外しないと検査が素通りになる）
       match /{subcollection}/{document=**} {
-        allow read, write: if isOwner(userId) && subcollection != 'applications';
+        allow read, write: if isOwner(userId) &&
+          subcollection != 'applications' && subcollection != 'myLives';
+      }
+
+      // 自分のライブ一覧（Step4.5）。削除（外す）は本人なら可。申込状況は消さない
+      match /myLives/{liveId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) &&
+          isValidMyLive(liveId, request.resource.data);
+        allow delete: if isOwner(userId);
       }
 
       // 申込状況（Step2）

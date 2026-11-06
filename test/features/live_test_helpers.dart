@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:oshiashi/models/application.dart';
 import 'package:oshiashi/models/history_entry.dart';
 import 'package:oshiashi/models/live.dart';
+import 'package:oshiashi/models/my_live.dart';
 import 'package:oshiashi/models/performance.dart';
 import 'package:oshiashi/models/reception.dart';
 import 'package:oshiashi/repositories/application_repository.dart';
 import 'package:oshiashi/repositories/live_repository.dart';
+import 'package:oshiashi/repositories/my_live_repository.dart';
 import 'package:oshiashi/utils/live_diff.dart';
 
 import 'oshi_test_helpers.dart';
@@ -36,6 +38,9 @@ class FakeLiveRepository implements LiveRepository {
   bool emitInitial = true;
 
   final targetsSeen = <FollowTargets>[];
+
+  /// watch*ByIds・OfLives に渡された ID の集合（呼ばれた順）
+  final idsSeen = <Set<String>>[];
 
   /// create に渡されたもの
   final created =
@@ -75,6 +80,39 @@ class FakeLiveRepository implements LiveRepository {
     await for (final _ in _changes.stream) {
       yield current();
     }
+  }
+
+  @override
+  Stream<List<Live>> watchLivesByIds(Set<String> liveIds) {
+    idsSeen.add(liveIds);
+    return _watch(
+      () => [
+        for (final l in lives)
+          if (liveIds.contains(l.id)) l,
+      ],
+    );
+  }
+
+  @override
+  Stream<List<Performance>> watchPerformancesOfLives(Set<String> liveIds) {
+    idsSeen.add(liveIds);
+    return _watch(
+      () => [
+        for (final p in performances)
+          if (liveIds.contains(p.liveId)) p,
+      ],
+    );
+  }
+
+  @override
+  Stream<List<Reception>> watchReceptionsOfLives(Set<String> liveIds) {
+    idsSeen.add(liveIds);
+    return _watch(
+      () => [
+        for (final r in receptions)
+          if (liveIds.contains(r.liveId)) r,
+      ],
+    );
   }
 
   @override
@@ -321,3 +359,54 @@ Reception recOf(
   paymentDeadline: paymentDeadline,
   winnersOnly: winnersOnly,
 );
+
+/// 中身を外から操作できる偽の MyLiveRepository（Firestore を使わない）
+class FakeMyLiveRepository implements MyLiveRepository {
+  FakeMyLiveRepository({Iterable<String> ids = const []}) : ids = {...ids};
+
+  /// 今入っているライブの ID。変えるときは [add]・[remove] を使う
+  final Set<String> ids;
+  final _changes = StreamController<void>.broadcast();
+
+  /// true なら watchAll がエラー（permission-denied）を流す
+  bool fail = false;
+
+  /// false なら watchAll は値を流さない（読み込み中のまま）
+  bool emitInitial = true;
+
+  /// 設定すると、add・remove はこれを投げる
+  Object? writeError;
+
+  /// 設定すると、add・remove はこれが完了するまで待つ
+  Completer<void>? writeGate;
+
+  final added = <({String uid, String liveId})>[];
+  final removed = <({String uid, String liveId})>[];
+
+  @override
+  Stream<List<MyLive>> watchAll(String uid) async* {
+    if (fail) throw permissionDenied();
+    if (emitInitial) yield _current();
+    await for (final _ in _changes.stream) {
+      yield _current();
+    }
+  }
+
+  List<MyLive> _current() => [for (final id in ids) MyLive(liveId: id)];
+
+  @override
+  Future<void> add(String uid, String liveId) async {
+    added.add((uid: uid, liveId: liveId));
+    await writeGate?.future;
+    if (writeError case final e?) throw e;
+    if (ids.add(liveId)) _changes.add(null);
+  }
+
+  @override
+  Future<void> remove(String uid, String liveId) async {
+    removed.add((uid: uid, liveId: liveId));
+    await writeGate?.future;
+    if (writeError case final e?) throw e;
+    if (ids.remove(liveId)) _changes.add(null);
+  }
+}

@@ -125,6 +125,10 @@ Future<List<Uri>> pumpDetail(
             ],
           ),
         ),
+        // 手渡しの公演名は、自分のライブ一覧から引く（Step4.5）
+        myLiveRepositoryProvider.overrideWithValue(
+          FakeMyLiveRepository(ids: const ['l1']),
+        ),
         nowProvider.overrideWithValue(DateTime(2026, 11, 5, 12)),
         tradePostRepositoryProvider.overrideWithValue(repo),
         tradeReplyRepositoryProvider.overrideWithValue(

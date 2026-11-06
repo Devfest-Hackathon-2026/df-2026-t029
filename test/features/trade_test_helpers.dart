@@ -124,6 +124,7 @@ TradePost postOf(
   TradePostStatus status = TradePostStatus.open,
   List<GiveSet> gives = const [],
   List<WantSet> wants = const [],
+  List<String> performanceIds = const [],
 }) => TradePost(
   id: id,
   uid: uid,
@@ -134,6 +135,7 @@ TradePost postOf(
   status: status,
   gives: gives,
   wants: wants,
+  performanceIds: performanceIds,
 );
 
 /// fetchFor で、対象の推しに当てはまるグッズを返す偽のリポジトリ

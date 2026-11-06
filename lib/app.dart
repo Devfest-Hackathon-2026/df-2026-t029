@@ -9,6 +9,7 @@ import 'features/auth/login_page.dart';
 import 'features/home/home_page.dart';
 import 'features/live/live_detail_page.dart';
 import 'features/live/live_list_page.dart';
+import 'features/live_add/live_add_page.dart';
 import 'features/scan/scan_page.dart';
 import 'features/live_form/live_draft.dart';
 import 'features/live_form/live_form_page.dart';
@@ -78,6 +79,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'lives',
             builder: (context, state) => const LiveListPage(),
             routes: [
+              // :liveId より前に置く（後ろだと add がライブ ID になる）
+              GoRoute(
+                path: 'add',
+                builder: (context, state) => const LiveAddPage(),
+              ),
               GoRoute(
                 path: ':liveId',
                 builder: (context, state) => LiveDetailPage(

@@ -124,6 +124,7 @@ abstract class LiveRepository {
   ///   groupIds・oshiIds は無視する）
   /// - 3つとも `createdBy`・`updatedBy` に [uid]、`createdAt`・`updatedAt` に
   ///   サーバー時刻を入れる
+  /// - 同じバッチで `users/{uid}/myLives/{liveId}` も作る（自分のライブ一覧に入る）
   /// - 失敗したら Firestore の例外をそのまま投げる（何も作られない）
   Future<SavedLive> create({
     required Live live,
@@ -143,6 +144,16 @@ abstract class LiveRepository {
 
   /// [targets] に当たる受付（watchLives と同じ規則）
   Stream<List<Reception>> watchReceptions(FollowTargets targets);
+
+  /// ID を指定してライブを購読する（順序は不定。30件ずつ分割。読めないものは
+  /// 飛ばす。空なら問い合わせず、空のリストを1回流す）
+  Stream<List<Live>> watchLivesByIds(Set<String> liveIds);
+
+  /// 指定したライブの公演（`liveId` の whereIn、30件ずつ分割。順序は不定）
+  Stream<List<Performance>> watchPerformancesOfLives(Set<String> liveIds);
+
+  /// 指定したライブの受付（[watchPerformancesOfLives] と同じ規則）
+  Stream<List<Reception>> watchReceptionsOfLives(Set<String> liveIds);
 
   /// ライブ1件。無い・読めないときは null
   Stream<Live?> watchLive(String liveId);
@@ -180,6 +191,9 @@ abstract class LiveRepository {
   ///   変更する公演・受付には、出演者が変わらなくても常にライブと同じ値を書く
   /// - 戻り値: live は反映後のライブ、performances・receptions は
   ///   追加・変更したものだけ（反映後の値・ID 付き）。カレンダー追加シート用
+  /// - 同じトランザクションで、そのライブを自分のライブ一覧
+  ///   （`users/{uid}/myLives/{liveId}`）に追加する。既に入っていれば
+  ///   `addedAt` を変えない
   /// - `plan.isEmpty` なら何も書かず、[ArgumentError] を投げる
   Future<SavedLive> applyMerge(LiveMergePlan plan, {required String uid});
 
@@ -273,9 +287,16 @@ class FirestoreLiveRepository implements LiveRepository {
     for (final r in saved.receptions) {
       batch.set(_receptions.doc(r.id), {...r.toFirestore(), ...child});
     }
+    // 自分のライブ一覧にも入れる（同じバッチ。ルールの existsAfter が見る）
+    batch.set(_myLives(uid).doc(liveRef.id), {
+      'addedAt': FieldValue.serverTimestamp(),
+    });
     await batch.commit();
     return saved;
   }
+
+  CollectionReference<Map<String, dynamic>> _myLives(String uid) =>
+      _db.collection('users').doc(uid).collection('myLives');
 
   @override
   Stream<List<Live>> watchLives(FollowTargets targets) =>
@@ -288,6 +309,37 @@ class FirestoreLiveRepository implements LiveRepository {
   @override
   Stream<List<Reception>> watchReceptions(FollowTargets targets) =>
       _watchTargets(_receptions, targets, Reception.fromFirestore);
+
+  @override
+  Stream<List<Live>> watchLivesByIds(Set<String> liveIds) {
+    final queries = [
+      for (final chunk in chunks(liveIds, queryChunkSize))
+        _lives.where(FieldPath.documentId, whereIn: chunk),
+    ];
+    if (queries.isEmpty) return Stream.value(const []);
+    return _mergeQueries(queries, Live.fromFirestore);
+  }
+
+  @override
+  Stream<List<Performance>> watchPerformancesOfLives(Set<String> liveIds) =>
+      _watchByLiveIds(_performances, liveIds, Performance.fromFirestore);
+
+  @override
+  Stream<List<Reception>> watchReceptionsOfLives(Set<String> liveIds) =>
+      _watchByLiveIds(_receptions, liveIds, Reception.fromFirestore);
+
+  Stream<List<T>> _watchByLiveIds<T extends Object>(
+    CollectionReference<Map<String, dynamic>> collection,
+    Set<String> liveIds,
+    T Function(DocumentSnapshot<Map<String, dynamic>>) parse,
+  ) {
+    final queries = [
+      for (final chunk in chunks(liveIds, queryChunkSize))
+        collection.where('liveId', whereIn: chunk),
+    ];
+    if (queries.isEmpty) return Stream.value(const []);
+    return _mergeQueries(queries, parse);
+  }
 
   @override
   Stream<Live?> watchLive(String liveId) => _lives
@@ -473,6 +525,8 @@ class FirestoreLiveRepository implements LiveRepository {
       final snaps = await Future.wait([
         for (final path in checked) tx.get(_db.doc(path)),
       ]);
+      final myLiveRef = _myLives(uid).doc(liveId);
+      final alreadyMine = (await tx.get(myLiveRef)).exists;
       final changed = <String>[
         for (final (i, snap) in snaps.indexed)
           if (!snap.exists ||
@@ -560,6 +614,10 @@ class FirestoreLiveRepository implements LiveRepository {
       final addedR = plan.changedReceptions.length;
       for (final r in saved.receptions.skip(addedR)) {
         tx.set(_receptions.doc(r.id), {...r.toFirestore(), ...create});
+      }
+      // 自分のライブ一覧に追加する（既にあれば addedAt を変えない）
+      if (!alreadyMine) {
+        tx.set(myLiveRef, {'addedAt': FieldValue.serverTimestamp()});
       }
       return const [];
     });

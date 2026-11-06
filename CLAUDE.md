@@ -10,7 +10,7 @@ DevFest GDGoC Japan Hackathon 2026 に提出する Flutter Web アプリ。推�
 - 仕様書（決定事項と未決定事項）: @markdown/app_config.md
 - データベース設計案: @markdown/Database_config.md
 - チームレビュー記録（すべて提案で、確定ではない）: `notes/2026-11-05_おしあし_チームレビュー.md`
-- 機能ごとの実装計画: `markdown/feature_*_plan.md`（Step1: `feature_A_oshi_plan.md`、Step2: `feature_step2_live_plan.md`、Step4: `feature_step4_merge_plan.md`）
+- 機能ごとの実装計画: `markdown/feature_*_plan.md`（Step1: `feature_A_oshi_plan.md`、Step2: `feature_step2_live_plan.md`、Step4: `feature_step4_merge_plan.md`、Step4.5: `feature_step4_5_mylive_plan.md`）
 
 ## 開発のステップ（Notion「開発タスク」）
 
@@ -21,6 +21,7 @@ DevFest GDGoC Japan Hackathon 2026 に提出する Flutter Web アプリ。推�
 | 2 | ライブ・公演・受付の手入力登録と一覧、個人の申込状況 | A（とし） |
 | 3 | スクショ読み取り（Gemini → 確認・修正画面） | B（横山さん） |
 | 4 | 既存データとの照合・更新・変更履歴（Step2・3 の合流地点） | A（とし） |
+| 4.5 | 自分のライブ一覧（選んだライブだけを一覧・次の締切に出す。「ライブを追加する」画面） | A（とし） |
 | 5 | Google カレンダー連携 | B（横山さん） |
 | 6 | リマインド通知（FCM Web プッシュ） | B（横山さん） |
 | 7 | P1 の仕上げ（ルール整備・アプグレの表示条件・デモ用データ） | 全員 |
