@@ -467,10 +467,17 @@ void main() {
       expect(_key('live_detail_receptions_empty'), findsOneWidget);
     });
 
-    testWidgets('受付: 種別・料金・当選者のみのラベル', (tester) async {
+    testWidgets('受付: 種別・料金・当選者のみのラベル（当選者には見える）', (tester) async {
       await pumpAt(
         tester,
         '/lives/l1',
+        appRepo: FakeApplicationRepository({
+          'won1': const Application(
+            receptionId: 'won1',
+            liveId: 'l1',
+            status: ApplicationStatus.won,
+          ),
+        }),
         liveRepo: detailRepo(
           receptions: [
             recOf('r1', 'l1', name: 'FC先行', applyEndAt: h(48)),
@@ -502,6 +509,47 @@ void main() {
         find.descendant(of: up, matching: find.text('未発表')),
         findsOneWidget,
       );
+    });
+
+    testWidgets('当選者でなければ、当選者のみの受付を出さず、件数を知らせる。当選すると出る', (tester) async {
+      final appRepo = FakeApplicationRepository();
+      await pumpAt(
+        tester,
+        '/lives/l1',
+        appRepo: appRepo,
+        liveRepo: detailRepo(
+          receptions: [
+            recOf('r1', 'l1', name: 'FC先行', applyEndAt: h(48)),
+            recOf('up', 'l1', applyEndAt: h(72), winnersOnly: true),
+          ],
+        ),
+      );
+      await scrollTo(tester, _key('live_detail_hidden_receptions'));
+      expect(_key('live_detail_reception_r1'), findsOneWidget);
+      expect(_key('live_detail_reception_up'), findsNothing);
+      expect(find.text('当選すると表示される受付が1件あります'), findsOneWidget);
+
+      await appRepo.setStatus(
+        'u1',
+        recOf('r1', 'l1', applyEndAt: h(48)),
+        ApplicationStatus.won,
+      );
+      await tester.pumpAndSettle();
+      expect(_key('live_detail_hidden_receptions'), findsNothing);
+      await scrollTo(tester, _key('live_detail_reception_up'));
+      expect(_key('live_detail_reception_up'), findsOneWidget);
+    });
+
+    testWidgets('受付が当選者のみだけなら、「受付なし」ではなく隠した件数を出す', (tester) async {
+      await pumpAt(
+        tester,
+        '/lives/l1',
+        liveRepo: detailRepo(
+          receptions: [recOf('up', 'l1', applyEndAt: h(72), winnersOnly: true)],
+        ),
+      );
+      await scrollTo(tester, _key('live_detail_hidden_receptions'));
+      expect(_key('live_detail_receptions_empty'), findsNothing);
     });
 
     testWidgets('申込状況を変えると、保存し、次にやることが切り替わる（未申込→申込済→当選→入金済→未申込）', (
@@ -648,6 +696,13 @@ void main() {
       await pumpAt(
         tester,
         '/lives/l1',
+        appRepo: FakeApplicationRepository({
+          'won1': const Application(
+            receptionId: 'won1',
+            liveId: 'l1',
+            status: ApplicationStatus.won,
+          ),
+        }),
         liveRepo: FakeLiveRepository(
           lives: [
             Live(

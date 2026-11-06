@@ -34,6 +34,7 @@ class LiveDetail {
     required this.receptions,
     required this.oshis,
     required this.applications,
+    this.hiddenReceptionCount = 0,
   });
 
   /// 見つからない・読めないときは null
@@ -48,6 +49,9 @@ class LiveDetail {
 
   /// 自分の申込状況（receptionId → 申込状況。無ければ未申込）
   final Map<String, Application> applications;
+
+  /// 当選すると表示される受付（当選者のみ）で、今は隠している件数
+  final int hiddenReceptionCount;
 }
 
 /// ライブ詳細の中身。どれかがエラーならエラー、どれかが読み込み中なら読み込み中
@@ -55,7 +59,7 @@ final liveDetailProvider = Provider.autoDispose
     .family<AsyncValue<LiveDetail>, String>((ref, liveId) {
       final live = ref.watch(liveProvider(liveId));
       final performances = ref.watch(performancesOfLiveProvider(liveId));
-      final receptions = ref.watch(receptionsOfLiveProvider(liveId));
+      final receptions = ref.watch(visibleReceptionsOfLiveProvider(liveId));
       final oshis = ref.watch(allOshisProvider);
       final applications = ref.watch(applicationsProvider);
       for (final AsyncValue<Object?> v in [
@@ -85,10 +89,11 @@ final liveDetailProvider = Provider.autoDispose
           live: live.value,
           performances: [...performancesValue]
             ..sort((a, b) => a.startAt.compareTo(b.startAt)),
-          receptions: [...receptionsValue]
+          receptions: [...receptionsValue.visible]
             ..sort((a, b) => a.applyEndAt.compareTo(b.applyEndAt)),
           oshis: oshisValue,
           applications: applicationsValue,
+          hiddenReceptionCount: receptionsValue.hiddenCount,
         ),
       );
     });
@@ -383,7 +388,7 @@ class _DetailView extends StatelessWidget {
         ],
         const SizedBox(height: 24),
         Text('受付', style: theme.textTheme.titleMedium),
-        if (detail.receptions.isEmpty)
+        if (detail.receptions.isEmpty && detail.hiddenReceptionCount == 0)
           const Padding(
             key: Key('live_detail_receptions_empty'),
             padding: EdgeInsets.symmetric(vertical: 8),
@@ -398,6 +403,15 @@ class _DetailView extends StatelessWidget {
             onChangeStatus: (s) => onChangeStatus(r, s),
             inMine: inMine,
             mark: _markOf(HistoryCollection.receptions, r.id),
+          ),
+        if (detail.hiddenReceptionCount > 0)
+          Padding(
+            key: const Key('live_detail_hidden_receptions'),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              '当選すると表示される受付が${detail.hiddenReceptionCount}件あります',
+              style: theme.textTheme.bodyMedium,
+            ),
           ),
         const SizedBox(height: 24),
         LiveHistorySection(liveId: live.id!, titleOf: _titleOf),

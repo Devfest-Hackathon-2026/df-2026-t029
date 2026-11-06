@@ -551,4 +551,38 @@ void main() {
       }
     });
   });
+
+  group('upcomingDeadlines の winnerLiveIds', () {
+    final upg = Reception(
+      id: 'up',
+      liveId: 'l1',
+      type: ReceptionType.upgrade,
+      name: 'アプグレ',
+      applyEndAt: h(24),
+      winnersOnly: true,
+    );
+    final fc = reception(id: 'fc', applyEndAt: h(48));
+
+    test('null なら絞らない（従来どおり）', () {
+      final r = upcomingDeadlines([upg, fc], {}, now);
+      expect([for (final d in r) d.reception.id], ['up', 'fc']);
+    });
+
+    test('当選者でなければ winnersOnly を除く', () {
+      final r = upcomingDeadlines([upg, fc], {}, now, winnerLiveIds: {});
+      expect([for (final d in r) d.reception.id], ['fc']);
+      final other = upcomingDeadlines(
+        [upg, fc],
+        {},
+        now,
+        winnerLiveIds: {'l2'},
+      );
+      expect([for (final d in other) d.reception.id], ['fc']);
+    });
+
+    test('当選しているライブなら含める', () {
+      final r = upcomingDeadlines([upg, fc], {}, now, winnerLiveIds: {'l1'});
+      expect([for (final d in r) d.reception.id], ['up', 'fc']);
+    });
+  });
 }
