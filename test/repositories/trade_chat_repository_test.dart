@@ -1,4 +1,4 @@
-// lib/repositories/trade_chat_repository.dart の承認（G-5-3）のテスト
+// lib/repositories/trade_chat_repository.dart の承認（G-5-3）と一覧（G-5-4）のテスト
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -149,5 +149,24 @@ void main() {
     expect(await repo.exists('p1_replier'), isFalse);
     await repo.approveReply(post: post(), reply: reply);
     expect(await repo.exists('p1_replier'), isTrue);
+  });
+
+  test('watchMyChats：自分が参加しているチャットを、最後のメッセージの新しい順に', () async {
+    Future<void> put(String id, List<String> members, int hour) =>
+        db.collection('chats').doc(id).set({
+          'postId': 'p',
+          'replyId': 'r',
+          'memberUids': members,
+          'memberNames': {for (final m in members) m: '匿名'},
+          'lastMessageAt': Timestamp.fromDate(DateTime(2026, 11, 6, hour)),
+          'status': 'open',
+          'createdAt': Timestamp.fromDate(DateTime(2026, 11, 6, 1)),
+        });
+    await put('old', ['me', 'x'], 10);
+    await put('new', ['y', 'me'], 12);
+    await put('others', ['x', 'y'], 13);
+
+    final list = await repo.watchMyChats('me').first;
+    expect(list.map((c) => c.id), ['new', 'old']);
   });
 }

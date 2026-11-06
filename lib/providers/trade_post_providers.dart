@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/goods.dart';
 import '../models/oshi.dart';
+import '../models/trade_chat.dart';
 import '../models/trade_post.dart';
 import '../models/trade_reply.dart';
 import '../repositories/trade_chat_repository.dart';
@@ -204,6 +205,21 @@ final tradeRepliesProvider = StreamProvider.autoDispose
 final tradeChatRepositoryProvider = Provider<TradeChatRepository>(
   (ref) => FirestoreTradeChatRepository(FirebaseFirestore.instance),
 );
+
+/// 自分が参加しているチャット（最後のメッセージの新しい順）。未ログインなら空
+final myChatsProvider = StreamProvider<List<TradeChat>>((ref) {
+  final uid = ref.watch(currentUidProvider);
+  if (uid == null) return Stream.value(const []);
+  return ref.watch(tradeChatRepositoryProvider).watchMyChats(uid);
+}, retry: firestoreRetry);
+
+/// 未読のメッセージがあるチャットの数（交換トップのボタンに出す）
+final unreadChatCountProvider = Provider<int>((ref) {
+  final uid = ref.watch(currentUidProvider);
+  final chats = ref.watch(myChatsProvider).value ?? const <TradeChat>[];
+  if (uid == null) return 0;
+  return chats.where((c) => c.isUnreadFor(uid)).length;
+});
 
 /// ログイン中のユーザーの表示名。投稿・返信・チャットに保存し、画面にも出す。
 ///

@@ -50,6 +50,9 @@ Future<void> pumpTop(
         liveRepositoryProvider.overrideWithValue(FakeLiveRepository()),
         nowProvider.overrideWithValue(DateTime(2026, 11, 5, 12)),
         tradePostRepositoryProvider.overrideWithValue(r),
+        tradeChatRepositoryProvider.overrideWithValue(
+          FakeTradeChatRepository()..chatsInitial = const [],
+        ),
       ],
       retry: (_, _) => null,
       child: MaterialApp.router(routerConfig: router),

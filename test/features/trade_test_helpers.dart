@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:oshiashi/models/goods.dart';
 import 'package:oshiashi/models/oshi.dart';
+import 'package:oshiashi/models/trade_chat.dart';
 import 'package:oshiashi/models/trade_post.dart';
 import 'package:oshiashi/models/trade_reply.dart';
 import 'package:oshiashi/repositories/goods_repository.dart';
@@ -281,6 +282,18 @@ class FakeTradeChatRepository implements TradeChatRepository {
 
   @override
   Future<bool> exists(String chatId) async => existing.contains(chatId);
+
+  /// watchMyChats に流す一覧
+  final chats = StreamController<List<TradeChat>>.broadcast();
+
+  /// 設定すると、watchMyChats は購読した時点でこの一覧を流す
+  List<TradeChat>? chatsInitial;
+
+  @override
+  Stream<List<TradeChat>> watchMyChats(String uid) async* {
+    if (chatsInitial case final c?) yield c;
+    yield* chats.stream;
+  }
 
   @override
   Future<String> approveReply({

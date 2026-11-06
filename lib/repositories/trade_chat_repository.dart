@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../models/trade_chat.dart';
 import '../models/trade_post.dart';
 import '../models/trade_reply.dart';
 
@@ -24,6 +25,9 @@ abstract class TradeChatRepository {
   /// チャットがすでにあるか
   Future<bool> exists(String chatId);
 
+  /// 自分が参加しているチャット（最後のメッセージの新しい順）
+  Stream<List<TradeChat>> watchMyChats(String uid);
+
   /// 返信を承認し、返信した人とのチャットを作る（1回のバッチで書く）。
   /// 作ったチャットの ID を返す。投稿者だけが行える（ルールで確かめる）
   Future<String> approveReply({
@@ -44,6 +48,13 @@ class FirestoreTradeChatRepository implements TradeChatRepository {
   @override
   Future<bool> exists(String chatId) async =>
       (await _chats.doc(chatId).get()).exists;
+
+  @override
+  Stream<List<TradeChat>> watchMyChats(String uid) => _chats
+      .where('memberUids', arrayContains: uid)
+      .orderBy('lastMessageAt', descending: true)
+      .snapshots()
+      .map((s) => [for (final d in s.docs) TradeChat.fromFirestore(d)]);
 
   @override
   Future<String> approveReply({
