@@ -11,9 +11,11 @@ import '../models/performance.dart';
 import '../models/reception.dart';
 import '../repositories/application_repository.dart';
 import '../repositories/live_repository.dart';
+import '../repositories/my_live_repository.dart';
 import '../utils/deadline.dart';
 import '../utils/live_diff.dart';
 import '../utils/live_match.dart';
+import '../utils/live_search.dart';
 import 'oshi_providers.dart';
 
 /// ライブ・公演・受付のリポジトリ。テストでは `overrideWithValue` で差し替える
@@ -26,6 +28,11 @@ final applicationRepositoryProvider = Provider<ApplicationRepository>(
   (ref) => FirestoreApplicationRepository(FirebaseFirestore.instance),
 );
 
+/// 自分のライブ一覧のリポジトリ。テストでは `overrideWithValue` で差し替える
+final myLiveRepositoryProvider = Provider<MyLiveRepository>(
+  (ref) => FirestoreMyLiveRepository(FirebaseFirestore.instance),
+);
+
 /// 現在時刻。1分ごとに新しい値になる（「24時間以内」「終了」「次の締切」の判定用）。
 ///
 /// テストでは `nowProvider.overrideWithValue(DateTime(...))` で固定する
@@ -36,39 +43,78 @@ final nowProvider = Provider<DateTime>((ref) {
   return DateTime.now();
 });
 
-/// 一覧の対象（フォロー中の推しから作る）。
-/// [followingOshisProvider] と同じく、読み込み中・エラーをそのまま伝える。
-/// 中身が同じなら == で等しいので、下のプロバイダは購読し直さない。
-final followTargetsProvider = Provider<AsyncValue<FollowTargets>>((ref) {
-  return ref
-      .watch(followingOshisProvider)
-      .whenData(FollowTargets.fromFollowing);
-});
-
-/// フォロー中の推しのライブ（順序は不定。並べたものは [liveListProvider]）
-final livesProvider = StreamProvider<List<Live>>((ref) {
-  return _watchTargets(ref, (repo, targets) => repo.watchLives(targets));
-}, retry: firestoreRetry);
-
-/// フォロー中の推しの公演（順序は不定）
-final performancesProvider = StreamProvider<List<Performance>>((ref) {
-  return _watchTargets(ref, (repo, targets) => repo.watchPerformances(targets));
-}, retry: firestoreRetry);
-
-/// フォロー中の推しの受付（順序は不定）
-final receptionsProvider = StreamProvider<List<Reception>>((ref) {
-  return _watchTargets(ref, (repo, targets) => repo.watchReceptions(targets));
-}, retry: firestoreRetry);
-
 /// ライブ一覧画面の行（[buildLiveList] で並べたもの）
 final liveListProvider = Provider<AsyncValue<List<LiveListEntry>>>((ref) {
   final now = ref.watch(nowProvider);
   return _combine2(
-    ref.watch(livesProvider),
-    ref.watch(performancesProvider),
+    ref.watch(myLivesProvider),
+    ref.watch(myPerformancesProvider),
     (lives, performances) => buildLiveList(lives, performances, now),
   );
 });
+
+/// 自分のライブ一覧の ID の集合。未ログインなら空
+final myLiveIdsProvider = StreamProvider<Set<String>>((ref) {
+  final uid = ref.watch(currentUidProvider);
+  if (uid == null) return Stream.value(const <String>{});
+  return ref
+      .watch(myLiveRepositoryProvider)
+      .watchAll(uid)
+      .map((list) => {for (final m in list) m.liveId});
+}, retry: firestoreRetry);
+
+/// 自分のライブ一覧のライブ（順序は不定）。ID の集合が決まってから購読する
+final myLivesProvider = StreamProvider<List<Live>>((ref) {
+  return _watchMine(ref, (repo, ids) => repo.watchLivesByIds(ids));
+}, retry: firestoreRetry);
+
+/// 自分のライブ一覧の公演（順序は不定）
+final myPerformancesProvider = StreamProvider<List<Performance>>((ref) {
+  return _watchMine(ref, (repo, ids) => repo.watchPerformancesOfLives(ids));
+}, retry: firestoreRetry);
+
+/// 自分のライブ一覧の受付（順序は不定）
+final myReceptionsProvider = StreamProvider<List<Reception>>((ref) {
+  return _watchMine(ref, (repo, ids) => repo.watchReceptionsOfLives(ids));
+}, retry: firestoreRetry);
+
+/// liveId → 自分のライブ一覧に入っているか
+final isInMyLivesProvider = Provider.family<AsyncValue<bool>, String>(
+  (ref, liveId) =>
+      ref.watch(myLiveIdsProvider).whenData((ids) => ids.contains(liveId)),
+);
+
+/// ライブを追加する画面の検索対象（選んだ推しから作る）のライブ（順序は不定）
+final searchLivesSourceProvider = StreamProvider.autoDispose
+    .family<List<Live>, FollowTargets>(
+      (ref, targets) => ref.watch(liveRepositoryProvider).watchLives(targets),
+      retry: firestoreRetry,
+    );
+
+/// ライブを追加する画面の検索対象の公演（順序は不定）
+final searchPerformancesSourceProvider = StreamProvider.autoDispose
+    .family<List<Performance>, FollowTargets>(
+      (ref, targets) =>
+          ref.watch(liveRepositoryProvider).watchPerformances(targets),
+      retry: firestoreRetry,
+    );
+
+/// ライブを追加する画面の結果。[targets] は選んだ推しから
+/// `FollowTargets.fromFollowing([推し])` で作る。[query] はライブ名の入力
+/// （空ならすべて）。結果の並べ方は [searchLives]
+final liveSearchProvider = Provider.autoDispose
+    .family<
+      AsyncValue<List<LiveListEntry>>,
+      ({FollowTargets targets, String query})
+    >((ref, args) {
+      final now = ref.watch(nowProvider);
+      return _combine2(
+        ref.watch(searchLivesSourceProvider(args.targets)),
+        ref.watch(searchPerformancesSourceProvider(args.targets)),
+        (lives, performances) =>
+            searchLives(lives, performances, args.query, now),
+      );
+    });
 
 /// ログイン中のユーザーの申込状況（receptionId → 申込状況）。
 /// 未ログインなら空の Map
@@ -85,11 +131,11 @@ final upcomingDeadlinesProvider = Provider<AsyncValue<List<DeadlineEntry>>>((
 ) {
   final now = ref.watch(nowProvider);
   final receptionsAndApplications = _combine2(
-    ref.watch(receptionsProvider),
+    ref.watch(myReceptionsProvider),
     ref.watch(applicationsProvider),
     (receptions, applications) => (receptions, applications),
   );
-  return _combine2(receptionsAndApplications, ref.watch(livesProvider), (
+  return _combine2(receptionsAndApplications, ref.watch(myLivesProvider), (
     pair,
     lives,
   ) {
@@ -128,16 +174,16 @@ final receptionsOfLiveProvider = StreamProvider.autoDispose
 
 // ---------------------------------------------------------------------------
 
-/// 一覧の対象が決まってから購読する。読み込み中は値を流さず、
+/// 自分のライブ一覧の ID が決まってから購読する。読み込み中は値を流さず、
 /// エラーはそのまま流す。未ログインなら空のリスト。
-Stream<List<T>> _watchTargets<T>(
+Stream<List<T>> _watchMine<T>(
   Ref ref,
-  Stream<List<T>> Function(LiveRepository repo, FollowTargets targets) watch,
+  Stream<List<T>> Function(LiveRepository repo, Set<String> ids) watch,
 ) {
   if (ref.watch(currentUidProvider) == null) return Stream.value(const []);
-  final targets = ref.watch(followTargetsProvider);
+  final ids = ref.watch(myLiveIdsProvider);
   final repo = ref.watch(liveRepositoryProvider);
-  return switch (targets) {
+  return switch (ids) {
     AsyncData(:final value) => watch(repo, value),
     AsyncError(:final error, :final stackTrace) => Stream.error(
       error,

@@ -108,6 +108,56 @@ class _LiveDetailPageState extends ConsumerState<LiveDetailPage> {
   /// 申込状況を変更中の受付の ID（二重送信の防止）
   final Set<String> _busy = {};
 
+  /// 自分のライブ一覧への追加・解除の処理中（二重送信の防止）
+  bool _togglingMine = false;
+
+  Future<void> _toggleMine(bool isIn) async {
+    final uid = ref.read(currentUidProvider);
+    if (uid == null || _togglingMine) return;
+    if (isIn) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('ライブ一覧から外しますか？'),
+          content: const Text('申込状況は残ります。もう一度追加すると元に戻ります'),
+          actions: [
+            TextButton(
+              key: const Key('live_detail_remove_cancel'),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('やめる'),
+            ),
+            FilledButton(
+              key: const Key('live_detail_remove_confirm'),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('外す'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
+    setState(() => _togglingMine = true);
+    String? error;
+    try {
+      final repo = ref.read(myLiveRepositoryProvider);
+      if (isIn) {
+        await repo.remove(uid, widget.liveId);
+      } else {
+        await repo.add(uid, widget.liveId);
+      }
+    } catch (e) {
+      debugPrint('ライブ一覧の更新に失敗: $e');
+      error = 'ライブ一覧を更新できませんでした。もう一度お試しください';
+    }
+    if (!mounted) return;
+    setState(() => _togglingMine = false);
+    if (error != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
   Future<void> _setStatus(
     Reception reception,
     ApplicationStatus? status,
@@ -287,6 +337,23 @@ class _DetailView extends StatelessWidget {
           const SizedBox(height: 4),
           OfficialUrlLink(key: const Key('live_detail_official_url'), url: url),
         ],
+        if (inMine != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: inMine!
+                ? OutlinedButton.icon(
+                    key: const Key('live_detail_remove_mine_button'),
+                    onPressed: togglingMine ? null : onToggleMine,
+                    icon: const Icon(Icons.check),
+                    label: const Text('ライブ一覧から外す'),
+                  )
+                : FilledButton.icon(
+                    key: const Key('live_detail_add_mine_button'),
+                    onPressed: togglingMine ? null : onToggleMine,
+                    icon: const Icon(Icons.add),
+                    label: const Text('ライブ一覧に追加'),
+                  ),
+          ),
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
@@ -328,6 +395,7 @@ class _DetailView extends StatelessWidget {
             status: detail.applications[r.id]?.status,
             busy: busy.contains(r.id),
             onChangeStatus: (s) => onChangeStatus(r, s),
+            inMine: inMine,
             mark: _markOf(HistoryCollection.receptions, r.id),
           ),
         const SizedBox(height: 24),
@@ -397,10 +465,14 @@ class _ReceptionCard extends StatelessWidget {
     required this.status,
     required this.busy,
     required this.onChangeStatus,
+    required this.inMine,
     this.mark,
   });
 
   final Reception r;
+
+  /// 自分のライブ一覧に入っているか（null は読み込み中）
+  final bool? inMine;
 
   /// 「変更あり」の印（無ければ null）
   final Widget? mark;
@@ -486,12 +558,18 @@ class _ReceptionCard extends StatelessWidget {
             const Divider(height: 24),
             _NextAction(r: r, status: status, now: now),
             const SizedBox(height: 8),
-            _StatusSelector(
-              receptionId: r.id ?? '',
-              status: status,
-              busy: busy,
-              onChanged: onChangeStatus,
-            ),
+            if (inMine == true)
+              _StatusSelector(
+                receptionId: r.id ?? '',
+                status: status,
+                busy: busy,
+                onChanged: onChangeStatus,
+              )
+            else if (inMine == false)
+              Text(
+                'ライブ一覧に追加すると、申込状況を記録できます',
+                key: Key('live_detail_add_hint_${r.id}'),
+              ),
           ],
         ),
       ),

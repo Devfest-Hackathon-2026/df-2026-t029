@@ -241,7 +241,7 @@ class _SetCard extends StatelessWidget {
   }
 }
 
-/// 手渡しの公演（フォロー中の推しの公演から名前を引く）
+/// 手渡しの公演（自分のライブ一覧の公演から名前を引く。Step4.5 で差し替え）
 class _Performances extends ConsumerWidget {
   const _Performances({required this.ids});
 
@@ -250,8 +250,8 @@ class _Performances extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final performances =
-        ref.watch(performancesProvider).value ?? const <Performance>[];
-    final lives = ref.watch(livesProvider).value ?? const <Live>[];
+        ref.watch(myPerformancesProvider).value ?? const <Performance>[];
+    final lives = ref.watch(myLivesProvider).value ?? const <Live>[];
     final byId = {for (final p in performances) p.id: p};
     final titles = {for (final l in lives) l.id: l.title};
     return Column(

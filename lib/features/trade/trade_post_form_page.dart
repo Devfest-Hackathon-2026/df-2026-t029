@@ -114,15 +114,15 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
             return _message('この投稿は運営により非表示にされているため、編集できません');
           }
           _base ??= p;
-          // 新規作成では、プロフィールの X アカウントを初期値にする（G-8）
-          _draft ??= TradePostDraft(
-            xAccount: ref.read(myProfileProvider).value?.xAccount ?? '',
-          );
+          _draft ??= TradePostDraft.fromPost(p);
           return _form();
         },
       );
     }
-    _draft ??= TradePostDraft();
+    // 新規作成では、プロフィールの X アカウントを初期値にする（G-8）
+    _draft ??= TradePostDraft(
+      xAccount: ref.read(myProfileProvider).value?.xAccount ?? '',
+    );
     return _form();
   }
 
@@ -323,8 +323,8 @@ class _PerformanceChips extends ConsumerWidget {
     if (draft.groupIds.isEmpty && draft.oshiIds.isEmpty) {
       return const Text('対象の推しを選ぶと、今後の公演から選べます');
     }
-    final performances = ref.watch(performancesProvider);
-    final lives = ref.watch(livesProvider).value ?? const <Live>[];
+    final performances = ref.watch(myPerformancesProvider);
+    final lives = ref.watch(myLivesProvider).value ?? const <Live>[];
     final all = ref.watch(allOshisProvider).value ?? const <OshiSummary>[];
     final now = ref.watch(nowProvider);
     return performances.when(
@@ -339,13 +339,46 @@ class _PerformanceChips extends ConsumerWidget {
           now: now,
           selectedIds: draft.performanceIds,
         );
-        if (candidates.isEmpty) {
-          return const Text('対象の推しの今後の公演はまだ登録されていません');
-        }
+        // 一覧から外したライブの公演が、選ばれたまま残っているもの
+        final knownIds = {for (final p in list) p.id};
+        final missing = [
+          for (final id in draft.performanceIds)
+            if (!knownIds.contains(id)) id,
+        ];
         final titles = {for (final l in lives) l.id: l.title};
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (missing.isNotEmpty)
+              Row(
+                key: const Key('trade_performance_missing'),
+                children: [
+                  Expanded(
+                    child: Text('ライブ一覧に無い公演が${missing.length}件選ばれています'),
+                  ),
+                  TextButton(
+                    key: const Key('trade_performance_missing_remove'),
+                    onPressed: () {
+                      for (final id in missing) {
+                        onToggle(id);
+                      }
+                    },
+                    child: const Text('外す'),
+                  ),
+                ],
+              ),
+            if (candidates.isEmpty) ...[
+              const Text('この推しのライブを、ライブ一覧に追加すると選べます'),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  key: const Key('trade_performance_add_live_button'),
+                  onPressed: () => context.push('/lives/add'),
+                  icon: const Icon(Icons.add),
+                  label: const Text('ライブを追加する'),
+                ),
+              ),
+            ],
             for (final p in candidates)
               CheckboxListTile(
                 key: Key('trade_performance_${p.id}'),

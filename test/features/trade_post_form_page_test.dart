@@ -10,9 +10,11 @@ import 'package:oshiashi/models/goods.dart';
 import 'package:oshiashi/models/live.dart';
 import 'package:oshiashi/models/oshi.dart';
 import 'package:oshiashi/models/trade_post.dart';
+import 'package:oshiashi/models/user_profile.dart';
 import 'package:oshiashi/providers/goods_providers.dart';
 import 'package:oshiashi/providers/live_providers.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
+import 'package:oshiashi/providers/profile_providers.dart';
 import 'package:oshiashi/providers/trade_post_providers.dart';
 import 'package:oshiashi/repositories/auth_repository.dart';
 
@@ -84,7 +86,9 @@ Future<GoRouter> pumpForm(
   required FakeTradePostRepository repo,
   String location = '/trade/new',
   FakeGoodsRepository? goodsRepo,
+  FakeMyLiveRepository? myRepo,
   String? displayName,
+  UserProfile? profile,
 }) async {
   usePhoneSize(tester);
   final router = GoRouter(
@@ -110,6 +114,9 @@ Future<GoRouter> pumpForm(
         ),
         followRepositoryProvider.overrideWithValue(following()),
         liveRepositoryProvider.overrideWithValue(lives()),
+        myLiveRepositoryProvider.overrideWithValue(
+          myRepo ?? FakeMyLiveRepository(ids: ['l1']),
+        ),
         applicationRepositoryProvider.overrideWithValue(
           FakeApplicationRepository(),
         ),
@@ -117,6 +124,8 @@ Future<GoRouter> pumpForm(
         tradePostRepositoryProvider.overrideWithValue(repo),
         if (displayName != null)
           myDisplayNameProvider.overrideWithValue(displayName),
+        if (profile != null)
+          myProfileProvider.overrideWithValue(AsyncData(profile)),
         goodsRepositoryProvider.overrideWithValue(
           goodsRepo ?? FakeGoodsRepository(const [acsta]),
         ),
@@ -205,6 +214,23 @@ void main() {
     expect(repo.created.single.displayName, 'テスト名');
   });
 
+  testWidgets('新規作成では、プロフィールの X アカウントを初期値にする（G-8）', (tester) async {
+    await pumpForm(
+      tester,
+      repo: FakeTradePostRepository(),
+      profile: const UserProfile(displayName: 'テスト名', xAccount: 'oshi_fan'),
+    );
+    await tester.scrollUntilVisible(
+      _key('trade_x_account'),
+      200,
+      scrollable: listScrollable(),
+    );
+    expect(
+      tester.widget<TextFormField>(_key('trade_x_account')).initialValue,
+      'oshi_fan',
+    );
+  });
+
   testWidgets('保存に失敗したら、エラーを出して画面に残る', (tester) async {
     final repo = FakeTradePostRepository()..error = Exception('失敗');
     await pumpForm(tester, repo: repo);
@@ -242,6 +268,50 @@ void main() {
       expect(p.groupIds, ['g1']);
       expect([for (final s in p.gives) s.toMap()], [give.toMap()]);
       expect(find.text('route:/'), findsOneWidget);
+    });
+
+    testWidgets('手渡しの公演の候補は自分のライブ一覧のものだけ。0件なら追加の案内', (tester) async {
+      final repo = FakeTradePostRepository()
+        ..posts['post1'] = postOf('post1', handover: [HandoverMethod.hand]);
+      await pumpForm(
+        tester,
+        repo: repo,
+        location: '/trade/post1/edit',
+        myRepo: FakeMyLiveRepository(),
+      );
+      await tester.scrollUntilVisible(
+        _key('trade_performance_add_live_button'),
+        200,
+        scrollable: listScrollable(),
+      );
+      expect(_key('trade_performance_f1'), findsNothing);
+      expect(find.text('この推しのライブを、ライブ一覧に追加すると選べます'), findsOneWidget);
+      expect(_key('trade_performance_missing'), findsNothing);
+    });
+
+    testWidgets('選択済みの公演が一覧に無ければ件数を出し、「外す」で選択を外して保存できる', (tester) async {
+      final repo = FakeTradePostRepository()
+        ..posts['post1'] = postOf(
+          'post1',
+          handover: [HandoverMethod.hand],
+          performanceIds: ['f1'],
+        );
+      await pumpForm(
+        tester,
+        repo: repo,
+        location: '/trade/post1/edit',
+        myRepo: FakeMyLiveRepository(),
+      );
+      await tester.scrollUntilVisible(
+        _key('trade_performance_missing'),
+        200,
+        scrollable: listScrollable(),
+      );
+      expect(find.text('ライブ一覧に無い公演が1件選ばれています'), findsOneWidget);
+      await tapKey(tester, 'trade_performance_missing_remove');
+      expect(_key('trade_performance_missing'), findsNothing);
+      await tapKey(tester, 'trade_save_button');
+      expect(repo.updated.single.performanceIds, isEmpty);
     });
 
     testWidgets('他人の投稿は編集できない', (tester) async {

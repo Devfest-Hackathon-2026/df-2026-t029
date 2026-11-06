@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/live_providers.dart';
-import '../../providers/oshi_providers.dart';
 import '../../utils/deadline.dart';
 import 'deadline_format.dart';
 
@@ -17,23 +16,22 @@ class UpcomingDeadlinesSection extends ConsumerWidget {
   const UpcomingDeadlinesSection({super.key});
 
   void _retry(WidgetRef ref) {
-    ref.invalidate(allOshisProvider);
-    ref.invalidate(followStateProvider);
-    ref.invalidate(livesProvider);
-    ref.invalidate(receptionsProvider);
+    ref.invalidate(myLiveIdsProvider);
+    ref.invalidate(myLivesProvider);
+    ref.invalidate(myReceptionsProvider);
     ref.invalidate(applicationsProvider);
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final targets = ref.watch(followTargetsProvider);
+    final myIds = ref.watch(myLiveIdsProvider);
     final deadlines = ref.watch(upcomingDeadlinesProvider);
 
-    // フォローの読み込みが先。フォロー0件なら締切は問い合わせない
-    return switch ((targets, deadlines)) {
+    // 自分のライブ一覧の読み込みが先。0件なら締切は問い合わせない
+    return switch ((myIds, deadlines)) {
       (AsyncError(), _) ||
       (_, AsyncError()) => _ErrorView(onRetry: () => _retry(ref)),
-      (AsyncValue(value: final t?), _) when t.isEmpty => const _NoFollowView(),
+      (AsyncValue(value: final t?), _) when t.isEmpty => const _NoLiveView(),
       (AsyncValue(value: _?), AsyncValue(value: final list?))
           when list.isEmpty =>
         const Padding(
@@ -78,23 +76,23 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-class _NoFollowView extends StatelessWidget {
-  const _NoFollowView();
+class _NoLiveView extends StatelessWidget {
+  const _NoLiveView();
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      key: const Key('home_deadlines_no_follow'),
+      key: const Key('home_deadlines_no_live'),
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Column(
         children: [
-          const Text('推しをフォローすると、ライブの締切がここに出ます', textAlign: TextAlign.center),
+          const Text('ライブを追加すると、締切がここに出ます', textAlign: TextAlign.center),
           const SizedBox(height: 8),
           OutlinedButton.icon(
-            key: const Key('home_deadlines_search_button'),
-            onPressed: () => context.push('/oshi/search'),
-            icon: const Icon(Icons.search),
-            label: const Text('推しを探す'),
+            key: const Key('home_deadlines_add_button'),
+            onPressed: () => context.push('/lives/add'),
+            icon: const Icon(Icons.add),
+            label: const Text('ライブを追加する'),
           ),
         ],
       ),

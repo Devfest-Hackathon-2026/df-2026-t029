@@ -10,7 +10,6 @@ import 'package:oshiashi/models/oshi.dart';
 import 'package:oshiashi/providers/live_providers.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
 import 'package:oshiashi/repositories/auth_repository.dart';
-import 'package:oshiashi/repositories/live_repository.dart';
 
 import 'live_test_helpers.dart';
 import 'oshi_test_helpers.dart';
@@ -31,6 +30,7 @@ Future<void> pumpSection(
   required FakeFollowRepository followRepo,
   FakeLiveRepository? liveRepo,
   FakeApplicationRepository? appRepo,
+  FakeMyLiveRepository? myRepo,
   bool settle = true,
 }) async {
   final router = GoRouter(
@@ -42,13 +42,13 @@ Future<void> pumpSection(
         ),
         routes: [
           GoRoute(
-            path: 'oshi/search',
-            builder: (_, _) => const Text('route:/oshi/search'),
-          ),
-          GoRoute(
             path: 'lives',
             builder: (_, _) => const Text('route:/lives'),
             routes: [
+              GoRoute(
+                path: 'add',
+                builder: (_, _) => const Text('route:/lives/add'),
+              ),
               GoRoute(
                 path: ':liveId',
                 builder: (_, s) =>
@@ -61,6 +61,16 @@ Future<void> pumpSection(
     ],
   );
   addTearDown(router.dispose);
+  final live = liveRepo ?? FakeLiveRepository();
+  // 指定が無ければ、偽リポジトリのライブをすべて自分のライブ一覧に入れておく
+  final mine =
+      myRepo ??
+      FakeMyLiveRepository(
+        ids: [
+          for (final l in live.lives)
+            if (l.id != null) l.id!,
+        ],
+      );
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -68,9 +78,8 @@ Future<void> pumpSection(
         authStateProvider.overrideWith((ref) => Stream<User?>.value(null)),
         oshiRepositoryProvider.overrideWithValue(oshiRepo),
         followRepositoryProvider.overrideWithValue(followRepo),
-        liveRepositoryProvider.overrideWithValue(
-          liveRepo ?? FakeLiveRepository(),
-        ),
+        liveRepositoryProvider.overrideWithValue(live),
+        myLiveRepositoryProvider.overrideWithValue(mine),
         applicationRepositoryProvider.overrideWithValue(
           appRepo ?? FakeApplicationRepository(),
         ),
@@ -104,11 +113,12 @@ FakeFollowRepository following() =>
     FakeFollowRepository(const FollowState(groupIds: {'g1'}, oshiIds: {'p1'}));
 
 void main() {
-  testWidgets('読み込み中（フォローの読み込み前）', (tester) async {
+  testWidgets('読み込み中（自分のライブ一覧の読み込み前）', (tester) async {
     await pumpSection(
       tester,
       oshiRepo: FakeOshiRepository(oshis),
-      followRepo: following()..emitInitial = false,
+      followRepo: following(),
+      myRepo: FakeMyLiveRepository()..emitInitial = false,
       settle: false,
     );
     expect(_key('home_deadlines_loading'), findsOneWidget);
@@ -120,6 +130,7 @@ void main() {
       oshiRepo: FakeOshiRepository(oshis),
       followRepo: following(),
       liveRepo: FakeLiveRepository()..emitInitial = false,
+      myRepo: FakeMyLiveRepository(ids: ['l1']),
       settle: false,
     );
     await tester.pump();
@@ -127,22 +138,52 @@ void main() {
     expect(_key('home_deadlines_empty'), findsNothing);
   });
 
-  testWidgets('フォロー0件: 問い合わせず、「推しを探す」へ行ける', (tester) async {
-    final liveRepo = FakeLiveRepository();
+  testWidgets('自分のライブ0件: 問い合わせず、「ライブを追加する」へ行ける（フォロー中でも同じ）', (tester) async {
+    final liveRepo = FakeLiveRepository(
+      lives: [live1],
+      receptions: [recOf('r1', 'l1', applyEndAt: h(48))],
+    );
     await pumpSection(
       tester,
       oshiRepo: FakeOshiRepository(oshis),
-      followRepo: FakeFollowRepository(),
+      followRepo: following(),
       liveRepo: liveRepo,
+      myRepo: FakeMyLiveRepository(),
     );
-    expect(_key('home_deadlines_no_follow'), findsOneWidget);
-    // リポジトリには空の対象だけが渡る（空なら Firestore に問い合わせない契約。
-    // live_repository_test.dart で確かめている）
-    expect(liveRepo.targetsSeen.every((t) => t.isEmpty), isTrue);
+    expect(_key('home_deadlines_no_live'), findsOneWidget);
+    expect(find.text('ライブを追加すると、締切がここに出ます'), findsOneWidget);
+    expect(_key('home_deadlines_list'), findsNothing);
+    // 渡された ID は空だけ（空なら Firestore に問い合わせない契約）
+    expect(liveRepo.idsSeen.every((ids) => ids.isEmpty), isTrue);
 
-    await tester.tap(_key('home_deadlines_search_button'));
+    await tester.tap(_key('home_deadlines_add_button'));
     await tester.pumpAndSettle();
-    expect(find.text('route:/oshi/search'), findsOneWidget);
+    expect(find.text('route:/lives/add'), findsOneWidget);
+  });
+
+  testWidgets('フォローしているだけのライブの締切は出ない。追加すると出る', (tester) async {
+    final myRepo = FakeMyLiveRepository(ids: ['l2']);
+    await pumpSection(
+      tester,
+      oshiRepo: FakeOshiRepository(oshis),
+      followRepo: following(),
+      liveRepo: FakeLiveRepository(
+        lives: [live1, live2],
+        receptions: [
+          recOf('r1', 'l1', applyEndAt: h(2)),
+          recOf('r2', 'l2', applyEndAt: h(3)),
+        ],
+      ),
+      myRepo: myRepo,
+    );
+    expect(_key('home_deadline_tile_r2'), findsOneWidget);
+    expect(_key('home_deadline_tile_r1'), findsNothing);
+    await myRepo.add('u1', 'l1');
+    await tester.pumpAndSettle();
+    expect(_key('home_deadline_tile_r1'), findsOneWidget);
+    await myRepo.remove('u1', 'l2');
+    await tester.pumpAndSettle();
+    expect(_key('home_deadline_tile_r2'), findsNothing);
   });
 
   testWidgets('フォロー中で締切0件: 「近い締切はありません」', (tester) async {
@@ -162,17 +203,19 @@ void main() {
     expect(_key('home_deadlines_list'), findsNothing);
   });
 
-  testWidgets('対象: フォロー中のグループ・推しの所属グループ・推しで問い合わせる', (tester) async {
-    final liveRepo = FakeLiveRepository();
+  testWidgets('自分のライブ一覧の ID で問い合わせる（フォローの対象では問い合わせない）', (tester) async {
+    final liveRepo = FakeLiveRepository(lives: [live1, live2]);
     await pumpSection(
       tester,
       oshiRepo: FakeOshiRepository(oshis),
       followRepo: following(),
       liveRepo: liveRepo,
+      myRepo: FakeMyLiveRepository(ids: ['l1']),
     );
-    expect(liveRepo.targetsSeen.toSet(), {
-      const FollowTargets(groupIds: {'g1', 'g2'}, oshiIds: {'p1'}),
+    expect(liveRepo.idsSeen.toSet(), {
+      {'l1'},
     });
+    expect(liveRepo.targetsSeen, isEmpty);
   });
 
   testWidgets('エラー → もう一度読み込む', (tester) async {

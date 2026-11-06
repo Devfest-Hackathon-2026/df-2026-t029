@@ -45,6 +45,7 @@ Future<GoRouter> pumpAt(
   String location, {
   FakeLiveRepository? liveRepo,
   FakeApplicationRepository? appRepo,
+  FakeMyLiveRepository? myRepo,
   FakeFollowRepository? followRepo,
   FakeOshiRepository? oshiRepo,
   bool settle = true,
@@ -60,6 +61,10 @@ Future<GoRouter> pumpAt(
             path: 'lives',
             builder: (_, _) => const LiveListPage(),
             routes: [
+              GoRoute(
+                path: 'add',
+                builder: (_, _) => const Text('route:/lives/add'),
+              ),
               GoRoute(
                 path: ':liveId',
                 builder: (_, s) =>
@@ -80,6 +85,16 @@ Future<GoRouter> pumpAt(
     ],
   );
   addTearDown(router.dispose);
+  final live = liveRepo ?? FakeLiveRepository();
+  // 指定が無ければ、偽リポジトリのライブをすべて自分のライブ一覧に入れておく
+  final mine =
+      myRepo ??
+      FakeMyLiveRepository(
+        ids: [
+          for (final l in live.lives)
+            if (l.id != null) l.id!,
+        ],
+      );
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -89,9 +104,8 @@ Future<GoRouter> pumpAt(
           oshiRepo ?? FakeOshiRepository(oshis),
         ),
         followRepositoryProvider.overrideWithValue(followRepo ?? following()),
-        liveRepositoryProvider.overrideWithValue(
-          liveRepo ?? FakeLiveRepository(),
-        ),
+        liveRepositoryProvider.overrideWithValue(live),
+        myLiveRepositoryProvider.overrideWithValue(mine),
         applicationRepositoryProvider.overrideWithValue(
           appRepo ?? FakeApplicationRepository(),
         ),
@@ -126,16 +140,36 @@ void main() {
       expect(_key('live_list_loading'), findsOneWidget);
     });
 
-    testWidgets('0件: 右下の「ライブを登録」から登録方法を選ぶ画面へ行ける', (tester) async {
+    testWidgets('0件: 右下の「ライブを追加する」からライブを追加する画面へ行ける', (tester) async {
       await pumpAt(tester, '/lives');
       expect(_key('live_list_empty'), findsOneWidget);
+      expect(
+        find.text('ライブ一覧はまだ空です。\n右下の「ライブを追加する」から、行くライブを追加しましょう'),
+        findsOneWidget,
+      );
       expect(find.byType(FloatingActionButton), findsOneWidget);
+      expect(find.text('ライブを追加する'), findsWidgets);
       await tester.tap(_key('live_list_register_fab'));
       await tester.pumpAndSettle();
-      expect(find.text('route:/register'), findsOneWidget);
+      expect(find.text('route:/lives/add'), findsOneWidget);
     });
 
-    testWidgets('フォロー0件でも 0件の表示で、右下に「ライブを登録」を出す', (tester) async {
+    testWidgets('フォローしているだけ（自分のライブ一覧が空）では、ライブが登録されていても出ない', (tester) async {
+      await pumpAt(
+        tester,
+        '/lives',
+        liveRepo: FakeLiveRepository(
+          lives: const [
+            Live(id: 'l1', title: 'A', groupIds: ['g1']),
+          ],
+        ),
+        myRepo: FakeMyLiveRepository(),
+      );
+      expect(_key('live_list_empty'), findsOneWidget);
+      expect(_key('live_list_tile_l1'), findsNothing);
+    });
+
+    testWidgets('フォロー0件でも 0件の表示で、右下に「ライブを追加する」を出す', (tester) async {
       await pumpAt(tester, '/lives', followRepo: FakeFollowRepository());
       expect(_key('live_list_empty'), findsOneWidget);
       expect(_key('live_list_register_fab'), findsOneWidget);
@@ -230,7 +264,8 @@ void main() {
 
     testWidgets('ライブが増えると一覧に出る（購読が続いている）', (tester) async {
       final liveRepo = FakeLiveRepository();
-      await pumpAt(tester, '/lives', liveRepo: liveRepo);
+      final myRepo = FakeMyLiveRepository();
+      await pumpAt(tester, '/lives', liveRepo: liveRepo, myRepo: myRepo);
       expect(_key('live_list_empty'), findsOneWidget);
       expect(_key('live_list_register_fab'), findsOneWidget);
       liveRepo
@@ -238,6 +273,10 @@ void main() {
           Live(id: 'l1', title: 'A', groupIds: ['g1']),
         ])
         ..setPerformances([perfOf('p1', 'l1', h(24))]);
+      await tester.pumpAndSettle();
+      // ライブが登録されただけでは、自分のライブ一覧に入っていないので出ない
+      expect(_key('live_list_tile_l1'), findsNothing);
+      await myRepo.add('u1', 'l1');
       await tester.pumpAndSettle();
       expect(_key('live_list_tile_l1'), findsOneWidget);
       // 1件以上あるときは右下のボタンを出さない
@@ -638,6 +677,72 @@ void main() {
       );
       await scrollTo(tester, _key('live_detail_status_r1'));
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('自分のライブ一覧に入っていなければ「追加」。申込状況の代わりにヒントを出す', (tester) async {
+      final my = FakeMyLiveRepository();
+      await pumpAt(tester, '/lives/l1', liveRepo: detailRepo(), myRepo: my);
+      expect(_key('live_detail_remove_mine_button'), findsNothing);
+      await tester.scrollUntilVisible(
+        _key('live_detail_add_hint_r1'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('ライブ一覧に追加すると、申込状況を記録できます'), findsOneWidget);
+      expect(_key('live_detail_status_r1'), findsNothing);
+
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 2000));
+      await tester.pumpAndSettle();
+      await tester.tap(_key('live_detail_add_mine_button'));
+      await tester.pumpAndSettle();
+      expect(my.ids, {'l1'});
+      expect(_key('live_detail_remove_mine_button'), findsOneWidget);
+      expect(_key('live_detail_add_hint_r1'), findsNothing);
+    });
+
+    testWidgets('「ライブ一覧から外す」は確認ダイアログを出す。やめるなら外さない', (tester) async {
+      final my = FakeMyLiveRepository(ids: ['l1']);
+      await pumpAt(tester, '/lives/l1', liveRepo: detailRepo(), myRepo: my);
+      expect(_key('live_detail_add_mine_button'), findsNothing);
+
+      await tester.tap(_key('live_detail_remove_mine_button'));
+      await tester.pumpAndSettle();
+      expect(find.text('ライブ一覧から外しますか？'), findsOneWidget);
+      await tester.tap(_key('live_detail_remove_cancel'));
+      await tester.pumpAndSettle();
+      expect(my.ids, {'l1'});
+      expect(my.removed, isEmpty);
+
+      await tester.tap(_key('live_detail_remove_mine_button'));
+      await tester.pumpAndSettle();
+      await tester.tap(_key('live_detail_remove_confirm'));
+      await tester.pumpAndSettle();
+      expect(my.ids, isEmpty);
+      expect(_key('live_detail_add_mine_button'), findsOneWidget);
+    });
+
+    testWidgets('一覧の更新に失敗したら日本語の SnackBar', (tester) async {
+      final my = FakeMyLiveRepository()..writeError = Exception('失敗');
+      await pumpAt(tester, '/lives/l1', liveRepo: detailRepo(), myRepo: my);
+      await tester.tap(_key('live_detail_add_mine_button'));
+      await tester.pumpAndSettle();
+      expect(find.text('ライブ一覧を更新できませんでした。もう一度お試しください'), findsOneWidget);
+      expect(_key('live_detail_add_mine_button'), findsOneWidget);
+    });
+
+    testWidgets('自分のライブ一覧の読み込み中は、ボタンも申込状況も出さない', (tester) async {
+      await pumpAt(
+        tester,
+        '/lives/l1',
+        liveRepo: detailRepo(),
+        myRepo: FakeMyLiveRepository()..emitInitial = false,
+        settle: false,
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(_key('live_detail_add_mine_button'), findsNothing);
+      expect(_key('live_detail_remove_mine_button'), findsNothing);
+      expect(_key('live_detail_status_r1'), findsNothing);
     });
   });
 }
