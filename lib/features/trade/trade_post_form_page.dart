@@ -10,6 +10,7 @@ import '../../providers/goods_providers.dart';
 import '../../providers/live_providers.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/trade_post_providers.dart';
+import '../../providers/profile_providers.dart';
 import '../live_form/date_time_field.dart';
 import 'trade_post_draft.dart';
 import 'trade_sets_section.dart';
@@ -113,7 +114,10 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
             return _message('この投稿は運営により非表示にされているため、編集できません');
           }
           _base ??= p;
-          _draft ??= TradePostDraft.fromPost(p);
+          // 新規作成では、プロフィールの X アカウントを初期値にする（G-8）
+          _draft ??= TradePostDraft(
+            xAccount: ref.read(myProfileProvider).value?.xAccount ?? '',
+          );
           return _form();
         },
       );
