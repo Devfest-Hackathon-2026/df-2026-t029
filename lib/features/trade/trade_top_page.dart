@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../providers/trade_post_providers.dart';
 
 import 'my_trade_posts_view.dart';
 import 'trade_board_view.dart';
@@ -34,6 +37,7 @@ class TradeTopPage extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('グッズ交換'),
+          actions: const [_ChatButton()],
           bottom: TabBar(
             tabs: [
               for (final t in TradeTab.values)
@@ -53,6 +57,26 @@ class TradeTopPage extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// チャットの一覧へのボタン（未読があれば件数を出す）
+class _ChatButton extends ConsumerWidget {
+  const _ChatButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unread = ref.watch(unreadChatCountProvider);
+    return IconButton(
+      key: const Key('trade_chats_button'),
+      tooltip: 'チャット',
+      icon: Badge(
+        isLabelVisible: unread > 0,
+        label: Text('$unread'),
+        child: const Icon(Icons.chat),
+      ),
+      onPressed: () => context.push('/chats'),
     );
   }
 }

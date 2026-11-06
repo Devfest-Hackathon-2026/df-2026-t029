@@ -2,9 +2,14 @@ import 'dart:async';
 
 import 'package:oshiashi/models/goods.dart';
 import 'package:oshiashi/models/oshi.dart';
+import 'package:oshiashi/models/trade_chat.dart';
+import 'package:oshiashi/models/trade_message.dart';
 import 'package:oshiashi/models/trade_post.dart';
+import 'package:oshiashi/models/trade_reply.dart';
 import 'package:oshiashi/repositories/goods_repository.dart';
+import 'package:oshiashi/repositories/trade_chat_repository.dart';
 import 'package:oshiashi/repositories/trade_post_repository.dart';
+import 'package:oshiashi/repositories/trade_reply_repository.dart';
 
 /// 呼ばれた引数を記録する、投稿の偽のリポジトリ
 class FakeTradePostRepository implements TradePostRepository {
@@ -171,4 +176,240 @@ class FakeGoodsRepository implements GoodsRepository {
     required Goods after,
     required String uid,
   }) => throw UnimplementedError();
+}
+
+/// 返信を覚えておく偽のリポジトリ（作成・削除すると一覧が流れ直す）
+class FakeTradeReplyRepository implements TradeReplyRepository {
+  FakeTradeReplyRepository([Map<String, List<TradeReply>>? initial])
+    : replies = initial ?? {};
+
+  final Map<String, List<TradeReply>> replies;
+  final _changes = StreamController<void>.broadcast();
+
+  /// 設定すると、create・delete はこれを投げる
+  Object? error;
+
+  final created =
+      <
+        ({
+          String postId,
+          String uid,
+          String displayName,
+          String text,
+          String? linkedPostId,
+        })
+      >[];
+  final deleted = <(String, String)>[];
+
+  @override
+  Stream<List<TradeReply>> watchReplies(String postId) async* {
+    yield [...?replies[postId]];
+    await for (final _ in _changes.stream) {
+      yield [...?replies[postId]];
+    }
+  }
+
+  @override
+  Future<String> create(
+    String postId, {
+    required String uid,
+    required String displayName,
+    required String text,
+    String? linkedPostId,
+  }) async {
+    if (error case final e?) throw e;
+    created.add((
+      postId: postId,
+      uid: uid,
+      displayName: displayName,
+      text: text,
+      linkedPostId: linkedPostId,
+    ));
+    final id = 'r${created.length}';
+    (replies[postId] ??= []).add(
+      TradeReply(
+        id: id,
+        uid: uid,
+        displayName: displayName,
+        text: text,
+        linkedPostId: linkedPostId,
+        createdAt: DateTime(2026, 11, 6, 12),
+      ),
+    );
+    _changes.add(null);
+    return id;
+  }
+
+  /// 承認済みにして、一覧を流し直す（FakeTradeChatRepository から呼ぶ）
+  void markApproved(String postId, String replyId) {
+    final list = replies[postId];
+    if (list == null) return;
+    for (final (i, r) in list.indexed) {
+      if (r.id == replyId) {
+        list[i] = TradeReply(
+          id: r.id,
+          uid: r.uid,
+          displayName: r.displayName,
+          text: r.text,
+          linkedPostId: r.linkedPostId,
+          approved: true,
+          createdAt: r.createdAt,
+        );
+      }
+    }
+    _changes.add(null);
+  }
+
+  @override
+  Future<void> delete(String postId, String replyId) async {
+    if (error case final e?) throw e;
+    deleted.add((postId, replyId));
+    replies[postId]?.removeWhere((r) => r.id == replyId);
+    _changes.add(null);
+  }
+}
+
+/// 承認・チャットを記録する偽のリポジトリ
+class FakeTradeChatRepository implements TradeChatRepository {
+  /// すでにあるチャットの ID
+  final existing = <String>{};
+  final approved = <({String postId, String replyId})>[];
+
+  /// 設定すると、approveReply はこれを投げる
+  Object? error;
+
+  /// 承認したら、返信の一覧も承認済みにする（画面のテスト用）
+  FakeTradeReplyRepository? replyRepo;
+
+  @override
+  Future<bool> exists(String chatId) async => existing.contains(chatId);
+
+  /// watchMyChats に流す一覧
+  final chats = StreamController<List<TradeChat>>.broadcast();
+
+  /// 設定すると、watchMyChats は購読した時点でこの一覧を流す
+  List<TradeChat>? chatsInitial;
+
+  @override
+  Stream<List<TradeChat>> watchMyChats(String uid) async* {
+    if (chatsInitial case final c?) yield c;
+    yield* chats.stream;
+  }
+
+  /// チャット画面用：ID → チャット（変えると watchChat に流れ直す）
+  final chatById = <String, TradeChat>{};
+
+  /// チャット画面用：チャットの ID → メッセージ
+  final messages = <String, List<TradeMessage>>{};
+  final _chatChanges = StreamController<void>.broadcast();
+
+  final sent = <({String chatId, String uid, String text})>[];
+  final readMarks = <(String, String)>[];
+  final statusChanges = <(String, ChatStatus)>[];
+
+  /// 設定すると、sendMessage・setStatus はこれを投げる
+  Object? chatError;
+
+  /// 送信・既読・状態の変更で使う「今」
+  DateTime now = DateTime(2026, 11, 6, 15);
+
+  void _replaceChat(String id, TradeChat Function(TradeChat) change) {
+    final c = chatById[id];
+    if (c == null) return;
+    chatById[id] = change(c);
+    _chatChanges.add(null);
+  }
+
+  static TradeChat _copy(
+    TradeChat c, {
+    String? lastMessage,
+    DateTime? lastMessageAt,
+    Map<String, DateTime>? lastReadAt,
+    ChatStatus? status,
+  }) => TradeChat(
+    id: c.id,
+    postId: c.postId,
+    replyId: c.replyId,
+    memberUids: c.memberUids,
+    memberNames: c.memberNames,
+    postSummary: c.postSummary,
+    lastMessage: lastMessage ?? c.lastMessage,
+    lastMessageAt: lastMessageAt ?? c.lastMessageAt,
+    lastReadAt: lastReadAt ?? c.lastReadAt,
+    status: status ?? c.status,
+    createdAt: c.createdAt,
+  );
+
+  @override
+  Stream<TradeChat?> watchChat(String chatId) async* {
+    yield chatById[chatId];
+    await for (final _ in _chatChanges.stream) {
+      yield chatById[chatId];
+    }
+  }
+
+  @override
+  Stream<List<TradeMessage>> watchMessages(String chatId) async* {
+    yield [...?messages[chatId]];
+    await for (final _ in _chatChanges.stream) {
+      yield [...?messages[chatId]];
+    }
+  }
+
+  @override
+  Future<void> sendMessage(
+    String chatId, {
+    required String uid,
+    required String text,
+  }) async {
+    if (chatError case final e?) throw e;
+    sent.add((chatId: chatId, uid: uid, text: text));
+    final list = messages[chatId] ??= [];
+    list.add(
+      TradeMessage(
+        id: 'm${list.length + 1}',
+        uid: uid,
+        text: text,
+        createdAt: now,
+      ),
+    );
+    _replaceChat(
+      chatId,
+      (c) => _copy(
+        c,
+        lastMessage: text,
+        lastMessageAt: now,
+        lastReadAt: {...c.lastReadAt, uid: now},
+      ),
+    );
+  }
+
+  @override
+  Future<void> markRead(String chatId, String uid) async {
+    readMarks.add((chatId, uid));
+    _replaceChat(
+      chatId,
+      (c) => _copy(c, lastReadAt: {...c.lastReadAt, uid: now}),
+    );
+  }
+
+  @override
+  Future<void> setStatus(String chatId, ChatStatus status) async {
+    if (chatError case final e?) throw e;
+    statusChanges.add((chatId, status));
+    _replaceChat(chatId, (c) => _copy(c, status: status));
+  }
+
+  @override
+  Future<String> approveReply({
+    required TradePost post,
+    required TradeReply reply,
+  }) async {
+    if (error case final e?) throw e;
+    approved.add((postId: post.id!, replyId: reply.id!));
+    final id = chatIdFor(post.id!, reply.uid);
+    existing.add(id);
+    replyRepo?.markApproved(post.id!, reply.id!);
+    return id;
+  }
 }

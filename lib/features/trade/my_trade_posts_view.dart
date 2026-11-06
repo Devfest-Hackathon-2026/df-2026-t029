@@ -113,58 +113,65 @@ class _PostCardState extends ConsumerState<_PostCard> {
       child: Card(
         key: Key('my_trade_post_${post.id}'),
         margin: const EdgeInsets.symmetric(vertical: 6),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 4, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Chip(
-                    label: Text(post.status.label),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      targets.isEmpty ? '（対象の推し）' : targets,
-                      style: theme.textTheme.titleSmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => context.push('/trade/${post.id}'),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 4, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Chip(
+                      label: Text(post.status.label),
+                      visualDensity: VisualDensity.compact,
                     ),
-                  ),
-                  if (isHidden)
-                    const SizedBox(height: 48)
-                  else
-                    PopupMenuButton<String>(
-                      key: Key('my_trade_menu_${post.id}'),
-                      enabled: !_busy,
-                      tooltip: '操作',
-                      onSelected: (v) => switch (v) {
-                        'edit' => context.push('/trade/${post.id}/edit'),
-                        'close' => _setStatus(TradePostStatus.closed),
-                        _ => _setStatus(TradePostStatus.open),
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(value: 'edit', child: Text('編集')),
-                        if (isOpen)
-                          const PopupMenuItem(
-                            value: 'close',
-                            child: Text('募集終了'),
-                          )
-                        else
-                          const PopupMenuItem(value: 'open', child: Text('再開')),
-                      ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        targets.isEmpty ? '（対象の推し）' : targets,
+                        style: theme.textTheme.titleSmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                ],
-              ),
-              TradePostSummaryLines(post: post),
-              if (isHidden)
-                Text(
-                  '運営により非表示にされています。編集・再開はできません',
-                  style: TextStyle(color: theme.colorScheme.error),
+                    if (isHidden)
+                      const SizedBox(height: 48)
+                    else
+                      PopupMenuButton<String>(
+                        key: Key('my_trade_menu_${post.id}'),
+                        enabled: !_busy,
+                        tooltip: '操作',
+                        onSelected: (v) => switch (v) {
+                          'edit' => context.push('/trade/${post.id}/edit'),
+                          'close' => _setStatus(TradePostStatus.closed),
+                          _ => _setStatus(TradePostStatus.open),
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(value: 'edit', child: Text('編集')),
+                          if (isOpen)
+                            const PopupMenuItem(
+                              value: 'close',
+                              child: Text('募集終了'),
+                            )
+                          else
+                            const PopupMenuItem(
+                              value: 'open',
+                              child: Text('再開'),
+                            ),
+                        ],
+                      ),
+                  ],
                 ),
-            ],
+                TradePostSummaryLines(post: post),
+                if (isHidden)
+                  Text(
+                    '運営により非表示にされています。編集・再開はできません',
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

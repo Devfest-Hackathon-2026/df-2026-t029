@@ -56,6 +56,10 @@ Future<void> pumpList(
       ),
       GoRoute(path: '/trade/new', builder: (_, _) => const Text('route:new')),
       GoRoute(
+        path: '/trade/:id',
+        builder: (_, s) => Text('route:detail:${s.pathParameters['id']}'),
+      ),
+      GoRoute(
         path: '/trade/:id/edit',
         builder: (_, s) => Text('route:edit:${s.pathParameters['id']}'),
       ),
@@ -207,6 +211,13 @@ void main() {
     await tester.tap(find.text('編集'));
     await tester.pumpAndSettle();
     expect(find.text('route:edit:a'), findsOneWidget);
+  });
+
+  testWidgets('投稿を押すと詳細画面へ行く', (tester) async {
+    await pumpList(tester, FakeTradePostRepository(), posts: [postOf('a')]);
+    await tester.tap(find.text('グループ1'));
+    await tester.pumpAndSettle();
+    expect(find.text('route:detail:a'), findsOneWidget);
   });
 
   testWidgets('非表示の投稿は操作できず、その旨を出す', (tester) async {
