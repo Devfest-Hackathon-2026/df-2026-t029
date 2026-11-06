@@ -50,6 +50,17 @@ class HomePage extends ConsumerWidget {
                 label: const Text('ライブ一覧'),
               ),
             ),
+            const SizedBox(height: 8),
+            // 仮の導線。交換トップ（G-3-4）ができたらそちらへ移す
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                key: const Key('home_my_trade_button'),
+                onPressed: () => context.push('/trade/mine'),
+                icon: const Icon(Icons.swap_horiz),
+                label: const Text('自分の投稿'),
+              ),
+            ),
             const SizedBox(height: 24),
             Text('次の締切', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
