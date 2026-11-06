@@ -5,6 +5,7 @@ import 'package:oshiashi/models/oshi.dart';
 import 'package:oshiashi/models/trade_post.dart';
 import 'package:oshiashi/models/trade_reply.dart';
 import 'package:oshiashi/repositories/goods_repository.dart';
+import 'package:oshiashi/repositories/trade_chat_repository.dart';
 import 'package:oshiashi/repositories/trade_post_repository.dart';
 import 'package:oshiashi/repositories/trade_reply_repository.dart';
 
@@ -237,11 +238,60 @@ class FakeTradeReplyRepository implements TradeReplyRepository {
     return id;
   }
 
+  /// 承認済みにして、一覧を流し直す（FakeTradeChatRepository から呼ぶ）
+  void markApproved(String postId, String replyId) {
+    final list = replies[postId];
+    if (list == null) return;
+    for (final (i, r) in list.indexed) {
+      if (r.id == replyId) {
+        list[i] = TradeReply(
+          id: r.id,
+          uid: r.uid,
+          displayName: r.displayName,
+          text: r.text,
+          linkedPostId: r.linkedPostId,
+          approved: true,
+          createdAt: r.createdAt,
+        );
+      }
+    }
+    _changes.add(null);
+  }
+
   @override
   Future<void> delete(String postId, String replyId) async {
     if (error case final e?) throw e;
     deleted.add((postId, replyId));
     replies[postId]?.removeWhere((r) => r.id == replyId);
     _changes.add(null);
+  }
+}
+
+/// 承認・チャットを記録する偽のリポジトリ
+class FakeTradeChatRepository implements TradeChatRepository {
+  /// すでにあるチャットの ID
+  final existing = <String>{};
+  final approved = <({String postId, String replyId})>[];
+
+  /// 設定すると、approveReply はこれを投げる
+  Object? error;
+
+  /// 承認したら、返信の一覧も承認済みにする（画面のテスト用）
+  FakeTradeReplyRepository? replyRepo;
+
+  @override
+  Future<bool> exists(String chatId) async => existing.contains(chatId);
+
+  @override
+  Future<String> approveReply({
+    required TradePost post,
+    required TradeReply reply,
+  }) async {
+    if (error case final e?) throw e;
+    approved.add((postId: post.id!, replyId: reply.id!));
+    final id = chatIdFor(post.id!, reply.uid);
+    existing.add(id);
+    replyRepo?.markApproved(post.id!, reply.id!);
+    return id;
   }
 }

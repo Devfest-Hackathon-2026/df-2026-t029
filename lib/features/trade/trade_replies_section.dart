@@ -7,6 +7,7 @@ import '../../models/trade_post.dart';
 import '../../models/trade_reply.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/trade_post_providers.dart';
+import '../../repositories/trade_chat_repository.dart';
 import '../live_form/date_time_field.dart';
 import 'trade_post_summary.dart';
 
@@ -49,9 +50,10 @@ class TradeRepliesSection extends ConsumerWidget {
                   children: [
                     for (final r in list)
                       _ReplyTile(
-                        postId: post.id!,
+                        post: post,
                         reply: r,
                         isMine: r.uid == uid,
+                        isPoster: post.uid == uid,
                       ),
                   ],
                 ),
@@ -73,14 +75,59 @@ class TradeRepliesSection extends ConsumerWidget {
 /// 返信1件
 class _ReplyTile extends ConsumerWidget {
   const _ReplyTile({
-    required this.postId,
+    required this.post,
     required this.reply,
     required this.isMine,
+    required this.isPoster,
   });
 
-  final String postId;
+  final TradePost post;
   final TradeReply reply;
   final bool isMine;
+
+  /// 見ている人が投稿者か（承認できるのは投稿者だけ）
+  final bool isPoster;
+
+  String get postId => post.id!;
+
+  /// 返信を承認し、返信した人とのチャットを作る。
+  /// その人とのチャットがすでにあれば、承認しない（既存のチャットを使う）
+  Future<void> _approve(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('この人と個人チャットを開きますか？'),
+        content: const Text('返信を承認すると、2人だけのチャットができます。承認は取り消せません'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            key: const Key('trade_reply_approve_confirm'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('承認する'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    final repo = ref.read(tradeChatRepositoryProvider);
+    String message;
+    try {
+      if (await repo.exists(chatIdFor(postId, reply.uid))) {
+        message = 'この人とのチャットはすでにあります';
+      } else {
+        await repo.approveReply(post: post, reply: reply);
+        message = '承認して、チャットを作りました';
+      }
+    } catch (e) {
+      message = '承認できませんでした: $e';
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
 
   Future<void> _delete(BuildContext context, WidgetRef ref) async {
     final ok = await showDialog<bool>(
@@ -160,6 +207,17 @@ class _ReplyTile extends ConsumerWidget {
             ),
             SelectableText(reply.text),
             if (reply.linkedPostId case final id?) _LinkedPost(postId: id),
+            // 承認できるのは投稿者だけで、自分の返信は承認できない
+            if (isPoster && !isMine && !reply.approved)
+              Padding(
+                padding: const EdgeInsets.only(top: 6, right: 8),
+                child: FilledButton.tonalIcon(
+                  key: Key('trade_reply_approve_${reply.id}'),
+                  onPressed: () => _approve(context, ref),
+                  icon: const Icon(Icons.chat),
+                  label: const Text('承認してチャットを開く'),
+                ),
+              ),
             const SizedBox(height: 4),
             Text(
               createdAt == null ? '送信中…' : formatDateTime(createdAt),

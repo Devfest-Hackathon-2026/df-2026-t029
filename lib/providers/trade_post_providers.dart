@@ -5,6 +5,7 @@ import '../models/goods.dart';
 import '../models/oshi.dart';
 import '../models/trade_post.dart';
 import '../models/trade_reply.dart';
+import '../repositories/trade_chat_repository.dart';
 import '../repositories/trade_post_repository.dart';
 import '../repositories/trade_reply_repository.dart';
 import '../utils/trade_board.dart';
@@ -197,6 +198,12 @@ final tradeRepliesProvider = StreamProvider.autoDispose
           ref.watch(tradeReplyRepositoryProvider).watchReplies(postId),
       retry: firestoreRetry,
     );
+
+/// チャットのリポジトリ（返信の承認もここで行う）。
+/// テストでは `overrideWithValue` で差し替える
+final tradeChatRepositoryProvider = Provider<TradeChatRepository>(
+  (ref) => FirestoreTradeChatRepository(FirebaseFirestore.instance),
+);
 
 /// ログイン中のユーザーの表示名。投稿・返信・チャットに保存し、画面にも出す。
 ///

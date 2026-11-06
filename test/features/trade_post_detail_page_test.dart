@@ -1,4 +1,4 @@
-// 投稿の詳細画面（/trade/:id。G-5-1）と返信（G-5-2）のウィジェットテスト
+// 投稿の詳細画面（/trade/:id。G-5-1）と返信（G-5-2）・承認（G-5-3）のウィジェットテスト
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,6 +71,7 @@ Future<List<Uri>> pumpDetail(
   FakeTradePostRepository repo, {
   bool launchOk = true,
   FakeTradeReplyRepository? replyRepo,
+  FakeTradeChatRepository? chatRepo,
   String location = '/trade/p1',
 }) async {
   usePhoneSize(tester);
@@ -122,6 +123,9 @@ Future<List<Uri>> pumpDetail(
         tradePostRepositoryProvider.overrideWithValue(repo),
         tradeReplyRepositoryProvider.overrideWithValue(
           replyRepo ?? FakeTradeReplyRepository(),
+        ),
+        tradeChatRepositoryProvider.overrideWithValue(
+          chatRepo ?? FakeTradeChatRepository(),
         ),
         urlLauncherProvider.overrideWithValue((uri) async {
           opened.add(uri);
@@ -391,6 +395,101 @@ void main() {
       await tester.pumpAndSettle();
       expect(replyRepo.deleted, [('p1', 'mine')]);
       expect(find.text('消す返信'), findsNothing);
+    });
+  });
+
+  group('承認', () {
+    TradeReply reply(String id, String uid, {bool approved = false}) =>
+        TradeReply(
+          id: id,
+          uid: uid,
+          displayName: '匿名',
+          text: '返信$id',
+          approved: approved,
+          createdAt: DateTime(2026, 11, 6, 10),
+        );
+
+    /// 自分（u1）の投稿に、他人の返信 r1 と自分の返信 own がある
+    (FakeTradePostRepository, FakeTradeReplyRepository) setup() {
+      final repo = FakeTradePostRepository()..posts['p1'] = fullPost(uid: 'u1');
+      final replyRepo = FakeTradeReplyRepository({
+        'p1': [
+          reply('r1', 'x'),
+          reply('own', 'u1'),
+          reply('done', 'y', approved: true),
+        ],
+      });
+      return (repo, replyRepo);
+    }
+
+    testWidgets('投稿者には、他人の承認前の返信にだけ承認ボタンを出す', (tester) async {
+      final (repo, replyRepo) = setup();
+      await pumpDetail(tester, repo, replyRepo: replyRepo);
+      await scrollTo(tester, _key('trade_reply_done'));
+      expect(_key('trade_reply_approve_r1'), findsOneWidget);
+      expect(_key('trade_reply_approve_own'), findsNothing);
+      expect(_key('trade_reply_approve_done'), findsNothing);
+    });
+
+    testWidgets('投稿者でなければ、承認ボタンは出ない', (tester) async {
+      final replyRepo = FakeTradeReplyRepository({
+        'p1': [reply('r1', 'x')],
+      });
+      await pumpDetail(
+        tester,
+        FakeTradePostRepository()..posts['p1'] = fullPost(),
+        replyRepo: replyRepo,
+      );
+      await scrollTo(tester, _key('trade_reply_r1'));
+      expect(_key('trade_reply_approve_r1'), findsNothing);
+    });
+
+    testWidgets('確認してから承認し、チャットを作る', (tester) async {
+      final (repo, replyRepo) = setup();
+      final chatRepo = FakeTradeChatRepository()..replyRepo = replyRepo;
+      await pumpDetail(tester, repo, replyRepo: replyRepo, chatRepo: chatRepo);
+      await scrollTo(tester, _key('trade_reply_approve_r1'));
+
+      // キャンセルなら何もしない
+      await tester.tap(_key('trade_reply_approve_r1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('キャンセル'));
+      await tester.pumpAndSettle();
+      expect(chatRepo.approved, isEmpty);
+
+      await tester.tap(_key('trade_reply_approve_r1'));
+      await tester.pumpAndSettle();
+      await tester.tap(_key('trade_reply_approve_confirm'));
+      await tester.pumpAndSettle();
+      expect(chatRepo.approved, [(postId: 'p1', replyId: 'r1')]);
+      expect(find.text('承認して、チャットを作りました'), findsOneWidget);
+      // 承認済みになり、ボタンは消える
+      expect(_key('trade_reply_approve_r1'), findsNothing);
+    });
+
+    testWidgets('その人とのチャットがすでにあれば、承認しない', (tester) async {
+      final (repo, replyRepo) = setup();
+      final chatRepo = FakeTradeChatRepository()..existing.add('p1_x');
+      await pumpDetail(tester, repo, replyRepo: replyRepo, chatRepo: chatRepo);
+      await scrollTo(tester, _key('trade_reply_approve_r1'));
+      await tester.tap(_key('trade_reply_approve_r1'));
+      await tester.pumpAndSettle();
+      await tester.tap(_key('trade_reply_approve_confirm'));
+      await tester.pumpAndSettle();
+      expect(chatRepo.approved, isEmpty);
+      expect(find.text('この人とのチャットはすでにあります'), findsOneWidget);
+    });
+
+    testWidgets('承認できなければ理由を出す', (tester) async {
+      final (repo, replyRepo) = setup();
+      final chatRepo = FakeTradeChatRepository()..error = Exception('失敗');
+      await pumpDetail(tester, repo, replyRepo: replyRepo, chatRepo: chatRepo);
+      await scrollTo(tester, _key('trade_reply_approve_r1'));
+      await tester.tap(_key('trade_reply_approve_r1'));
+      await tester.pumpAndSettle();
+      await tester.tap(_key('trade_reply_approve_confirm'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('承認できませんでした'), findsOneWidget);
     });
   });
 }
