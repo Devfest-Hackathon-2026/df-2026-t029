@@ -82,6 +82,92 @@ rules_version = '2';
 //   - updatedAt: timestamp（必須、サーバー時刻 = request.time）
 //   ※ 未申込はドキュメントなし（削除で戻す）
 //
+// ---------------------------------------------------------------
+// G-0: グッズ交換（グッズ・投稿・返信・チャット）
+// 計画書 markdown/feature_B_trade_plan.md、DB 設計案 3.6・3.9〜3.13
+// ---------------------------------------------------------------
+// ※ 譲セット・求セット・種類などの配列は、件数だけを検査し、要素の中身は
+//   検査しない（lives の groupIds と同じ方針）。検索用キーと譲・求の対応など、
+//   中身の整合はアプリ側で担保する。
+// ※ 配列の項目は、空でもキーを省かない（lives の groupIds と同じ）。
+//
+// Collection: goods（グッズ。共通データ。誰でも作成・更新できる。削除は不可）
+//   - name: string（必須、1〜100文字、空白だけは不可）
+//   - aliases: list<string>（任意、1〜10個、各1〜50文字）
+//   - category: string（必須、card / acrylic / badge / photo / other）
+//   - groupIds / oshiIds: list<string>（必須、各20個以下、合わせて1個以上）
+//   - liveId: string（任意、1〜128文字）
+//   - price: int（任意、0〜1,000,000）
+//   - officialUrl: string（任意、https:// で始まり空白を含まない、200文字以内）
+//   - variants: list<map>（必須、1〜100個。要素は {id, name, oshiId?}）。
+//     更新で件数を減らせない（種類は削除しない）
+//   - createdBy / updatedBy / createdAt / updatedAt: lives と同じ。
+//     更新時は createdBy・createdAt を変えず、updatedBy・updatedAt を書き直す
+//
+// Collection: goods/{goodsId}/history（変更履歴。作成のみ）
+//   - field: string（必須、1〜50文字）
+//   - before / after: 型は問わない（任意）
+//   - changedBy: string（必須、作成者の uid と一致）
+//   - changedAt: timestamp（必須、サーバー時刻 = request.time）
+//   ※ 同じバッチでグッズ本体を更新している場合だけ作れる（新規作成時は不可）
+//
+// Collection: tradePosts（投稿。作成者だけが作成・更新できる。削除は不可）
+//   - uid: string（必須、作成者の uid と一致。変更不可）
+//   - displayName: string（必須、1〜100文字）
+//   - groupIds / oshiIds: list<string>（必須、各20個以下、合わせて1個以上）
+//   - tags: list<string>（必須、trade / sell / buy から重複なく1〜3個）
+//   - priceType: string（tags に sell か buy があるときだけ必須で face / below。
+//     どちらも無いときは書かない）
+//   - gives / wants: list<map>（必須、各10個以下）
+//   - giveKeys: list<string>（必須、300個以下）
+//   - wantKeys: list<string>（必須、100個以下）
+//   - handover: list<string>（必須、mail / hand から重複なく1〜2個）
+//   - performanceIds: list<string>（必須、20個以下。handover に hand が無ければ空）
+//   - images: list<string>（必須、8個以下。セットの写真との合計8枚は
+//     アプリ側で制限する）
+//   - xAccount: string（任意、@ なし、英数字と _ の1〜15文字）
+//   - note: string（任意、1〜1000文字）
+//   - status: string（必須。作成時は open、更新時は open / closed のみ。
+//     hidden は運営がコンソールで書き、hidden の投稿は作成者も更新できない）
+//   - createdAt: timestamp（必須、作成時はサーバー時刻。変更不可）
+//   - updatedAt: timestamp（必須、サーバー時刻）
+//   ※ 読み取りはログイン済みなら可。ただし hidden の投稿は作成者だけ。
+//     掲示板・マッチングの検索は status == 'open' で絞り込むこと
+//
+// Collection: tradePosts/{postId}/replies（返信）
+//   - uid: string（必須、作成者の uid と一致）
+//   - displayName: string（必須、1〜100文字）
+//   - text: string（必須、1〜1000文字、空白だけは不可）
+//   - linkedPostId: string（任意。返信した人自身の投稿の ID）
+//   - approved: bool（必須、作成時は false）
+//   - createdAt: timestamp（必須、サーバー時刻 = request.time）
+//   ※ 募集中（open）の投稿にだけ作れる
+//   ※ 更新は承認だけ: 投稿者が approved を false → true にする。自分の返信は
+//     承認できない。同じバッチで、この返信をもとにしたチャットを作る
+//   ※ 削除は書いた本人だけで、承認前に限る
+//
+// Collection: chats（個人チャット。ID は {postId}_{返信した人の uid}）
+//   - postId / replyId: string（必須）
+//   - memberUids: list<string>（必須、[投稿者の uid, 返信した人の uid]）
+//   - memberNames: map（必須、uid → 表示名。投稿・返信の displayName と同じ）
+//   - postSummary: string（任意、1〜100文字）
+//   - lastMessage: string（作成時は書かない。1〜1000文字）
+//   - lastMessageAt: timestamp（必須、作成時・更新時ともサーバー時刻。
+//     並び順の検索から外れないよう、作成時にも入れる）
+//   - lastReadAt: map（作成時は書かない。uid → timestamp。自分の分だけ書ける）
+//   - status: string（必須、作成時は open。以後 open / closed）
+//   - createdAt: timestamp（必須、サーバー時刻 = request.time）
+//   ※ 作成は投稿者だけで、同じバッチで返信を承認する場合に限る
+//   ※ 更新は参加者だけで、lastMessage・lastMessageAt・lastReadAt・status に限る
+//   ※ 存在しないチャットの取得は許す（承認前に、既にあるかを確かめるため）
+//
+// Collection: chats/{chatId}/messages（メッセージ。作成のみ）
+//   - uid: string（必須、送信者の uid と一致）
+//   - text: string（必須、1〜1000文字、空白だけは不可）
+//   - createdAt: timestamp（必須、サーバー時刻 = request.time）
+//   ※ 参加者だけが読める・作れる。同じバッチでチャットの lastMessageAt を
+//     更新する
+//
 // それ以外のパスは、すべて拒否する。
 // ===============================================================
 
@@ -412,6 +498,316 @@ service cloud.firestore {
       allow create: if isAuthenticated() &&
         isValidReception(request.resource.data);
       allow update, delete: if false;
+    }
+
+    // =============================================================
+    // グッズ交換の検査（G-0）
+    // =============================================================
+
+    // 任意項目: 無いか、あれば https:// で始まり空白を含まない URL
+    function isValidOptionalHttpsUrl(data, field) {
+      return !(field in data) ||
+        (isStringOfSize(data[field], 9, 200) &&
+         data[field].matches('^https://\\S+$'));
+    }
+
+    // 任意項目: 無いか、あれば X のユーザー名（@ なし）
+    function isValidOptionalXAccount(data, field) {
+      return !(field in data) ||
+        (data[field] is string && data[field].matches('^[A-Za-z0-9_]{1,15}$'));
+    }
+
+    // allowed の値だけからなる、重複のない1個以上の配列
+    function isValidEnumList(list, allowed) {
+      return list is list && list.size() >= 1 &&
+        list.hasOnly(allowed) && list.toSet().size() == list.size();
+    }
+
+    // 0〜maxSize 個の配列（件数だけを検査する。上の「※」を参照）
+    function isListOfMax(value, maxSize) {
+      return value is list && value.size() <= maxSize;
+    }
+
+    // 更新時の作成者・更新日時（作成者・作成日時は変えない）
+    function isValidAuditOnUpdate(data) {
+      return data.createdBy == resource.data.createdBy &&
+        data.createdAt == resource.data.createdAt &&
+        data.updatedBy == request.auth.uid &&
+        data.updatedAt == request.time;
+    }
+
+    // --- グッズ（goods） ---
+
+    function goodsCategories() {
+      return ['card', 'acrylic', 'badge', 'photo', 'other'];
+    }
+
+    function isValidGoods(data) {
+      return data.keys().hasOnly(['name', 'aliases', 'category', 'groupIds',
+          'oshiIds', 'liveId', 'price', 'officialUrl', 'variants',
+          'createdBy', 'createdAt', 'updatedBy', 'updatedAt']) &&
+        data.keys().hasAll(['name', 'category', 'groupIds', 'oshiIds',
+          'variants', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt']) &&
+        isNonBlankString(data.name, 100) &&
+        isValidOptionalStringList10(data, 'aliases', 50) &&
+        data.category in goodsCategories() &&
+        isValidIdList20(data.groupIds) &&
+        isValidIdList20(data.oshiIds) &&
+        data.groupIds.size() + data.oshiIds.size() >= 1 &&
+        isValidOptionalString(data, 'liveId', 1, 128) &&
+        (!('price' in data) ||
+          (data.price is int && data.price >= 0 && data.price <= 1000000)) &&
+        isValidOptionalHttpsUrl(data, 'officialUrl') &&
+        data.variants is list &&
+        data.variants.size() >= 1 && data.variants.size() <= 100;
+    }
+
+    // 変更履歴（goods 以外の history でも使える形にしておく）
+    function isValidHistory(data) {
+      return data.keys().hasOnly(['field', 'before', 'after',
+          'changedBy', 'changedAt']) &&
+        data.keys().hasAll(['field', 'changedBy', 'changedAt']) &&
+        isStringOfSize(data.field, 1, 50) &&
+        data.changedBy == request.auth.uid &&
+        data.changedAt == request.time;
+    }
+
+    // 同じバッチで、このユーザーがグッズ本体を更新しているか（新規作成は除く）
+    function isGoodsUpdatedNow(goodsId) {
+      let goods = getAfter(/databases/$(database)/documents/goods/$(goodsId)).data;
+      return goods.updatedAt == request.time &&
+        goods.updatedBy == request.auth.uid &&
+        goods.createdAt != request.time;
+    }
+
+    // --- 投稿（tradePosts） ---
+
+    function tradeTags() {
+      return ['trade', 'sell', 'buy'];
+    }
+
+    function priceTypes() {
+      return ['face', 'below'];
+    }
+
+    function handoverMethods() {
+      return ['mail', 'hand'];
+    }
+
+    // 作成・更新に共通する検査（status・createdAt は呼び出し側で検査する）
+    function isValidTradePost(data) {
+      return data.keys().hasOnly(['uid', 'displayName', 'groupIds', 'oshiIds',
+          'tags', 'priceType', 'gives', 'wants', 'giveKeys', 'wantKeys',
+          'handover', 'performanceIds', 'xAccount', 'note', 'images', 'status',
+          'createdAt', 'updatedAt']) &&
+        data.keys().hasAll(['uid', 'displayName', 'groupIds', 'oshiIds', 'tags',
+          'gives', 'wants', 'giveKeys', 'wantKeys', 'handover',
+          'performanceIds', 'images', 'status', 'createdAt', 'updatedAt']) &&
+        data.uid == request.auth.uid &&
+        isStringOfSize(data.displayName, 1, 100) &&
+        isValidIdList20(data.groupIds) &&
+        isValidIdList20(data.oshiIds) &&
+        data.groupIds.size() + data.oshiIds.size() >= 1 &&
+        isValidEnumList(data.tags, tradeTags()) &&
+        // 譲渡・買取希望のときだけ価格の区分を持つ
+        (data.tags.hasAny(['sell', 'buy'])
+          ? ('priceType' in data && data.priceType in priceTypes())
+          : !('priceType' in data)) &&
+        isListOfMax(data.gives, 10) &&
+        isListOfMax(data.wants, 10) &&
+        isListOfMax(data.giveKeys, 300) &&
+        isListOfMax(data.wantKeys, 100) &&
+        isValidEnumList(data.handover, handoverMethods()) &&
+        isListOfMax(data.performanceIds, 20) &&
+        // 手渡しが無いのに公演を指定していないか
+        (data.handover.hasAny(['hand']) || data.performanceIds.size() == 0) &&
+        isListOfMax(data.images, 8) &&
+        isValidOptionalXAccount(data, 'xAccount') &&
+        isValidOptionalString(data, 'note', 1, 1000) &&
+        data.updatedAt == request.time;
+    }
+
+    // --- 返信（replies） ---
+
+    function isValidNewReply(postId, data) {
+      return data.keys().hasOnly(['uid', 'displayName', 'text', 'linkedPostId',
+          'approved', 'createdAt']) &&
+        data.keys().hasAll(['uid', 'displayName', 'text', 'approved',
+          'createdAt']) &&
+        data.uid == request.auth.uid &&
+        isStringOfSize(data.displayName, 1, 100) &&
+        isNonBlankString(data.text, 1000) &&
+        data.approved == false &&
+        data.createdAt == request.time &&
+        // 募集中の投稿にだけ返信できる
+        get(/databases/$(database)/documents/tradePosts/$(postId)).data.status ==
+          'open' &&
+        // 添付できるのは、返信した人自身の投稿だけ
+        (!('linkedPostId' in data) ||
+          (isStringOfSize(data.linkedPostId, 1, 128) &&
+           data.linkedPostId != postId &&
+           get(/databases/$(database)/documents/tradePosts/$(data.linkedPostId)).data.uid ==
+             request.auth.uid));
+    }
+
+    // 返信の承認: 投稿者が approved を false → true にし、
+    // 同じバッチでこの返信をもとにしたチャットを作る
+    function isApprovingReply(postId, replyId) {
+      let before = resource.data;
+      let after = request.resource.data;
+      return after.diff(before).affectedKeys().hasOnly(['approved']) &&
+        before.approved == false &&
+        after.approved == true &&
+        before.uid != request.auth.uid &&
+        get(/databases/$(database)/documents/tradePosts/$(postId)).data.uid ==
+          request.auth.uid &&
+        getAfter(/databases/$(database)/documents/chats/$(postId + '_' + before.uid)).data.replyId ==
+          replyId;
+    }
+
+    // --- チャット（chats / messages） ---
+
+    function chatStatuses() {
+      return ['open', 'closed'];
+    }
+
+    // チャットの作成: 投稿者が、同じバッチで承認した返信をもとに作る
+    function isValidNewChat(chatId, data) {
+      let post = get(/databases/$(database)/documents/tradePosts/$(data.postId)).data;
+      let reply = getAfter(/databases/$(database)/documents/tradePosts/$(data.postId)/replies/$(data.replyId)).data;
+      return data.keys().hasOnly(['postId', 'replyId', 'memberUids',
+          'memberNames', 'postSummary', 'lastMessageAt', 'status',
+          'createdAt']) &&
+        data.keys().hasAll(['postId', 'replyId', 'memberUids', 'memberNames',
+          'lastMessageAt', 'status', 'createdAt']) &&
+        post.uid == request.auth.uid &&
+        reply.approved == true &&
+        reply.uid != post.uid &&
+        chatId == data.postId + '_' + reply.uid &&
+        data.memberUids == [post.uid, reply.uid] &&
+        data.memberNames is map &&
+        data.memberNames.keys().hasOnly([post.uid, reply.uid]) &&
+        data.memberNames[post.uid] == post.displayName &&
+        data.memberNames[reply.uid] == reply.displayName &&
+        isValidOptionalString(data, 'postSummary', 1, 100) &&
+        data.lastMessageAt == request.time &&
+        data.status == 'open' &&
+        data.createdAt == request.time;
+    }
+
+    // チャットの更新: 一覧用の項目・既読・状態だけを変えられる
+    function isValidChatUpdate() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let changed = after.diff(before).affectedKeys();
+      return changed.hasOnly(['lastMessage', 'lastMessageAt', 'lastReadAt',
+          'status']) &&
+        (!changed.hasAny(['lastMessage']) ||
+          isStringOfSize(after.lastMessage, 1, 1000)) &&
+        (!changed.hasAny(['lastMessageAt']) ||
+          after.lastMessageAt == request.time) &&
+        // 既読は自分の分だけ、サーバー時刻で書ける
+        (!changed.hasAny(['lastReadAt']) ||
+          (after.lastReadAt is map &&
+           after.lastReadAt.diff(before.get('lastReadAt', {})).affectedKeys()
+             .hasOnly([request.auth.uid]) &&
+           after.lastReadAt[request.auth.uid] == request.time)) &&
+        after.status in chatStatuses();
+    }
+
+    function isChatMember(chatId) {
+      return isAuthenticated() &&
+        request.auth.uid in
+          get(/databases/$(database)/documents/chats/$(chatId)).data.memberUids;
+    }
+
+    // メッセージの作成: 同じバッチでチャットの lastMessageAt を更新する
+    function isValidNewMessage(chatId, data) {
+      return data.keys().hasOnly(['uid', 'text', 'createdAt']) &&
+        data.keys().hasAll(['uid', 'text', 'createdAt']) &&
+        data.uid == request.auth.uid &&
+        isNonBlankString(data.text, 1000) &&
+        data.createdAt == request.time &&
+        getAfter(/databases/$(database)/documents/chats/$(chatId)).data.lastMessageAt ==
+          request.time;
+    }
+
+    // =============================================================
+    // グッズ交換（G-0）
+    // =============================================================
+
+    match /goods/{goodsId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        isValidGoods(request.resource.data) &&
+        isValidAuditOnCreate(request.resource.data);
+      allow update: if isAuthenticated() &&
+        isValidGoods(request.resource.data) &&
+        isValidAuditOnUpdate(request.resource.data) &&
+        // 種類は削除しない（既存の投稿の検索用キーが参照先を失わないように）
+        request.resource.data.variants.size() >= resource.data.variants.size();
+      allow delete: if false;
+
+      match /history/{historyId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() &&
+          isValidHistory(request.resource.data) &&
+          isGoodsUpdatedNow(goodsId);
+        allow update, delete: if false;
+      }
+    }
+
+    match /tradePosts/{postId} {
+      // hidden（運営が非表示にした投稿）は作成者だけが読める
+      allow read: if isAuthenticated() &&
+        (resource.data.status != 'hidden' ||
+         resource.data.uid == request.auth.uid);
+      allow create: if isAuthenticated() &&
+        isValidTradePost(request.resource.data) &&
+        request.resource.data.status == 'open' &&
+        request.resource.data.createdAt == request.time;
+      allow update: if isAuthenticated() &&
+        resource.data.uid == request.auth.uid &&
+        resource.data.status != 'hidden' &&
+        isValidTradePost(request.resource.data) &&
+        request.resource.data.status in ['open', 'closed'] &&
+        request.resource.data.createdAt == resource.data.createdAt;
+      // 削除は不可（募集終了で代替する。返信やチャットが、きっかけの投稿を
+      // 失わないように）
+      allow delete: if false;
+
+      match /replies/{replyId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() &&
+          isValidNewReply(postId, request.resource.data);
+        allow update: if isAuthenticated() &&
+          isApprovingReply(postId, replyId);
+        allow delete: if isAuthenticated() &&
+          resource.data.uid == request.auth.uid &&
+          resource.data.approved == false;
+      }
+    }
+
+    match /chats/{chatId} {
+      // 存在しないチャットの取得は許す（承認前に、既にあるかを確かめるため）
+      allow get: if isAuthenticated() &&
+        (resource == null || request.auth.uid in resource.data.memberUids);
+      // 一覧は memberUids に自分を含む検索だけ
+      allow list: if isAuthenticated() &&
+        request.auth.uid in resource.data.memberUids;
+      allow create: if isAuthenticated() &&
+        isValidNewChat(chatId, request.resource.data);
+      allow update: if isAuthenticated() &&
+        request.auth.uid in resource.data.memberUids &&
+        isValidChatUpdate();
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isChatMember(chatId);
+        allow create: if isChatMember(chatId) &&
+          isValidNewMessage(chatId, request.resource.data);
+        allow update, delete: if false;
+      }
     }
   }
 }
