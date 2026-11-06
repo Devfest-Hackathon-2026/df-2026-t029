@@ -55,10 +55,10 @@ class HomePage extends ConsumerWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: OutlinedButton.icon(
-                key: const Key('home_trade_new_button'),
-                onPressed: () => context.push('/trade/new'),
+                key: const Key('home_my_trade_button'),
+                onPressed: () => context.push('/trade/mine'),
                 icon: const Icon(Icons.swap_horiz),
-                label: const Text('交換の投稿を作る'),
+                label: const Text('自分の投稿'),
               ),
             ),
             const SizedBox(height: 24),
