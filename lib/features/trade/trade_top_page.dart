@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import 'my_trade_posts_view.dart';
 import 'trade_board_view.dart';
+import 'trade_match_view.dart';
 
 /// 交換トップのタブ
 enum TradeTab {
@@ -48,31 +49,8 @@ class TradeTopPage extends StatelessWidget {
         ),
         body: const SafeArea(
           child: TabBarView(
-            children: [
-              TradeBoardView(),
-              _MatchPlaceholder(),
-              MyTradePostsView(),
-            ],
+            children: [TradeBoardView(), TradeMatchView(), MyTradePostsView()],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// マッチのタブ（G-4 で作る）
-class _MatchPlaceholder extends StatelessWidget {
-  const _MatchPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Text(
-          'マッチは準備中です。\n自分の求と相手の譲が合う投稿を、ここに自動で表示する予定です',
-          key: Key('trade_match_placeholder'),
-          textAlign: TextAlign.center,
         ),
       ),
     );
