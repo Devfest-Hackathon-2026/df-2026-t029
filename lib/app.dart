@@ -15,6 +15,8 @@ import 'features/live_form/live_form_page.dart';
 import 'features/oshi/oshi_request_page.dart';
 import 'features/oshi/oshi_search_page.dart';
 import 'features/calendar/calendar_test_page.dart';
+import 'features/goods/goods_search_page.dart';
+import 'features/goods/goods_form_page.dart';
 
 import 'repositories/auth_repository.dart';
 
@@ -75,6 +77,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/calendar-test',
         builder: (context, state) => const CalendarTestPage(),
       ),
+      GoRoute(path: '/goods', builder: (context, state) => const GoodsSearchPage()),
+      GoRoute(path: '/goods/new', builder: (context, state) => const GoodsFormPage()),
+      GoRoute(
+        path: '/goods/:id/edit',
+        builder: (context, state) => GoodsFormPage(goodsId: state.pathParameters['id']),
+      )
     ],
   );
 });
