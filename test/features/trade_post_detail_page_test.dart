@@ -87,6 +87,12 @@ Future<List<Uri>> pumpDetail(
         ),
       ),
       GoRoute(
+        path: '/chats/:id',
+        // スナックバーを出せるよう、本物のチャット画面と同じく Scaffold を置く
+        builder: (_, s) =>
+            Scaffold(body: Text('route:chat:${s.pathParameters['id']}')),
+      ),
+      GoRoute(
         path: '/trade/:id/edit',
         builder: (_, s) => Text('route:edit:${s.pathParameters['id']}'),
       ),
@@ -463,11 +469,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(chatRepo.approved, [(postId: 'p1', replyId: 'r1')]);
       expect(find.text('承認して、チャットを作りました'), findsOneWidget);
-      // 承認済みになり、ボタンは消える
-      expect(_key('trade_reply_approve_r1'), findsNothing);
+      // 承認したら、そのままチャットを開く
+      expect(find.text('route:chat:p1_x'), findsOneWidget);
     });
 
-    testWidgets('その人とのチャットがすでにあれば、承認しない', (tester) async {
+    testWidgets('その人とのチャットがすでにあれば、承認せずにそれを開く', (tester) async {
       final (repo, replyRepo) = setup();
       final chatRepo = FakeTradeChatRepository()..existing.add('p1_x');
       await pumpDetail(tester, repo, replyRepo: replyRepo, chatRepo: chatRepo);
@@ -477,7 +483,8 @@ void main() {
       await tester.tap(_key('trade_reply_approve_confirm'));
       await tester.pumpAndSettle();
       expect(chatRepo.approved, isEmpty);
-      expect(find.text('この人とのチャットはすでにあります'), findsOneWidget);
+      expect(find.text('この人とのチャットはすでにあるので、それを開きます'), findsOneWidget);
+      expect(find.text('route:chat:p1_x'), findsOneWidget);
     });
 
     testWidgets('承認できなければ理由を出す', (tester) async {
@@ -490,6 +497,55 @@ void main() {
       await tester.tap(_key('trade_reply_approve_confirm'));
       await tester.pumpAndSettle();
       expect(find.textContaining('承認できませんでした'), findsOneWidget);
+    });
+  });
+
+  group('チャットへの入口', () {
+    TradeReply approvedReply(String uid) => TradeReply(
+      id: 'r1',
+      uid: uid,
+      displayName: '匿名',
+      text: '承認された返信',
+      approved: true,
+      createdAt: DateTime(2026, 11, 6, 10),
+    );
+
+    testWidgets('投稿者には、承認済みの返信に「チャットを開く」を出す', (tester) async {
+      await pumpDetail(
+        tester,
+        FakeTradePostRepository()..posts['p1'] = fullPost(uid: 'u1'),
+        replyRepo: FakeTradeReplyRepository({
+          'p1': [approvedReply('x')],
+        }),
+      );
+      await scrollTo(tester, _key('trade_reply_chat_r1'));
+      await tester.tap(_key('trade_reply_chat_r1'));
+      await tester.pumpAndSettle();
+      expect(find.text('route:chat:p1_x'), findsOneWidget);
+    });
+
+    testWidgets('返信した本人にも出す', (tester) async {
+      await pumpDetail(
+        tester,
+        FakeTradePostRepository()..posts['p1'] = fullPost(),
+        replyRepo: FakeTradeReplyRepository({
+          'p1': [approvedReply('u1')],
+        }),
+      );
+      await scrollTo(tester, _key('trade_reply_chat_r1'));
+      expect(_key('trade_reply_chat_r1'), findsOneWidget);
+    });
+
+    testWidgets('投稿者でも返信した人でもなければ出さない', (tester) async {
+      await pumpDetail(
+        tester,
+        FakeTradePostRepository()..posts['p1'] = fullPost(),
+        replyRepo: FakeTradeReplyRepository({
+          'p1': [approvedReply('x')],
+        }),
+      );
+      await scrollTo(tester, _key('trade_reply_r1'));
+      expect(_key('trade_reply_chat_r1'), findsNothing);
     });
   });
 }

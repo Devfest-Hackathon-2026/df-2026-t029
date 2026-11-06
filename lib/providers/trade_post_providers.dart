@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/goods.dart';
 import '../models/oshi.dart';
 import '../models/trade_chat.dart';
+import '../models/trade_message.dart';
 import '../models/trade_post.dart';
 import '../models/trade_reply.dart';
 import '../repositories/trade_chat_repository.dart';
@@ -212,6 +213,20 @@ final myChatsProvider = StreamProvider<List<TradeChat>>((ref) {
   if (uid == null) return Stream.value(const []);
   return ref.watch(tradeChatRepositoryProvider).watchMyChats(uid);
 }, retry: firestoreRetry);
+
+/// チャット1件（チャット画面で使う）。画面を閉じたら購読をやめる
+final tradeChatProvider = StreamProvider.autoDispose.family<TradeChat?, String>(
+  (ref, chatId) => ref.watch(tradeChatRepositoryProvider).watchChat(chatId),
+  retry: firestoreRetry,
+);
+
+/// チャットのメッセージ（送った順）。画面を閉じたら購読をやめる
+final tradeMessagesProvider = StreamProvider.autoDispose
+    .family<List<TradeMessage>, String>(
+      (ref, chatId) =>
+          ref.watch(tradeChatRepositoryProvider).watchMessages(chatId),
+      retry: firestoreRetry,
+    );
 
 /// 未読のメッセージがあるチャットの数（交換トップのボタンに出す）
 final unreadChatCountProvider = Provider<int>((ref) {

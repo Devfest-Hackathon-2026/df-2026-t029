@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:oshiashi/models/goods.dart';
 import 'package:oshiashi/models/oshi.dart';
 import 'package:oshiashi/models/trade_chat.dart';
+import 'package:oshiashi/models/trade_message.dart';
 import 'package:oshiashi/models/trade_post.dart';
 import 'package:oshiashi/models/trade_reply.dart';
 import 'package:oshiashi/repositories/goods_repository.dart';
@@ -293,6 +294,110 @@ class FakeTradeChatRepository implements TradeChatRepository {
   Stream<List<TradeChat>> watchMyChats(String uid) async* {
     if (chatsInitial case final c?) yield c;
     yield* chats.stream;
+  }
+
+  /// チャット画面用：ID → チャット（変えると watchChat に流れ直す）
+  final chatById = <String, TradeChat>{};
+
+  /// チャット画面用：チャットの ID → メッセージ
+  final messages = <String, List<TradeMessage>>{};
+  final _chatChanges = StreamController<void>.broadcast();
+
+  final sent = <({String chatId, String uid, String text})>[];
+  final readMarks = <(String, String)>[];
+  final statusChanges = <(String, ChatStatus)>[];
+
+  /// 設定すると、sendMessage・setStatus はこれを投げる
+  Object? chatError;
+
+  /// 送信・既読・状態の変更で使う「今」
+  DateTime now = DateTime(2026, 11, 6, 15);
+
+  void _replaceChat(String id, TradeChat Function(TradeChat) change) {
+    final c = chatById[id];
+    if (c == null) return;
+    chatById[id] = change(c);
+    _chatChanges.add(null);
+  }
+
+  static TradeChat _copy(
+    TradeChat c, {
+    String? lastMessage,
+    DateTime? lastMessageAt,
+    Map<String, DateTime>? lastReadAt,
+    ChatStatus? status,
+  }) => TradeChat(
+    id: c.id,
+    postId: c.postId,
+    replyId: c.replyId,
+    memberUids: c.memberUids,
+    memberNames: c.memberNames,
+    postSummary: c.postSummary,
+    lastMessage: lastMessage ?? c.lastMessage,
+    lastMessageAt: lastMessageAt ?? c.lastMessageAt,
+    lastReadAt: lastReadAt ?? c.lastReadAt,
+    status: status ?? c.status,
+    createdAt: c.createdAt,
+  );
+
+  @override
+  Stream<TradeChat?> watchChat(String chatId) async* {
+    yield chatById[chatId];
+    await for (final _ in _chatChanges.stream) {
+      yield chatById[chatId];
+    }
+  }
+
+  @override
+  Stream<List<TradeMessage>> watchMessages(String chatId) async* {
+    yield [...?messages[chatId]];
+    await for (final _ in _chatChanges.stream) {
+      yield [...?messages[chatId]];
+    }
+  }
+
+  @override
+  Future<void> sendMessage(
+    String chatId, {
+    required String uid,
+    required String text,
+  }) async {
+    if (chatError case final e?) throw e;
+    sent.add((chatId: chatId, uid: uid, text: text));
+    final list = messages[chatId] ??= [];
+    list.add(
+      TradeMessage(
+        id: 'm${list.length + 1}',
+        uid: uid,
+        text: text,
+        createdAt: now,
+      ),
+    );
+    _replaceChat(
+      chatId,
+      (c) => _copy(
+        c,
+        lastMessage: text,
+        lastMessageAt: now,
+        lastReadAt: {...c.lastReadAt, uid: now},
+      ),
+    );
+  }
+
+  @override
+  Future<void> markRead(String chatId, String uid) async {
+    readMarks.add((chatId, uid));
+    _replaceChat(
+      chatId,
+      (c) => _copy(c, lastReadAt: {...c.lastReadAt, uid: now}),
+    );
+  }
+
+  @override
+  Future<void> setStatus(String chatId, ChatStatus status) async {
+    if (chatError case final e?) throw e;
+    statusChanges.add((chatId, status));
+    _replaceChat(chatId, (c) => _copy(c, status: status));
   }
 
   @override

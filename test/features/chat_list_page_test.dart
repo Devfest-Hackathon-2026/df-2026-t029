@@ -52,6 +52,10 @@ Future<void> pump(
     initialLocation: location,
     routes: [
       GoRoute(path: '/chats', builder: (_, _) => const ChatListPage()),
+      GoRoute(
+        path: '/chats/:id',
+        builder: (_, s) => Text('route:chat:${s.pathParameters['id']}'),
+      ),
       GoRoute(path: '/trade', builder: (_, _) => const TradeTopPage()),
     ],
   );
@@ -96,6 +100,13 @@ void main() {
     // メッセージがまだなければ、チャットを作った日時を出す
     expect(find.text('2026/11/6(金) 09:00・取引終了'), findsOneWidget);
     expect(find.text('相手'), findsOneWidget);
+  });
+
+  testWidgets('押すとチャット画面を開く', (tester) async {
+    await pump(tester, FakeTradeChatRepository()..chatsInitial = [chat('a')]);
+    await tester.tap(_key('chat_tile_a'));
+    await tester.pumpAndSettle();
+    expect(find.text('route:chat:a'), findsOneWidget);
   });
 
   testWidgets('未読のチャットは印を付ける', (tester) async {

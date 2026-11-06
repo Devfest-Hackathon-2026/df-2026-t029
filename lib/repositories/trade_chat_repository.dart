@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/trade_chat.dart';
+import '../models/trade_message.dart';
 import '../models/trade_post.dart';
 import '../models/trade_reply.dart';
 
@@ -20,13 +21,33 @@ String? chatPostSummary(TradePost post) {
   return first.length <= 100 ? first : first.substring(0, 100);
 }
 
-/// 返信の承認と、個人チャット（G-5-4・G-5-5 で一覧・メッセージを足す）
+/// 返信の承認と、個人チャット（一覧・メッセージ・既読・取引終了）
 abstract class TradeChatRepository {
   /// チャットがすでにあるか
   Future<bool> exists(String chatId);
 
   /// 自分が参加しているチャット（最後のメッセージの新しい順）
   Stream<List<TradeChat>> watchMyChats(String uid);
+
+  /// チャット1件。無ければ null
+  Stream<TradeChat?> watchChat(String chatId);
+
+  /// チャットのメッセージ（送った順）
+  Stream<List<TradeMessage>> watchMessages(String chatId);
+
+  /// メッセージを送る。メッセージの作成と、チャットの最後のメッセージ・
+  /// 送った人の既読の更新を、1回のバッチで書く
+  Future<void> sendMessage(
+    String chatId, {
+    required String uid,
+    required String text,
+  });
+
+  /// [uid] の既読の日時を、今（サーバー時刻）にする
+  Future<void> markRead(String chatId, String uid);
+
+  /// 取引終了・再開
+  Future<void> setStatus(String chatId, ChatStatus status);
 
   /// 返信を承認し、返信した人とのチャットを作る（1回のバッチで書く）。
   /// 作ったチャットの ID を返す。投稿者だけが行える（ルールで確かめる）
@@ -48,6 +69,51 @@ class FirestoreTradeChatRepository implements TradeChatRepository {
   @override
   Future<bool> exists(String chatId) async =>
       (await _chats.doc(chatId).get()).exists;
+
+  @override
+  Stream<TradeChat?> watchChat(String chatId) => _chats
+      .doc(chatId)
+      .snapshots()
+      .map((d) => d.exists ? TradeChat.fromFirestore(d) : null);
+
+  @override
+  Stream<List<TradeMessage>> watchMessages(String chatId) => _chats
+      .doc(chatId)
+      .collection('messages')
+      .orderBy('createdAt')
+      .snapshots()
+      .map((s) => [for (final d in s.docs) TradeMessage.fromFirestore(d)]);
+
+  @override
+  Future<void> sendMessage(
+    String chatId, {
+    required String uid,
+    required String text,
+  }) async {
+    final chat = _chats.doc(chatId);
+    final batch = _db.batch()
+      ..set(chat.collection('messages').doc(), {
+        'uid': uid,
+        'text': text,
+        'createdAt': FieldValue.serverTimestamp(),
+      })
+      // 自分が送ったメッセージで、自分の未読の印が付かないよう、既読も更新する
+      ..update(chat, {
+        'lastMessage': text,
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'lastReadAt.$uid': FieldValue.serverTimestamp(),
+      });
+    await batch.commit();
+  }
+
+  @override
+  Future<void> markRead(String chatId, String uid) => _chats.doc(chatId).update(
+    {'lastReadAt.$uid': FieldValue.serverTimestamp()},
+  );
+
+  @override
+  Future<void> setStatus(String chatId, ChatStatus status) =>
+      _chats.doc(chatId).update({'status': status.name});
 
   @override
   Stream<List<TradeChat>> watchMyChats(String uid) => _chats

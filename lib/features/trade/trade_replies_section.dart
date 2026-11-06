@@ -113,20 +113,25 @@ class _ReplyTile extends ConsumerWidget {
     );
     if (ok != true || !context.mounted) return;
     final repo = ref.read(tradeChatRepositoryProvider);
+    final chatId = chatIdFor(postId, reply.uid);
     String message;
     try {
-      if (await repo.exists(chatIdFor(postId, reply.uid))) {
-        message = 'この人とのチャットはすでにあります';
+      if (await repo.exists(chatId)) {
+        message = 'この人とのチャットはすでにあるので、それを開きます';
       } else {
         await repo.approveReply(post: post, reply: reply);
         message = '承認して、チャットを作りました';
       }
     } catch (e) {
-      message = '承認できませんでした: $e';
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('承認できませんでした: $e')));
+      return;
     }
     if (!context.mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+    await context.push('/chats/$chatId');
   }
 
   Future<void> _delete(BuildContext context, WidgetRef ref) async {
@@ -207,6 +212,18 @@ class _ReplyTile extends ConsumerWidget {
             ),
             SelectableText(reply.text),
             if (reply.linkedPostId case final id?) _LinkedPost(postId: id),
+            // 承認済みなら、投稿者と返信した人にだけチャットへの入口を出す
+            if (reply.approved && (isPoster || isMine))
+              Padding(
+                padding: const EdgeInsets.only(top: 6, right: 8),
+                child: OutlinedButton.icon(
+                  key: Key('trade_reply_chat_${reply.id}'),
+                  onPressed: () =>
+                      context.push('/chats/${chatIdFor(postId, reply.uid)}'),
+                  icon: const Icon(Icons.chat),
+                  label: const Text('チャットを開く'),
+                ),
+              ),
             // 承認できるのは投稿者だけで、自分の返信は承認できない
             if (isPoster && !isMine && !reply.approved)
               Padding(

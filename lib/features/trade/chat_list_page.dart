@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../models/trade_chat.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/trade_post_providers.dart';
 import '../live_form/date_time_field.dart';
 
-/// チャットの一覧（最後のメッセージの新しい順）。
-/// チャット画面への移動は G-5-5 で足す
+/// チャットの一覧（最後のメッセージの新しい順）。押すとチャット画面を開く
 class ChatListPage extends ConsumerWidget {
   const ChatListPage({super.key});
 
@@ -58,6 +58,7 @@ class _ChatTile extends StatelessWidget {
     final summary = chat.postSummary;
     return ListTile(
       key: Key('chat_tile_${chat.id}'),
+      onTap: () => context.push('/chats/${chat.id}'),
       leading: Badge(
         isLabelVisible: unread,
         smallSize: 10,

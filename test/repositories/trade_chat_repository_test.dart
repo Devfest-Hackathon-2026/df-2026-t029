@@ -1,7 +1,8 @@
-// lib/repositories/trade_chat_repository.dart の承認（G-5-3）と一覧（G-5-4）のテスト
+// lib/repositories/trade_chat_repository.dart の承認（G-5-3）・一覧（G-5-4）・メッセージ（G-5-5）のテスト
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:oshiashi/models/trade_chat.dart';
 import 'package:oshiashi/models/trade_post.dart';
 import 'package:oshiashi/models/trade_reply.dart';
 import 'package:oshiashi/repositories/trade_chat_repository.dart';
@@ -168,5 +169,70 @@ void main() {
 
     final list = await repo.watchMyChats('me').first;
     expect(list.map((c) => c.id), ['new', 'old']);
+  });
+
+  group('チャット画面', () {
+    setUp(() => repo.approveReply(post: post(), reply: reply));
+
+    test('sendMessage：メッセージを作り、最後のメッセージと自分の既読を更新する', () async {
+      await repo.sendMessage('p1_replier', uid: 'replier', text: 'こんにちは');
+      final msgs = await db
+          .collection('chats')
+          .doc('p1_replier')
+          .collection('messages')
+          .get();
+      final m = msgs.docs.single.data();
+      expect(m.keys.toSet(), {'uid', 'text', 'createdAt'});
+      expect(m['uid'], 'replier');
+      expect(m['text'], 'こんにちは');
+
+      final chat = await repo.watchChat('p1_replier').first;
+      expect(chat!.lastMessage, 'こんにちは');
+      expect(chat.lastReadAt.keys, ['replier']);
+      expect(chat.isUnreadFor('replier'), isFalse);
+      expect(chat.isUnreadFor('owner'), isTrue);
+    });
+
+    test('watchMessages：送った順', () async {
+      final msgs = db
+          .collection('chats')
+          .doc('p1_replier')
+          .collection('messages');
+      await msgs.doc('b').set({
+        'uid': 'owner',
+        'text': '後',
+        'createdAt': Timestamp.fromDate(DateTime(2026, 11, 6, 12)),
+      });
+      await msgs.doc('a').set({
+        'uid': 'replier',
+        'text': '先',
+        'createdAt': Timestamp.fromDate(DateTime(2026, 11, 6, 10)),
+      });
+      final list = await repo.watchMessages('p1_replier').first;
+      expect(list.map((m) => m.text), ['先', '後']);
+    });
+
+    test('markRead：自分の既読だけを更新する', () async {
+      await repo.markRead('p1_replier', 'owner');
+      final chat = await repo.watchChat('p1_replier').first;
+      expect(chat!.lastReadAt.keys, ['owner']);
+    });
+
+    test('setStatus：取引終了・再開', () async {
+      await repo.setStatus('p1_replier', ChatStatus.closed);
+      expect(
+        (await repo.watchChat('p1_replier').first)!.status,
+        ChatStatus.closed,
+      );
+      await repo.setStatus('p1_replier', ChatStatus.open);
+      expect(
+        (await repo.watchChat('p1_replier').first)!.status,
+        ChatStatus.open,
+      );
+    });
+
+    test('watchChat：なければ null', () async {
+      expect(await repo.watchChat('none').first, isNull);
+    });
   });
 }

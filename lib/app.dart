@@ -19,6 +19,7 @@ import 'features/goods/goods_search_page.dart';
 import 'features/goods/goods_form_page.dart';
 import 'features/trade/trade_top_page.dart';
 import 'features/trade/chat_list_page.dart';
+import 'features/trade/chat_page.dart';
 import 'features/trade/trade_post_detail_page.dart';
 import 'features/trade/trade_post_form_page.dart';
 
@@ -100,6 +101,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/chats',
         builder: (context, state) => const ChatListPage(),
+      ),
+      GoRoute(
+        path: '/chats/:id',
+        builder: (context, state) =>
+            ChatPage(chatId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/trade/new',
