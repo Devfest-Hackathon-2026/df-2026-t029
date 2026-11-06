@@ -31,10 +31,22 @@ class FakeTradePostRepository implements TradePostRepository {
     return posts[id];
   }
 
+  /// 設定すると、watchMine は購読した時点でこの一覧を流す
+  /// （本物の Firestore と同じく、あとから購読しても今の値が届く）
+  List<TradePost>? mineInitial;
+
   @override
   Stream<List<TradePost>> watchMine(String uid) {
     watchedUids.add(uid);
-    return mine.stream;
+    // async* は購読の開始が一拍遅れるので、初期値がないときは使わない
+    final initial = mineInitial;
+    if (initial == null) return mine.stream;
+    return _withInitial(initial, mine.stream);
+  }
+
+  static Stream<T> _withInitial<T>(T initial, Stream<T> rest) async* {
+    yield initial;
+    yield* rest;
   }
 
   /// watchOpenFor の中身（推しの種類と ID → 流すストリーム）

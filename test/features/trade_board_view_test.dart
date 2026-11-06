@@ -1,10 +1,10 @@
-// 交換の掲示板（/trade/board。G-3-2・G-3-3）のウィジェットテスト。
+// 交換の掲示板（交換トップの「掲示板」タブ。G-3-2・G-3-3）のウィジェットテスト。
 // 本物のプロバイダを使い、リポジトリだけを偽物に差し替える。
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:oshiashi/features/trade/trade_board_page.dart';
+import 'package:oshiashi/features/trade/trade_board_view.dart';
 import 'package:oshiashi/models/goods.dart';
 import 'package:oshiashi/models/live.dart';
 import 'package:oshiashi/models/oshi.dart';
@@ -104,7 +104,7 @@ Future<void> pumpBoard(
         tradePostRepositoryProvider.overrideWithValue(repo),
       ],
       retry: (_, _) => null,
-      child: const MaterialApp(home: TradeBoardPage()),
+      child: const MaterialApp(home: Scaffold(body: TradeBoardView())),
     ),
   );
   await tester.pumpAndSettle();

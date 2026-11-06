@@ -9,43 +9,33 @@ import '../../providers/trade_post_providers.dart';
 import 'trade_post_summary.dart';
 import 'trade_post_summary_lines.dart';
 
-/// 自分の投稿の一覧（更新日時の新しい順）。編集・募集終了・再開ができる
-class MyTradePostsPage extends ConsumerWidget {
-  const MyTradePostsPage({super.key});
+/// 自分の投稿の一覧（更新日時の新しい順。交換トップの「自分の投稿」タブ）。
+/// 編集・募集終了・再開ができる
+class MyTradePostsView extends ConsumerWidget {
+  const MyTradePostsView({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final posts = ref.watch(myTradePostsProvider);
     final all = ref.watch(allOshisProvider).value ?? const <OshiSummary>[];
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('自分の投稿')),
-      floatingActionButton: FloatingActionButton.extended(
-        key: const Key('my_trade_new_button'),
-        onPressed: () => context.push('/trade/new'),
-        icon: const Icon(Icons.add),
-        label: const Text('投稿を作る'),
-      ),
-      body: SafeArea(
-        child: posts.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('投稿を読み込めませんでした: $e')),
-          data: (list) => ListView(
-            // 右下のボタンで最後の投稿が隠れないようにする
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-            children: [
-              Text('投稿者名：${ref.watch(myDisplayNameProvider)}'),
-              const SizedBox(height: 12),
-              if (list.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.only(top: 32),
-                  child: Center(child: Text('まだ投稿がありません')),
-                )
-              else
-                for (final p in list) _PostCard(post: p, all: all),
-            ],
-          ),
-        ),
+    return posts.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('投稿を読み込めませんでした: $e')),
+      data: (list) => ListView(
+        // 右下のボタンで最後の投稿が隠れないようにする
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+        children: [
+          Text('投稿者名：${ref.watch(myDisplayNameProvider)}'),
+          const SizedBox(height: 12),
+          if (list.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 32),
+              child: Center(child: Text('まだ投稿がありません')),
+            )
+          else
+            for (final p in list) _PostCard(post: p, all: all),
+        ],
       ),
     );
   }

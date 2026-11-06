@@ -10,15 +10,21 @@ import 'board_filter_sheet.dart';
 import 'trade_post_summary.dart';
 import 'trade_post_summary_lines.dart';
 
-/// 交換の掲示板（推しを選び、募集中の投稿を更新日時の新しい順に出す）
-class TradeBoardPage extends ConsumerStatefulWidget {
-  const TradeBoardPage({super.key});
+/// 交換の掲示板（交換トップの「掲示板」タブ）。
+/// 推しを選び、募集中の投稿を更新日時の新しい順に出す
+class TradeBoardView extends ConsumerStatefulWidget {
+  const TradeBoardView({super.key});
 
   @override
-  ConsumerState<TradeBoardPage> createState() => _TradeBoardPageState();
+  ConsumerState<TradeBoardView> createState() => _TradeBoardViewState();
 }
 
-class _TradeBoardPageState extends ConsumerState<TradeBoardPage> {
+class _TradeBoardViewState extends ConsumerState<TradeBoardView>
+    with AutomaticKeepAliveClientMixin {
+  /// タブを切り替えても、読んだ件数とスクロール位置を残す
+  @override
+  bool get wantKeepAlive => true;
+
   /// 読む件数（「もっと見る」で増やす）
   int _limit = boardPageSize;
 
@@ -27,47 +33,43 @@ class _TradeBoardPageState extends ConsumerState<TradeBoardPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final following = ref.watch(followingOshisProvider);
     final target = ref.watch(boardTargetProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('交換の掲示板')),
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: following.when(
-                loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text('推しを読み込めませんでした: $e'),
-                data: (oshis) => Row(
-                  children: [
-                    Expanded(
-                      child: _OshiSelector(
-                        oshis: oshis,
-                        selected: target,
-                        onChanged: (oshi) {
-                          // 推しを変えたら、件数を最初に戻す
-                          // （絞り込みの条件はプロバイダ側で外れる）
-                          setState(() {
-                            _limit = boardPageSize;
-                            _last = null;
-                          });
-                          ref.read(boardTargetProvider.notifier).select(oshi);
-                        },
-                      ),
-                    ),
-                    if (target != null) _filterButton(target),
-                  ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: following.when(
+            loading: () => const LinearProgressIndicator(),
+            error: (e, _) => Text('推しを読み込めませんでした: $e'),
+            data: (oshis) => Row(
+              children: [
+                Expanded(
+                  child: _OshiSelector(
+                    oshis: oshis,
+                    selected: target,
+                    onChanged: (oshi) {
+                      // 推しを変えたら、件数を最初に戻す
+                      // （絞り込みの条件はプロバイダ側で外れる）
+                      setState(() {
+                        _limit = boardPageSize;
+                        _last = null;
+                      });
+                      ref.read(boardTargetProvider.notifier).select(oshi);
+                    },
+                  ),
                 ),
-              ),
+                if (target != null) _filterButton(target),
+              ],
             ),
-            if (target != null) _filterChips(),
-            Expanded(child: _buildResults(target)),
-          ],
+          ),
         ),
-      ),
+        if (target != null) _filterChips(),
+        Expanded(child: _buildResults(target)),
+      ],
     );
   }
 
@@ -171,7 +173,8 @@ class _TradeBoardPageState extends ConsumerState<TradeBoardPage> {
     final filter = ref.watch(boardFilterProvider);
     final posts = value.posts.where(filter.matches).toList();
     return ListView(
-      padding: const EdgeInsets.all(16),
+      // 右下のボタンで最後の投稿が隠れないようにする
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
       children: [
         if (!filter.isEmpty)
           Padding(
