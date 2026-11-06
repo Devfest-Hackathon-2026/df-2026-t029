@@ -88,7 +88,10 @@ Future<void> pumpMatch(
             ),
             GoRoute(
               path: '/trade/:id',
-              builder: (_, s) => Text('route:detail:${s.pathParameters['id']}'),
+              builder: (_, s) => Text(
+                'route:detail:${s.pathParameters['id']}'
+                '?attach=${s.uri.queryParameters['attach']}',
+              ),
             ),
           ],
         ),
@@ -167,7 +170,8 @@ void main() {
     await pumpMatch(tester, repo);
     await tester.tap(_key('trade_match_theirs'));
     await tester.pumpAndSettle();
-    expect(find.text('route:detail:theirs'), findsOneWidget);
+    // いちばん合う自分の投稿を添付に選んで開く
+    expect(find.text('route:detail:theirs?attach=mine'), findsOneWidget);
   });
 
   testWidgets('マッチがなければその旨を出す', (tester) async {

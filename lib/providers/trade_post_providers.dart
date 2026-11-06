@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/goods.dart';
 import '../models/oshi.dart';
 import '../models/trade_post.dart';
+import '../models/trade_reply.dart';
 import '../repositories/trade_post_repository.dart';
+import '../repositories/trade_reply_repository.dart';
 import '../utils/trade_board.dart';
 import '../utils/trade_match.dart';
 import 'goods_providers.dart';
@@ -182,6 +184,19 @@ final tradeMatchesProvider = FutureProvider<List<TradeMatch>>((ref) async {
     },
   );
 }, retry: firestoreRetry);
+
+/// 返信のリポジトリ。テストでは `overrideWithValue` で差し替える
+final tradeReplyRepositoryProvider = Provider<TradeReplyRepository>(
+  (ref) => FirestoreTradeReplyRepository(FirebaseFirestore.instance),
+);
+
+/// 投稿の返信（書いた順）。詳細画面を閉じたら購読をやめる
+final tradeRepliesProvider = StreamProvider.autoDispose
+    .family<List<TradeReply>, String>(
+      (ref, postId) =>
+          ref.watch(tradeReplyRepositoryProvider).watchReplies(postId),
+      retry: firestoreRetry,
+    );
 
 /// ログイン中のユーザーの表示名。投稿・返信・チャットに保存し、画面にも出す。
 ///

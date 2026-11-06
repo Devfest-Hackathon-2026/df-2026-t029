@@ -1,4 +1,4 @@
-// 投稿の詳細画面（/trade/:id。G-5-1）のウィジェットテスト
+// 投稿の詳細画面（/trade/:id。G-5-1）と返信（G-5-2）のウィジェットテスト
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +9,7 @@ import 'package:oshiashi/features/trade/trade_post_detail_page.dart';
 import 'package:oshiashi/models/live.dart';
 import 'package:oshiashi/models/oshi.dart';
 import 'package:oshiashi/models/trade_post.dart';
+import 'package:oshiashi/models/trade_reply.dart';
 import 'package:oshiashi/providers/live_providers.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
 import 'package:oshiashi/providers/trade_post_providers.dart';
@@ -69,15 +70,20 @@ Future<List<Uri>> pumpDetail(
   WidgetTester tester,
   FakeTradePostRepository repo, {
   bool launchOk = true,
+  FakeTradeReplyRepository? replyRepo,
+  String location = '/trade/p1',
 }) async {
   usePhoneSize(tester);
   final opened = <Uri>[];
   final router = GoRouter(
-    initialLocation: '/trade/p1',
+    initialLocation: location,
     routes: [
       GoRoute(
         path: '/trade/:id',
-        builder: (_, s) => TradePostDetailPage(postId: s.pathParameters['id']!),
+        builder: (_, s) => TradePostDetailPage(
+          postId: s.pathParameters['id']!,
+          initialAttachId: s.uri.queryParameters['attach'],
+        ),
       ),
       GoRoute(
         path: '/trade/:id/edit',
@@ -114,6 +120,9 @@ Future<List<Uri>> pumpDetail(
         ),
         nowProvider.overrideWithValue(DateTime(2026, 11, 5, 12)),
         tradePostRepositoryProvider.overrideWithValue(repo),
+        tradeReplyRepositoryProvider.overrideWithValue(
+          replyRepo ?? FakeTradeReplyRepository(),
+        ),
         urlLauncherProvider.overrideWithValue((uri) async {
           opened.add(uri);
           return launchOk;
@@ -208,5 +217,180 @@ void main() {
       ),
     );
     expect(find.textContaining('この投稿は表示できません'), findsOneWidget);
+  });
+
+  group('返信', () {
+    /// 自分（u1）の募集中の投稿
+    final myOpen = TradePost(
+      id: 'myOpen',
+      uid: 'u1',
+      tags: const [TradeTag.trade],
+      handover: const [HandoverMethod.mail],
+      gives: const [
+        GiveSet(
+          items: [GiveItem(goodsId: 'b', variantId: 'v1', label: 'タオル')],
+        ),
+      ],
+    );
+    final myClosed = TradePost(
+      id: 'myClosed',
+      uid: 'u1',
+      tags: const [TradeTag.trade],
+      handover: const [HandoverMethod.mail],
+      status: TradePostStatus.closed,
+    );
+
+    FakeTradePostRepository repoWithMine() => FakeTradePostRepository()
+      ..posts['p1'] = fullPost()
+      ..posts['myOpen'] = myOpen
+      ..mineInitial = [myOpen, myClosed];
+
+    Future<void> scrollToInput(WidgetTester tester) =>
+        scrollTo(tester, _key('trade_reply_send'));
+
+    testWidgets('返信を書いた順に出し、添付した投稿を表示する', (tester) async {
+      final replyRepo = FakeTradeReplyRepository({
+        'p1': [
+          TradeReply(
+            id: 'r1',
+            uid: 'x',
+            displayName: '匿名',
+            text: '交換できますか？',
+            linkedPostId: 'myOpen',
+            createdAt: DateTime(2026, 11, 6, 10),
+          ),
+          TradeReply(
+            id: 'r2',
+            uid: 'y',
+            displayName: '匿名',
+            text: 'B ほしいです',
+            approved: true,
+            createdAt: DateTime(2026, 11, 6, 11),
+          ),
+        ],
+      });
+      await pumpDetail(tester, repoWithMine(), replyRepo: replyRepo);
+      await scrollTo(tester, _key('trade_reply_r2'));
+      expect(find.text('交換できますか？'), findsOneWidget);
+      expect(find.text('添付の投稿\n譲：タオル'), findsOneWidget);
+      expect(find.text('承認済み'), findsOneWidget);
+      // 他人の返信は削除できない
+      expect(_key('trade_reply_delete_r1'), findsNothing);
+    });
+
+    testWidgets('自分の募集中の投稿を添付して返信できる', (tester) async {
+      final replyRepo = FakeTradeReplyRepository();
+      await pumpDetail(tester, repoWithMine(), replyRepo: replyRepo);
+      await scrollToInput(tester);
+      expect(find.text('まだ返信はありません'), findsOneWidget);
+
+      await tester.enterText(_key('trade_reply_text'), '  交換お願いします  ');
+      await tester.tap(_key('trade_reply_attach'));
+      await tester.pumpAndSettle();
+      // 募集終了の投稿は候補に出さない
+      expect(find.textContaining('品目なしの投稿'), findsNothing);
+      await tester.tap(find.text('添付：譲：タオル').last);
+      await tester.pumpAndSettle();
+      await tester.tap(_key('trade_reply_send'));
+      await tester.pumpAndSettle();
+
+      final c = replyRepo.created.single;
+      expect(c.postId, 'p1');
+      expect(c.uid, 'u1');
+      expect(c.displayName, '匿名');
+      expect(c.text, '交換お願いします');
+      expect(c.linkedPostId, 'myOpen');
+      // 送ったら入力欄を空にし、一覧に出す
+      expect(find.text('交換お願いします'), findsOneWidget);
+    });
+
+    testWidgets('マッチから開いたときは、添付を選んだ状態にする', (tester) async {
+      final replyRepo = FakeTradeReplyRepository();
+      await pumpDetail(
+        tester,
+        repoWithMine(),
+        replyRepo: replyRepo,
+        location: '/trade/p1?attach=myOpen',
+      );
+      await scrollToInput(tester);
+      await tester.enterText(_key('trade_reply_text'), 'よろしくお願いします');
+      await tester.tap(_key('trade_reply_send'));
+      await tester.pumpAndSettle();
+      expect(replyRepo.created.single.linkedPostId, 'myOpen');
+    });
+
+    testWidgets('本文が空なら送らない', (tester) async {
+      final replyRepo = FakeTradeReplyRepository();
+      await pumpDetail(tester, repoWithMine(), replyRepo: replyRepo);
+      await scrollToInput(tester);
+      await tester.enterText(_key('trade_reply_text'), '   ');
+      await tester.tap(_key('trade_reply_send'));
+      await tester.pumpAndSettle();
+      expect(find.text('本文を入力してください'), findsOneWidget);
+      expect(replyRepo.created, isEmpty);
+    });
+
+    testWidgets('投稿者は返信を書けるが、添付の欄は出さない', (tester) async {
+      final repo = repoWithMine()..posts['p1'] = fullPost(uid: 'u1');
+      await pumpDetail(tester, repo);
+      await scrollToInput(tester);
+      expect(_key('trade_reply_text'), findsOneWidget);
+      expect(_key('trade_reply_attach'), findsNothing);
+    });
+
+    testWidgets('募集中でない投稿には返信できない', (tester) async {
+      final repo = repoWithMine()
+        ..posts['p1'] = fullPost(status: TradePostStatus.closed);
+      await pumpDetail(tester, repo);
+      await scrollTo(tester, _key('trade_reply_closed'));
+      expect(_key('trade_reply_text'), findsNothing);
+    });
+
+    testWidgets('送れなかったら理由を出す', (tester) async {
+      final replyRepo = FakeTradeReplyRepository()
+        ..error = FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'permission-denied',
+        );
+      await pumpDetail(tester, repoWithMine(), replyRepo: replyRepo);
+      await scrollToInput(tester);
+      await tester.enterText(_key('trade_reply_text'), 'こんにちは');
+      await tester.tap(_key('trade_reply_send'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('募集が終了した可能性があります'), findsOneWidget);
+    });
+
+    testWidgets('自分の承認前の返信は、確認してから削除できる', (tester) async {
+      final replyRepo = FakeTradeReplyRepository({
+        'p1': [
+          TradeReply(
+            id: 'mine',
+            uid: 'u1',
+            displayName: '匿名',
+            text: '消す返信',
+            createdAt: DateTime(2026, 11, 6, 10),
+          ),
+          TradeReply(
+            id: 'approved',
+            uid: 'u1',
+            displayName: '匿名',
+            text: '承認済みの返信',
+            approved: true,
+            createdAt: DateTime(2026, 11, 6, 11),
+          ),
+        ],
+      });
+      await pumpDetail(tester, repoWithMine(), replyRepo: replyRepo);
+      await scrollTo(tester, _key('trade_reply_approved'));
+      // 承認済みは削除できない
+      expect(_key('trade_reply_delete_approved'), findsNothing);
+
+      await tester.tap(_key('trade_reply_delete_mine'));
+      await tester.pumpAndSettle();
+      await tester.tap(_key('trade_reply_delete_confirm'));
+      await tester.pumpAndSettle();
+      expect(replyRepo.deleted, [('p1', 'mine')]);
+      expect(find.text('消す返信'), findsNothing);
+    });
   });
 }

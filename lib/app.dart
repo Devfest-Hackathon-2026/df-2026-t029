@@ -108,8 +108,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       // /trade/new・/trade/board・/trade/mine より後に置く（先に書いたルートが優先される）
       GoRoute(
         path: '/trade/:id',
-        builder: (context, state) =>
-            TradePostDetailPage(postId: state.pathParameters['id']!),
+        // ?attach= は、返信に最初から添付しておく自分の投稿（マッチから開いたとき）
+        builder: (context, state) => TradePostDetailPage(
+          postId: state.pathParameters['id']!,
+          initialAttachId: state.uri.queryParameters['attach'],
+        ),
       ),
     ],
   );

@@ -13,6 +13,7 @@ import '../../providers/trade_post_providers.dart';
 import '../live/official_url_link.dart';
 import '../live_form/date_time_field.dart';
 import 'trade_post_summary.dart';
+import 'trade_replies_section.dart';
 
 /// X のユーザー名のページ。ユーザー名として正しくなければ null（リンクにしない）
 Uri? xProfileUri(String? account) {
@@ -22,11 +23,18 @@ Uri? xProfileUri(String? account) {
   return Uri.https('x.com', '/$account');
 }
 
-/// 投稿の詳細（内容、X へのリンク）。返信は G-5-2 で足す
+/// 投稿の詳細（内容、X へのリンク、返信）
 class TradePostDetailPage extends ConsumerWidget {
-  const TradePostDetailPage({super.key, required this.postId});
+  const TradePostDetailPage({
+    super.key,
+    required this.postId,
+    this.initialAttachId,
+  });
 
   final String postId;
+
+  /// 返信に最初から添付しておく自分の投稿（マッチから開いたとき）
+  final String? initialAttachId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -61,7 +69,11 @@ class TradePostDetailPage extends ConsumerWidget {
               : RefreshIndicator(
                   onRefresh: () =>
                       ref.refresh(tradePostByIdProvider(postId).future),
-                  child: _PostBody(post: p, isMine: isMine),
+                  child: _PostBody(
+                    post: p,
+                    isMine: isMine,
+                    initialAttachId: initialAttachId,
+                  ),
                 ),
         ),
       ),
@@ -77,10 +89,15 @@ class TradePostDetailPage extends ConsumerWidget {
 }
 
 class _PostBody extends ConsumerWidget {
-  const _PostBody({required this.post, required this.isMine});
+  const _PostBody({
+    required this.post,
+    required this.isMine,
+    this.initialAttachId,
+  });
 
   final TradePost post;
   final bool isMine;
+  final String? initialAttachId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -175,6 +192,8 @@ class _PostBody extends ConsumerWidget {
           heading('備考'),
           SelectableText(note, key: const Key('trade_detail_note')),
         ],
+        heading('返信'),
+        TradeRepliesSection(post: post, initialAttachId: initialAttachId),
       ],
     );
   }

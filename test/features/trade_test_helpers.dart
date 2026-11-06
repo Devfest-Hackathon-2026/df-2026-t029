@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:oshiashi/models/goods.dart';
 import 'package:oshiashi/models/oshi.dart';
 import 'package:oshiashi/models/trade_post.dart';
+import 'package:oshiashi/models/trade_reply.dart';
 import 'package:oshiashi/repositories/goods_repository.dart';
 import 'package:oshiashi/repositories/trade_post_repository.dart';
+import 'package:oshiashi/repositories/trade_reply_repository.dart';
 
 /// 呼ばれた引数を記録する、投稿の偽のリポジトリ
 class FakeTradePostRepository implements TradePostRepository {
@@ -171,4 +173,75 @@ class FakeGoodsRepository implements GoodsRepository {
     required Goods after,
     required String uid,
   }) => throw UnimplementedError();
+}
+
+/// 返信を覚えておく偽のリポジトリ（作成・削除すると一覧が流れ直す）
+class FakeTradeReplyRepository implements TradeReplyRepository {
+  FakeTradeReplyRepository([Map<String, List<TradeReply>>? initial])
+    : replies = initial ?? {};
+
+  final Map<String, List<TradeReply>> replies;
+  final _changes = StreamController<void>.broadcast();
+
+  /// 設定すると、create・delete はこれを投げる
+  Object? error;
+
+  final created =
+      <
+        ({
+          String postId,
+          String uid,
+          String displayName,
+          String text,
+          String? linkedPostId,
+        })
+      >[];
+  final deleted = <(String, String)>[];
+
+  @override
+  Stream<List<TradeReply>> watchReplies(String postId) async* {
+    yield [...?replies[postId]];
+    await for (final _ in _changes.stream) {
+      yield [...?replies[postId]];
+    }
+  }
+
+  @override
+  Future<String> create(
+    String postId, {
+    required String uid,
+    required String displayName,
+    required String text,
+    String? linkedPostId,
+  }) async {
+    if (error case final e?) throw e;
+    created.add((
+      postId: postId,
+      uid: uid,
+      displayName: displayName,
+      text: text,
+      linkedPostId: linkedPostId,
+    ));
+    final id = 'r${created.length}';
+    (replies[postId] ??= []).add(
+      TradeReply(
+        id: id,
+        uid: uid,
+        displayName: displayName,
+        text: text,
+        linkedPostId: linkedPostId,
+        createdAt: DateTime(2026, 11, 6, 12),
+      ),
+    );
+    _changes.add(null);
+    return id;
+  }
+
+  @override
+  Future<void> delete(String postId, String replyId) async {
+    if (error case final e?) throw e;
+    deleted.add((postId, replyId));
+    replies[postId]?.removeWhere((r) => r.id == replyId);
+    _changes.add(null);
+  }
 }

@@ -138,7 +138,13 @@ class _MatchCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 6),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => context.push('/trade/${theirs.id}'),
+        onTap: () => context.push(
+          // いちばん合う自分の投稿を、返信に添付しておく
+          Uri(
+            path: '/trade/${theirs.id}',
+            queryParameters: {'attach': best.mine.id},
+          ).toString(),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
