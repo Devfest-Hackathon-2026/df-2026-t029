@@ -3,6 +3,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:oshiashi/models/oshi.dart';
 import 'package:oshiashi/models/trade_post.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
 import 'package:oshiashi/providers/trade_post_providers.dart';
@@ -23,6 +24,7 @@ class _Env {
     );
     addTearDown(container.dispose);
     addTearDown(repo.mine.close);
+    addTearDown(repo.open.close);
   }
 
   final repo = FakeTradePostRepository();
@@ -99,6 +101,35 @@ void main() {
 
       expect(post?.status, TradePostStatus.closed);
       expect(env.repo.fetchCount, 2);
+    });
+  });
+
+  group('openTradePostsProvider', () {
+    test('推しの種類と ID で購読し、届いた一覧をそのまま返す', () async {
+      final env = _Env();
+      final p = openTradePostsProvider((OshiKind.person, 'p1'));
+      expect(env.read(p).isLoading, isTrue);
+      expect(env.repo.watchedOpen, [(OshiKind.person, 'p1')]);
+
+      env.repo.open.add([_post('a'), _post('b')]);
+      await pumpEventQueue();
+      expect(env.read(p).requireValue.map((p) => p.id), ['a', 'b']);
+    });
+
+    test('同じ推しなら同じプロバイダとして扱う', () {
+      expect(
+        openTradePostsProvider((OshiKind.group, 'g1')),
+        openTradePostsProvider((OshiKind.group, 'g1')),
+      );
+    });
+
+    test('未ログインなら空で、リポジトリを呼ばない', () async {
+      final env = _Env(uid: null);
+      final p = openTradePostsProvider((OshiKind.group, 'g1'));
+      env.read(p);
+      await pumpEventQueue();
+      expect(env.read(p).requireValue, isEmpty);
+      expect(env.repo.watchedOpen, isEmpty);
     });
   });
 

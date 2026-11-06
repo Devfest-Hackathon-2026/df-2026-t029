@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/oshi.dart';
 import '../models/trade_post.dart';
 import '../repositories/trade_post_repository.dart';
 import 'oshi_providers.dart';
@@ -24,6 +25,15 @@ final tradePostByIdProvider = FutureProvider.family<TradePost?, String>(
   (ref, id) => ref.watch(tradePostRepositoryProvider).fetch(id),
   retry: firestoreRetry,
 );
+
+/// 推しの募集中の投稿（更新日時の新しい順。掲示板で使う）。
+/// 引数は推しの種類と ID。未ログインなら空
+final openTradePostsProvider =
+    StreamProvider.family<List<TradePost>, (OshiKind, String)>((ref, target) {
+      if (ref.watch(currentUidProvider) == null) return Stream.value(const []);
+      final (kind, id) = target;
+      return ref.watch(tradePostRepositoryProvider).watchOpenFor(kind, id);
+    }, retry: firestoreRetry);
 
 /// ログイン中のユーザーの表示名。投稿・返信・チャットに保存し、画面にも出す。
 ///

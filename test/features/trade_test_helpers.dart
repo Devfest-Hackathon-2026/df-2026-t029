@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:oshiashi/models/goods.dart';
+import 'package:oshiashi/models/oshi.dart';
 import 'package:oshiashi/models/trade_post.dart';
 import 'package:oshiashi/repositories/goods_repository.dart';
 import 'package:oshiashi/repositories/trade_post_repository.dart';
@@ -34,6 +35,16 @@ class FakeTradePostRepository implements TradePostRepository {
   Stream<List<TradePost>> watchMine(String uid) {
     watchedUids.add(uid);
     return mine.stream;
+  }
+
+  /// watchOpenFor の中身（推しの種類と ID → 流すストリーム）
+  final open = StreamController<List<TradePost>>.broadcast();
+  final watchedOpen = <(OshiKind, String)>[];
+
+  @override
+  Stream<List<TradePost>> watchOpenFor(OshiKind kind, String oshiId) {
+    watchedOpen.add((kind, oshiId));
+    return open.stream;
   }
 
   @override
