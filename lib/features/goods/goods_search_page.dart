@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../models/goods.dart';
 import '../../../models/oshi.dart';
@@ -24,6 +25,11 @@ class _GoodsSearchPageState extends ConsumerState<GoodsSearchPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('グッズを探す')),
+      floatingActionButton: target == null ? null : FloatingActionButton.extended(
+          onPressed: () => context.push('/goods/new'),
+          icon:  const Icon(Icons.add),
+          label: const Text('グッズを登録'),
+        ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

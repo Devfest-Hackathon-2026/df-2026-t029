@@ -47,3 +47,15 @@ int _byName(Goods a, Goods b) {
   if (byNormalized != 0) return byNormalized;
   return a.name.compareTo(b.name);
 }
+
+/// 名前・別名が、正規化後に既存のグッズと完全に一致するものを返す（重複登録の確認用）
+List<Goods> findExactGoodsDuplicates(
+  List<Goods> all, {
+  required String name,
+  List<String> aliases = const [],
+}) {
+  final keys = {for (final s in [name, ...aliases]) normalizeName(s)}
+    ..remove('');
+  if (keys.isEmpty) return const [];
+  return all.where((g) => _keysOf(g).any(keys.contains)).toList();
+}
