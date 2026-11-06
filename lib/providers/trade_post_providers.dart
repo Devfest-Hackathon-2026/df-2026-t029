@@ -53,6 +53,21 @@ final boardTargetProvider = NotifierProvider<BoardTargetNotifier, OshiSummary?>(
   BoardTargetNotifier.new,
 );
 
+/// 掲示板の絞り込みの条件。掲示板の推しを変えたら、条件なしに戻る
+class BoardFilterNotifier extends Notifier<BoardFilter> {
+  @override
+  BoardFilter build() {
+    ref.watch(boardTargetProvider);
+    return BoardFilter.none;
+  }
+
+  void set(BoardFilter filter) => state = filter;
+}
+
+final boardFilterProvider = NotifierProvider<BoardFilterNotifier, BoardFilter>(
+  BoardFilterNotifier.new,
+);
+
 /// 推しの掲示板（募集中の投稿を更新日時の新しい順に limit 件）。
 ///
 /// 個人の推しなら、所属グループを対象にした投稿もまとめて出す。

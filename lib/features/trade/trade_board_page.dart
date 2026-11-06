@@ -6,6 +6,7 @@ import '../../models/trade_post.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/trade_post_providers.dart';
 import '../../utils/trade_board.dart';
+import 'board_filter_sheet.dart';
 import 'trade_post_summary.dart';
 import 'trade_post_summary_lines.dart';
 
@@ -40,23 +41,107 @@ class _TradeBoardPageState extends ConsumerState<TradeBoardPage> {
               child: following.when(
                 loading: () => const LinearProgressIndicator(),
                 error: (e, _) => Text('推しを読み込めませんでした: $e'),
-                data: (oshis) => _OshiSelector(
-                  oshis: oshis,
-                  selected: target,
-                  onChanged: (oshi) {
-                    // 推しを変えたら、件数を最初に戻す
-                    setState(() {
-                      _limit = boardPageSize;
-                      _last = null;
-                    });
-                    ref.read(boardTargetProvider.notifier).select(oshi);
-                  },
+                data: (oshis) => Row(
+                  children: [
+                    Expanded(
+                      child: _OshiSelector(
+                        oshis: oshis,
+                        selected: target,
+                        onChanged: (oshi) {
+                          // 推しを変えたら、件数を最初に戻す
+                          // （絞り込みの条件はプロバイダ側で外れる）
+                          setState(() {
+                            _limit = boardPageSize;
+                            _last = null;
+                          });
+                          ref.read(boardTargetProvider.notifier).select(oshi);
+                        },
+                      ),
+                    ),
+                    if (target != null) _filterButton(target),
+                  ],
                 ),
               ),
             ),
+            if (target != null) _filterChips(),
             Expanded(child: _buildResults(target)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _filterButton(OshiSummary target) {
+    final count = ref.watch(boardFilterProvider).count;
+    return IconButton(
+      key: const Key('trade_board_filter'),
+      tooltip: '絞り込み',
+      icon: Badge(
+        isLabelVisible: count > 0,
+        label: Text('$count'),
+        child: const Icon(Icons.filter_list),
+      ),
+      onPressed: () async {
+        final result = await showBoardFilterSheet(
+          context,
+          target: target,
+          initial: ref.read(boardFilterProvider),
+        );
+        if (result != null) ref.read(boardFilterProvider.notifier).set(result);
+      },
+    );
+  }
+
+  /// 指定している条件のチップ（× で外せる）
+  Widget _filterChips() {
+    final filter = ref.watch(boardFilterProvider);
+    if (filter.isEmpty) return const SizedBox.shrink();
+    final notifier = ref.read(boardFilterProvider.notifier);
+    final goodsName = filter.goodsName ?? 'グッズ';
+    final goods = filter.goodsId == null
+        ? (filter.side == BoardSide.any ? null : '${filter.side.label}あり')
+        : filter.side == BoardSide.any
+        ? goodsName
+        : '$goodsName（${filter.side.label}）';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (goods != null)
+            InputChip(
+              key: const Key('board_chip_goods'),
+              label: Text(goods),
+              onDeleted: () => notifier.set(filter.withoutGoods()),
+            ),
+          if (filter.tags.isNotEmpty)
+            InputChip(
+              key: const Key('board_chip_tags'),
+              label: Text(
+                [
+                  for (final t in TradeTag.values)
+                    if (filter.tags.contains(t)) t.label,
+                ].join('・'),
+              ),
+              onDeleted: () => notifier.set(filter.withoutTags()),
+            ),
+          if (filter.performanceId != null)
+            InputChip(
+              key: const Key('board_chip_performance'),
+              label: Text(
+                '手渡し：${filter.performanceLabel ?? '公演'}',
+                overflow: TextOverflow.ellipsis,
+              ),
+              onDeleted: () => notifier.set(filter.withoutPerformance()),
+            ),
+          TextButton(
+            key: const Key('board_chip_clear'),
+            onPressed: () => notifier.set(BoardFilter.none),
+            child: const Text('条件をすべて外す'),
+          ),
+        ],
       ),
     );
   }
@@ -83,10 +168,28 @@ class _TradeBoardPageState extends ConsumerState<TradeBoardPage> {
     if (value.posts.isEmpty) {
       return const Center(child: Text('募集中の投稿はまだありません'));
     }
+    final filter = ref.watch(boardFilterProvider);
+    final posts = value.posts.where(filter.matches).toList();
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        for (final p in value.posts)
+        if (!filter.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              value.hasMore
+                  ? '読み込んだ新しい${value.posts.length}件から絞り込んでいます。'
+                        '古い投稿は「もっと見る」で読み込めます'
+                  : '${value.posts.length}件から絞り込んでいます',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        if (posts.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Center(child: Text('条件に合う投稿はありません')),
+          ),
+        for (final p in posts)
           _BoardCard(post: p, all: all, isMine: p.uid == uid),
         if (value.hasMore)
           Center(

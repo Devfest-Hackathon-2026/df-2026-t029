@@ -1,12 +1,15 @@
-// 交換の掲示板（/trade/board。G-3-2）のウィジェットテスト。
+// 交換の掲示板（/trade/board。G-3-2・G-3-3）のウィジェットテスト。
 // 本物のプロバイダを使い、リポジトリだけを偽物に差し替える。
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:oshiashi/features/trade/trade_board_page.dart';
+import 'package:oshiashi/models/goods.dart';
+import 'package:oshiashi/models/live.dart';
 import 'package:oshiashi/models/oshi.dart';
 import 'package:oshiashi/models/trade_post.dart';
+import 'package:oshiashi/providers/goods_providers.dart';
 import 'package:oshiashi/providers/live_providers.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
 import 'package:oshiashi/providers/trade_post_providers.dart';
@@ -42,6 +45,8 @@ TradePost post(
   List<TradeTag> tags = const [TradeTag.trade],
   PriceType? priceType,
   List<GiveSet> gives = const [],
+  List<WantSet> wants = const [],
+  List<String> performanceIds = const [],
 }) => TradePost(
   id: id,
   uid: uid,
@@ -51,6 +56,8 @@ TradePost post(
   tags: tags,
   priceType: priceType,
   gives: gives,
+  wants: wants,
+  performanceIds: performanceIds,
   handover: const [HandoverMethod.mail, HandoverMethod.hand],
   updatedAt: DateTime(2026, 11, day),
 );
@@ -67,7 +74,32 @@ Future<void> pumpBoard(
         authStateProvider.overrideWith((ref) => Stream<User?>.value(null)),
         oshiRepositoryProvider.overrideWithValue(FakeOshiRepository(oshis)),
         followRepositoryProvider.overrideWithValue(following()),
-        liveRepositoryProvider.overrideWithValue(FakeLiveRepository()),
+        liveRepositoryProvider.overrideWithValue(
+          FakeLiveRepository(
+            lives: const [
+              Live(id: 'l1', title: 'ツアー', groupIds: ['g1']),
+            ],
+            performances: [
+              perfOf('f1', 'l1', DateTime(2026, 11, 20, 18)).copyWithIds(
+                id: 'f1',
+                liveId: 'l1',
+                groupIds: ['g1'],
+                oshiIds: [],
+              ),
+            ],
+          ),
+        ),
+        goodsRepositoryProvider.overrideWithValue(
+          FakeGoodsRepository(const [
+            Goods(
+              id: 'acsta',
+              name: 'アクスタ',
+              category: GoodsCategory.acrylic,
+              groupIds: ['g1'],
+              variants: [GoodsVariant(id: 'v1', name: 'A')],
+            ),
+          ]),
+        ),
         nowProvider.overrideWithValue(DateTime(2026, 11, 5, 12)),
         tradePostRepositoryProvider.overrideWithValue(repo),
       ],
@@ -196,6 +228,153 @@ void main() {
     repo.open.addError(permissionDenied());
     await tester.pumpAndSettle();
     expect(find.textContaining('投稿を読み込めませんでした'), findsOneWidget);
+  });
+
+  group('絞り込み', () {
+    const giveAcsta = GiveSet(
+      items: [GiveItem(goodsId: 'acsta', variantId: 'v1', label: 'アクスタ（A）')],
+    );
+    const wantAcsta = WantSet(
+      targets: [
+        WantTarget(type: WantType.goods, goodsId: 'acsta', label: 'アクスタ（全種類）'),
+      ],
+    );
+
+    FakeTradePostRepository repoWithPosts() => FakeTradePostRepository()
+      ..openByTarget = {
+        (OshiKind.group, 'g1'): [
+          post('give', 5, gives: const [giveAcsta]),
+          post('want', 4, wants: const [wantAcsta]),
+          post(
+            'sell',
+            3,
+            tags: const [TradeTag.sell],
+            priceType: PriceType.face,
+          ),
+          post('hand', 2, performanceIds: const ['f1']),
+        ],
+      };
+
+    Future<void> openSheet(WidgetTester tester) async {
+      await tester.tap(_key('trade_board_filter'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> apply(WidgetTester tester) async {
+      await tester.tap(_key('board_filter_apply'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> pickDropdown(
+      WidgetTester tester,
+      String key,
+      String label,
+    ) async {
+      await tester.tap(_key(key));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label).last);
+      await tester.pumpAndSettle();
+    }
+
+    List<String> shown(WidgetTester tester) => [
+      for (final c in tester.widgetList<Card>(find.byType(Card)))
+        (c.key as ValueKey<String>).value.replaceFirst('trade_board_post_', ''),
+    ];
+
+    testWidgets('グッズ＋譲で絞り込み、チップの × で外せる', (tester) async {
+      await pumpBoard(tester, repoWithPosts());
+      await selectOshi(tester, 'グループ1（グループ）');
+      expect(shown(tester), ['give', 'want', 'sell', 'hand']);
+
+      await openSheet(tester);
+      await pickDropdown(tester, 'board_filter_goods', 'アクスタ');
+      await tester.tap(find.text('譲').last);
+      await tester.pumpAndSettle();
+      await apply(tester);
+
+      expect(shown(tester), ['give']);
+      expect(find.text('アクスタ（譲）'), findsOneWidget);
+      expect(find.text('4件から絞り込んでいます'), findsOneWidget);
+
+      // チップの × を押したときの処理を呼ぶ
+      tester.widget<InputChip>(_key('board_chip_goods')).onDeleted!();
+      await tester.pumpAndSettle();
+      expect(shown(tester), ['give', 'want', 'sell', 'hand']);
+    });
+
+    testWidgets('グッズだけなら、譲・求のどちらかに含む投稿', (tester) async {
+      await pumpBoard(tester, repoWithPosts());
+      await selectOshi(tester, 'グループ1（グループ）');
+      await openSheet(tester);
+      await pickDropdown(tester, 'board_filter_goods', 'アクスタ');
+      await apply(tester);
+      expect(shown(tester), ['give', 'want']);
+    });
+
+    testWidgets('タグと手渡しの公演で絞り込む', (tester) async {
+      await pumpBoard(tester, repoWithPosts());
+      await selectOshi(tester, 'グループ1（グループ）');
+
+      await openSheet(tester);
+      await tester.tap(_key('board_filter_tag_sell'));
+      await tester.tap(_key('board_filter_tag_buy'));
+      await tester.pump();
+      await apply(tester);
+      expect(shown(tester), ['sell']);
+      expect(find.text('譲渡（売ります）・買取希望'), findsOneWidget);
+
+      await tester.tap(_key('board_chip_clear'));
+      await tester.pumpAndSettle();
+      await openSheet(tester);
+      await pickDropdown(
+        tester,
+        'board_filter_performance',
+        'ツアー 2026/11/20(金) 18:00 会場f1',
+      );
+      await apply(tester);
+      expect(shown(tester), ['hand']);
+    });
+
+    testWidgets('条件に合う投稿がなければその旨を出す', (tester) async {
+      final repo = FakeTradePostRepository()
+        ..openByTarget = {
+          (OshiKind.group, 'g1'): [post('a', 1)],
+        };
+      await pumpBoard(tester, repo);
+      await selectOshi(tester, 'グループ1（グループ）');
+      await openSheet(tester);
+      await tester.tap(_key('board_filter_tag_buy'));
+      await tester.pump();
+      await apply(tester);
+      expect(find.text('条件に合う投稿はありません'), findsOneWidget);
+    });
+
+    testWidgets('推しを変えると条件が外れる', (tester) async {
+      await pumpBoard(tester, repoWithPosts());
+      await selectOshi(tester, 'グループ1（グループ）');
+      await openSheet(tester);
+      await tester.tap(_key('board_filter_tag_sell'));
+      await tester.pump();
+      await apply(tester);
+      expect(_key('board_chip_tags'), findsOneWidget);
+
+      await selectOshi(tester, '個人1（個人）');
+      expect(_key('board_chip_tags'), findsNothing);
+    });
+
+    testWidgets('シートの「条件をすべて外す」で条件なしに戻る', (tester) async {
+      await pumpBoard(tester, repoWithPosts());
+      await selectOshi(tester, 'グループ1（グループ）');
+      await openSheet(tester);
+      await tester.tap(_key('board_filter_tag_sell'));
+      await tester.pump();
+      await apply(tester);
+      await openSheet(tester);
+      await tester.tap(_key('board_filter_clear'));
+      await tester.pumpAndSettle();
+      expect(_key('board_chip_tags'), findsNothing);
+      expect(shown(tester), hasLength(4));
+    });
   });
 }
 

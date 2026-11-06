@@ -38,3 +38,110 @@ TradeBoard mergeBoardPosts(List<List<TradePost>> lists, int limit) {
     hasMore: merged.length > limit || lists.any((l) => l.length >= limit),
   );
 }
+
+/// 掲示板のグッズの絞り込みで、譲・求のどちらを見るか
+enum BoardSide {
+  any('どちらでも'),
+  give('譲'),
+  want('求');
+
+  const BoardSide(this.label);
+
+  final String label;
+}
+
+/// 掲示板の絞り込みの条件（アプリ側で、読み込んだ投稿に対して行う）
+class BoardFilter {
+  const BoardFilter({
+    this.goodsId,
+    this.goodsName,
+    this.side = BoardSide.any,
+    this.tags = const {},
+    this.performanceId,
+    this.performanceLabel,
+  });
+
+  static const BoardFilter none = BoardFilter();
+
+  /// グッズ。null なら指定なし
+  final String? goodsId;
+
+  /// グッズ名（条件のチップの表示用）
+  final String? goodsName;
+
+  /// グッズを選んだときは、そのグッズを譲・求のどちらに含むか。
+  /// グッズを選ばないときは、譲・求があるか
+  final BoardSide side;
+
+  /// タグ。どれかを含む投稿を出す。空なら指定なし
+  final Set<TradeTag> tags;
+
+  /// 手渡しの公演。null なら指定なし
+  final String? performanceId;
+
+  /// 公演の表示名（条件のチップの表示用）
+  final String? performanceLabel;
+
+  bool get isEmpty =>
+      goodsId == null &&
+      side == BoardSide.any &&
+      tags.isEmpty &&
+      performanceId == null;
+
+  /// 指定している条件の数（ボタンの表示用）
+  int get count =>
+      (goodsId != null || side != BoardSide.any ? 1 : 0) +
+      (tags.isNotEmpty ? 1 : 0) +
+      (performanceId != null ? 1 : 0);
+
+  BoardFilter withoutGoods() => BoardFilter(
+    tags: tags,
+    performanceId: performanceId,
+    performanceLabel: performanceLabel,
+  );
+
+  BoardFilter withoutTags() => BoardFilter(
+    goodsId: goodsId,
+    goodsName: goodsName,
+    side: side,
+    performanceId: performanceId,
+    performanceLabel: performanceLabel,
+  );
+
+  BoardFilter withoutPerformance() => BoardFilter(
+    goodsId: goodsId,
+    goodsName: goodsName,
+    side: side,
+    tags: tags,
+  );
+
+  /// 投稿が条件に合うか
+  bool matches(TradePost p) {
+    if (!_matchesGoods(p)) return false;
+    if (tags.isNotEmpty && !p.tags.any(tags.contains)) return false;
+    if (performanceId != null &&
+        !(p.handover.contains(HandoverMethod.hand) &&
+            p.performanceIds.contains(performanceId))) {
+      return false;
+    }
+    return true;
+  }
+
+  bool _matchesGoods(TradePost p) {
+    final g = goodsId;
+    final inGives = p.gives.any(
+      (s) => s.items.any((i) => g == null || i.goodsId == g),
+    );
+    // メンバー指定の求は、グッズの絞り込みでは引っかけない
+    final inWants = p.wants.any(
+      (s) => s.targets.any(
+        (t) => g == null ? true : t.type != WantType.member && t.goodsId == g,
+      ),
+    );
+    return switch (side) {
+      BoardSide.give => inGives,
+      BoardSide.want => inWants,
+      BoardSide.any => g == null || inGives || inWants,
+    };
+  }
+}
