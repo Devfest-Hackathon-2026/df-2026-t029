@@ -14,6 +14,7 @@ import '../utils/trade_board.dart';
 import '../utils/trade_match.dart';
 import 'goods_providers.dart';
 import 'oshi_providers.dart';
+import 'profile_providers.dart';
 
 /// 交換・売買の投稿のリポジトリ。テストでは `overrideWithValue` で差し替える
 final tradePostRepositoryProvider = Provider<TradePostRepository>(
@@ -238,7 +239,10 @@ final unreadChatCountProvider = Provider<int>((ref) {
 
 /// ログイン中のユーザーの表示名。投稿・返信・チャットに保存し、画面にも出す。
 ///
-/// 表示名を決める処理はここだけにまとめる（仕様書 3.9）。G-8 でプロフィールを
-/// 作るまでは、全員「匿名」とする。セキュリティルールで1文字以上が必須のため、
-/// 空欄にはしない。G-8 ではこのプロバイダの中身だけを差し替える
-final myDisplayNameProvider = Provider<String>((ref) => '匿名');
+/// 表示名を決める処理はここだけにまとめる（仕様書 3.9）。プロフィールの
+/// ハンドルネームを使い、読み込み前などで取れないときは「匿名」とする
+/// （セキュリティルールで1文字以上が必須のため、空欄にはしない）
+final myDisplayNameProvider = Provider<String>((ref) {
+  final name = ref.watch(myProfileProvider).value?.displayName.trim() ?? '';
+  return name.isEmpty ? '匿名' : name;
+});

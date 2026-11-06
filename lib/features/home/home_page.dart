@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../providers/profile_providers.dart';
 import '../../repositories/auth_repository.dart';
 import '../live/upcoming_deadlines_section.dart';
 import '../oshi/following_oshi_list.dart';
@@ -11,12 +12,18 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(authStateProvider).value;
+    // final user = ref.watch(authStateProvider).value;
+    final profile = ref.watch(myProfileProvider).value;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('おしあし'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.account_circle),
+            tooltip: 'プロフィール',
+            onPressed: () => context.push('/profile'),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'ログアウト',
@@ -28,7 +35,7 @@ class HomePage extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text('ようこそ、${user?.displayName ?? 'ゲスト'} さん'),
+            Text('ようこそ、${profile?.displayName ?? 'ゲスト'} さん'),
             const SizedBox(height: 16),
             Align(
               alignment: Alignment.centerLeft,

@@ -23,21 +23,36 @@ import 'features/trade/chat_list_page.dart';
 import 'features/trade/chat_page.dart';
 import 'features/trade/trade_post_detail_page.dart';
 import 'features/trade/trade_post_form_page.dart';
+import 'features/profile/profile_page.dart';
 
 import 'repositories/auth_repository.dart';
+
+import 'providers/profile_providers.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authRepositoryProvider);
   final refresh = _AuthRefresh(auth.authStateChanges());
   ref.onDispose(refresh.dispose);
 
+  // プロフィールが作られたら、ルーターに再判定させる（G-8-3）
+  final profileRefresh = ValueNotifier<int>(0);
+  ref.listen(myProfileProvider, (_, _) => profileRefresh.value++);
+  ref.onDispose(profileRefresh.dispose);
+
   return GoRouter(
     initialLocation: '/',
-    refreshListenable: refresh,
+    refreshListenable: Listenable.merge([refresh, profileRefresh]),
     redirect: (context, state) {
       final loggedIn = auth.currentUser != null;
       final atLogin = state.matchedLocation == '/login';
       if (!loggedIn) return atLogin ? null : '/login';
+
+      // プロフィール未作成なら作成画面へ。読み込み中・エラーのときは判定しない
+      final profile = ref.read(myProfileProvider);
+      final needsProfile = profile is AsyncData && profile.value == null;
+      if (needsProfile) {
+        return state.matchedLocation == '/profile' ? null : '/profile';
+      }
       if (atLogin) return '/';
       return null;
     },
@@ -135,6 +150,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           initialAttachId: state.uri.queryParameters['attach'],
         ),
       ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
+      GoRoute(path: '/profile', builder: (context, state) => const ProfilePage()),
     ],
   );
 });
