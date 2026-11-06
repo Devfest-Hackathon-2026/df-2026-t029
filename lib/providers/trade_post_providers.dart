@@ -1,10 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/goods.dart';
 import '../models/oshi.dart';
 import '../models/trade_post.dart';
 import '../repositories/trade_post_repository.dart';
 import '../utils/trade_board.dart';
+import '../utils/trade_match.dart';
+import 'goods_providers.dart';
 import 'oshi_providers.dart';
 
 /// 交換・売買の投稿のリポジトリ。テストでは `overrideWithValue` で差し替える
@@ -104,6 +107,81 @@ final tradeBoardProvider = Provider.autoDispose
         mergeBoardPosts([for (final v in values) v.requireValue], q.limit),
       );
     });
+
+/// 自分の募集中の投稿の求の検索用キー（重複なし・並べ替え済み）。
+/// 中身が変わったときだけ、[matchCandidatesProvider] を読み直させる
+final myOpenWantKeysProvider = FutureProvider<List<String>>((ref) async {
+  // selectAsync は == で比べるので、文字列にして比べる（投稿の更新日時が
+  // 変わっただけでは読み直さない）
+  final joined = await ref.watch(
+    myTradePostsProvider.selectAsync(
+      (posts) => ({
+        for (final p in posts)
+          if (p.status == TradePostStatus.open) ...p.wantKeys,
+      }.toList()..sort()).join('\n'),
+    ),
+  );
+  return joined.isEmpty ? const [] : joined.split('\n');
+});
+
+/// マッチの候補：自分の求のどれかを譲に含む、他人の募集中の投稿（順序は不定）。
+/// 自分の募集中の投稿に求がなければ空。判定は [matchTradePosts] で行う
+final matchCandidatesProvider = FutureProvider<List<TradePost>>((ref) async {
+  final uid = ref.watch(currentUidProvider);
+  if (uid == null) return const [];
+  final keys = await ref.watch(myOpenWantKeysProvider.future);
+  if (keys.isEmpty) return const [];
+  final posts = await ref
+      .watch(tradePostRepositoryProvider)
+      .fetchOpenGiving(keys);
+  return [
+    for (final p in posts)
+      if (p.uid != uid) p,
+  ];
+}, retry: firestoreRetry);
+
+/// マッチ（相互マッチ → 片方マッチの順。[matchTradePosts] で判定）。
+///
+/// 判定は検索用キーだけで決まるので、先に判定してから、マッチした投稿の
+/// 品目のグッズだけを読む（一致した品目の表示に使う。同じグッズは
+/// [goodsByIdProvider] が覚えているので、読み直さない）
+final tradeMatchesProvider = FutureProvider<List<TradeMatch>>((ref) async {
+  final candidates = await ref.watch(matchCandidatesProvider.future);
+  if (candidates.isEmpty) return const [];
+  final mine = await ref.watch(myTradePostsProvider.future);
+
+  final judged = matchTradePosts(
+    mine: mine,
+    candidates: candidates,
+    goodsById: const {},
+  );
+  if (judged.isEmpty) return const [];
+  final ids = goodsIdsForMatching(
+    [
+      for (final m in judged)
+        for (final p in m.pairs) p.mine,
+    ],
+    [for (final m in judged) m.theirs],
+  );
+  // グッズが読めなくても、マッチ自体は出す（一致した品目の表示が減るだけ）
+  Future<Goods?> read(String id) async {
+    try {
+      return await ref.watch(goodsByIdProvider(id).future);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  final goods = await Future.wait([for (final id in ids) read(id)]);
+  return matchTradePosts(
+    mine: mine,
+    candidates: [for (final m in judged) m.theirs],
+    goodsById: {
+      for (final g in goods)
+        if (g?.id != null) g!.id!: g,
+    },
+  );
+}, retry: firestoreRetry);
 
 /// ログイン中のユーザーの表示名。投稿・返信・チャットに保存し、画面にも出す。
 ///

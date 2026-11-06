@@ -24,6 +24,13 @@ abstract class TradePostRepository {
     required int limit,
   });
 
+  /// 譲の検索用キー（`giveKeys`）に [keys] のどれかを含む、募集中の投稿
+  /// （マッチングで使う。順序は不定）。
+  ///
+  /// Firestore の `array-contains-any` は1回30個までなので、30個ずつに
+  /// 分けて検索し、重複を除いてまとめる。[keys] が空なら空
+  Future<List<TradePost>> fetchOpenGiving(Iterable<String> keys);
+
   /// 投稿を新規作成し、ID を返す。
   ///
   /// - uid・表示名・状態（募集中）・作成日時・更新日時は、ここで付ける
@@ -82,6 +89,32 @@ class FirestoreTradePostRepository implements TradePostRepository {
       .limit(limit)
       .snapshots()
       .map((s) => [for (final d in s.docs) TradePost.fromFirestore(d)]);
+
+  /// `array-contains-any` で1回に使える値の数
+  static const int maxKeysPerQuery = 30;
+
+  @override
+  Future<List<TradePost>> fetchOpenGiving(Iterable<String> keys) async {
+    final unique = keys.toSet().toList();
+    final snapshots = await Future.wait([
+      for (var i = 0; i < unique.length; i += maxKeysPerQuery)
+        _posts
+            .where(
+              'giveKeys',
+              arrayContainsAny: unique.sublist(
+                i,
+                (i + maxKeysPerQuery).clamp(0, unique.length),
+              ),
+            )
+            .where('status', isEqualTo: TradePostStatus.open.name)
+            .get(),
+    ]);
+    final byId = <String, TradePost>{
+      for (final s in snapshots)
+        for (final d in s.docs) d.id: TradePost.fromFirestore(d),
+    };
+    return byId.values.toList();
+  }
 
   @override
   Future<String> create(

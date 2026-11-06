@@ -69,6 +69,22 @@ class FakeTradePostRepository implements TradePostRepository {
     return open.stream;
   }
 
+  /// fetchOpenGiving で返す投稿（giveKeys と status で絞って返す）
+  List<TradePost> allPosts = const [];
+
+  /// fetchOpenGiving に渡されたキー
+  final givingQueries = <List<String>>[];
+
+  @override
+  Future<List<TradePost>> fetchOpenGiving(Iterable<String> keys) async {
+    final k = keys.toSet();
+    givingQueries.add(k.toList());
+    return [
+      for (final p in allPosts)
+        if (p.status == TradePostStatus.open && p.giveKeys.any(k.contains)) p,
+    ];
+  }
+
   @override
   Future<String> create(
     TradePost post, {
@@ -136,9 +152,14 @@ class FakeGoodsRepository implements GoodsRepository {
     ]..sort((a, b) => a.name.compareTo(b.name));
   }
 
+  /// fetch に渡された ID
+  final fetchedIds = <String>[];
+
   @override
-  Future<Goods?> fetch(String id) async =>
-      goods.where((g) => g.id == id).firstOrNull;
+  Future<Goods?> fetch(String id) async {
+    fetchedIds.add(id);
+    return goods.where((g) => g.id == id).firstOrNull;
+  }
 
   @override
   Future<String> create(Goods goods, {required String uid}) =>

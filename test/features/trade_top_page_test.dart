@@ -75,7 +75,8 @@ void main() {
 
     await tester.tap(_key('trade_tab_match'));
     await tester.pumpAndSettle();
-    expect(_key('trade_match_placeholder'), findsOneWidget);
+    // 求のある募集中の投稿がないので、案内を出す
+    expect(_key('trade_match_no_wants'), findsOneWidget);
 
     await tester.tap(_key('trade_tab_mine'));
     await tester.pumpAndSettle();
