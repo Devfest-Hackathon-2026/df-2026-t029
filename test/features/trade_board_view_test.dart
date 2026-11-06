@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:oshiashi/features/trade/trade_board_view.dart';
 import 'package:oshiashi/models/goods.dart';
 import 'package:oshiashi/models/live.dart';
@@ -104,7 +105,20 @@ Future<void> pumpBoard(
         tradePostRepositoryProvider.overrideWithValue(repo),
       ],
       retry: (_, _) => null,
-      child: const MaterialApp(home: Scaffold(body: TradeBoardView())),
+      child: MaterialApp.router(
+        routerConfig: GoRouter(
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, _) => const Scaffold(body: TradeBoardView()),
+            ),
+            GoRoute(
+              path: '/trade/:id',
+              builder: (_, s) => Text('route:detail:${s.pathParameters['id']}'),
+            ),
+          ],
+        ),
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -164,6 +178,18 @@ void main() {
     expect(find.text('受け渡し：郵送・手渡し'), findsNWidgets(2));
     // 自分の投稿には印を付ける
     expect(find.text('自分'), findsOneWidget);
+  });
+
+  testWidgets('投稿を押すと詳細画面へ行く', (tester) async {
+    final repo = FakeTradePostRepository()
+      ..openByTarget = {
+        (OshiKind.group, 'g1'): [post('new', 3)],
+      };
+    await pumpBoard(tester, repo);
+    await selectOshi(tester, 'グループ1（グループ）');
+    await tester.tap(_key('trade_board_post_new'));
+    await tester.pumpAndSettle();
+    expect(find.text('route:detail:new'), findsOneWidget);
   });
 
   testWidgets('個人を選ぶと、所属グループの投稿もまとめて出す', (tester) async {

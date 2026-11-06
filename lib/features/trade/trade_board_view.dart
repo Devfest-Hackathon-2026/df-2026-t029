@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../models/oshi.dart';
 import '../../models/trade_post.dart';
@@ -265,40 +266,44 @@ class _BoardCard extends StatelessWidget {
     return Card(
       key: Key('trade_board_post_${post.id}'),
       margin: const EdgeInsets.symmetric(vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    post.displayName,
-                    style: theme.textTheme.titleSmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/trade/${post.id}'),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      post.displayName,
+                      style: theme.textTheme.titleSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-                if (isMine) ...[
-                  const SizedBox(width: 8),
-                  const Chip(
-                    label: Text('自分'),
-                    visualDensity: VisualDensity.compact,
-                  ),
+                  if (isMine) ...[
+                    const SizedBox(width: 8),
+                    const Chip(
+                      label: Text('自分'),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
                 ],
-              ],
-            ),
-            if (targets.isNotEmpty)
-              Text(
-                targets,
-                style: theme.textTheme.bodySmall,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            const SizedBox(height: 4),
-            TradePostSummaryLines(post: post, showHandover: true),
-          ],
+              if (targets.isNotEmpty)
+                Text(
+                  targets,
+                  style: theme.textTheme.bodySmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              const SizedBox(height: 4),
+              TradePostSummaryLines(post: post, showHandover: true),
+            ],
+          ),
         ),
       ),
     );

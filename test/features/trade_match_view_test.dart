@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:oshiashi/features/trade/trade_match_view.dart';
 import 'package:oshiashi/models/goods.dart';
 import 'package:oshiashi/models/trade_post.dart';
@@ -78,7 +79,20 @@ Future<void> pumpMatch(
         ),
       ],
       retry: (_, _) => null,
-      child: const MaterialApp(home: Scaffold(body: TradeMatchView())),
+      child: MaterialApp.router(
+        routerConfig: GoRouter(
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, _) => const Scaffold(body: TradeMatchView()),
+            ),
+            GoRoute(
+              path: '/trade/:id',
+              builder: (_, s) => Text('route:detail:${s.pathParameters['id']}'),
+            ),
+          ],
+        ),
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -142,6 +156,18 @@ void main() {
       matching: find.textContaining('出せるもの'),
     );
     expect(one, findsNothing);
+  });
+
+  testWidgets('マッチを押すと詳細画面へ行く', (tester) async {
+    final repo = FakeTradePostRepository()
+      ..mineInitial = [mine]
+      ..allPosts = [
+        post('theirs', uid: 'x', gives: [item('vC')]),
+      ];
+    await pumpMatch(tester, repo);
+    await tester.tap(_key('trade_match_theirs'));
+    await tester.pumpAndSettle();
+    expect(find.text('route:detail:theirs'), findsOneWidget);
   });
 
   testWidgets('マッチがなければその旨を出す', (tester) async {
