@@ -138,6 +138,7 @@ class _GoodsTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
       ),
       trailing: goods.price == null ? null : Text('${goods.price}円'),
+      onTap: () => context.push('/goods/${goods.id}/edit'),
     );
   }
 }

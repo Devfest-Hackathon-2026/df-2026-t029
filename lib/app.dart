@@ -79,6 +79,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/goods', builder: (context, state) => const GoodsSearchPage()),
       GoRoute(path: '/goods/new', builder: (context, state) => const GoodsFormPage()),
+      GoRoute(
+        path: '/goods/:id/edit',
+        builder: (context, state) => GoodsFormPage(goodsId: state.pathParameters['id']),
+      )
     ],
   );
 });

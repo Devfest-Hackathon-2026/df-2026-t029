@@ -5,13 +5,15 @@ import '../../utils/text_normalizer.dart';
 
 /// 入力中の種類
 class VariantDraft {
-  VariantDraft({this.name = '', this.oshiId});
+  VariantDraft({this.id, this.name = '', this.oshiId});
 
+  /// 保存済みの種類の ID。新しく追加した種類は null
+  final String? id;
   String name;
   String? oshiId;
 }
 
-/// 登録画面で入力中のグッズ
+/// 登録・編集画面で入力中のグッズ
 class GoodsDraft {
   GoodsDraft({
     this.name = '',
@@ -21,6 +23,19 @@ class GoodsDraft {
     this.officialUrl = '',
     List<VariantDraft>? variants,
   }) : variants = variants ?? [];
+
+  /// 保存済みのグッズから、編集用に作る
+  factory GoodsDraft.fromGoods(Goods g) => GoodsDraft(
+        name: g.name,
+        aliases: g.aliases.join('、'),
+        category: g.category,
+        price: g.price?.toString() ?? '',
+        officialUrl: g.officialUrl ?? '',
+        variants: [
+          for (final v in g.variants)
+            VariantDraft(id: v.id, name: v.name, oshiId: v.oshiId),
+        ],
+      );
 
   // 上限はセキュリティルールと同じ
   static const int maxNameLength = 100;
@@ -53,9 +68,12 @@ class GoodsDraft {
       variants.where((v) => v.name.trim().isNotEmpty).toList();
 
   int? get _priceValue => int.tryParse(price.trim().replaceAll(',', ''));
+  int? get _priceOrNull => price.trim().isEmpty ? null : _priceValue;
+  String? get _urlOrNull =>
+      officialUrl.trim().isEmpty ? null : officialUrl.trim();
 
   /// 入力を検査し、エラー文の一覧を返す（空なら保存できる）。
-  /// [existing] は同じ推しの既存のグッズ（重複の確認に使う）
+  /// [existing] は同じ推しの既存のグッズ（編集中のグッズ自身は除いて渡す）
   List<String> validate(List<Goods> existing) {
     final errors = <String>[];
 
@@ -87,6 +105,9 @@ class GoodsDraft {
       errors.add('公式の販売ページは https:// で始まる URL を入力してください');
     }
 
+    if (variants.any((v) => v.id != null && v.name.trim().isEmpty)) {
+      errors.add('保存済みの種類の名前は空にできません');
+    }
     final vs = filledVariants;
     if (vs.length > maxVariants) {
       errors.add('種類は$maxVariants個までです');
@@ -107,10 +128,9 @@ class GoodsDraft {
     return errors;
   }
 
-  /// 保存用のモデルに変換する（[validate] の結果が空のときだけ呼ぶ）。
+  /// 新規登録用のモデルに変換する（[validate] の結果が空のときだけ呼ぶ）。
   /// 種類には v1, v2…の ID を振る。種類が1つもなければ「通常」を1つ作る
   Goods toGoods(OshiSummary target) {
-    String? orNull(String s) => s.trim().isEmpty ? null : s.trim();
     final filled = filledVariants;
     return Goods(
       name: name.trim(),
@@ -118,8 +138,8 @@ class GoodsDraft {
       category: category,
       groupIds: target.kind == OshiKind.group ? [target.id] : const [],
       oshiIds: target.kind == OshiKind.person ? [target.id] : const [],
-      price: price.trim().isEmpty ? null : _priceValue,
-      officialUrl: orNull(officialUrl),
+      price: _priceOrNull,
+      officialUrl: _urlOrNull,
       variants: filled.isEmpty
           ? const [GoodsVariant(id: 'v1', name: defaultVariantName)]
           : [
@@ -130,6 +150,33 @@ class GoodsDraft {
                   oshiId: v.oshiId,
                 ),
             ],
+    );
+  }
+
+  /// 編集の結果を [base] に当てはめる（[validate] の結果が空のときだけ呼ぶ）。
+  /// 対象の推し・ライブ・保存済みの種類の ID はそのまま。
+  /// 新しい種類には、保存済みの最大の番号に続く ID を振る
+  Goods applyTo(Goods base) {
+    var next = int.parse(base.nextVariantId.substring(1));
+    return Goods(
+      id: base.id,
+      name: name.trim(),
+      aliases: cleanedAliases,
+      category: category,
+      groupIds: base.groupIds,
+      oshiIds: base.oshiIds,
+      liveId: base.liveId,
+      price: _priceOrNull,
+      officialUrl: _urlOrNull,
+      variants: [
+        for (final v in variants)
+          if (v.id != null || v.name.trim().isNotEmpty)
+            GoodsVariant(
+              id: v.id ?? 'v${next++}',
+              name: v.name.trim(),
+              oshiId: v.oshiId,
+            ),
+      ],
     );
   }
 }
