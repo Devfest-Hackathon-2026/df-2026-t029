@@ -44,3 +44,41 @@ final goodsByIdProvider = FutureProvider.family<Goods?, String>(
   (ref, id) => ref.watch(goodsRepositoryProvider).fetch(id),
   retry: firestoreRetry,
 );
+
+/// グッズを読む範囲（プロバイダの引数。中身が同じなら == で等しい）
+class GoodsScope {
+  GoodsScope({required Set<String> groupIds, required Set<String> oshiIds})
+    : groupIds = (groupIds.toList()..sort()),
+      oshiIds = (oshiIds.toList()..sort());
+
+  final List<String> groupIds;
+  final List<String> oshiIds;
+
+  bool get isEmpty => groupIds.isEmpty && oshiIds.isEmpty;
+
+  @override
+  bool operator ==(Object other) =>
+      other is GoodsScope &&
+      other.groupIds.join(',') == groupIds.join(',') &&
+      other.oshiIds.join(',') == oshiIds.join(',');
+
+  @override
+  int get hashCode => Object.hash(groupIds.join(','), oshiIds.join(','));
+}
+
+/// [GoodsScope] の推しのグッズ（名前順。投稿の品目を選ぶシートで使う）。
+/// 範囲が空なら空。Firestore の `array-contains-any` の上限のため、
+/// グループ・個人それぞれ先頭の30個までで検索する。
+/// グッズを登録したら `ref.invalidate` で読み直す
+final goodsInScopeProvider = FutureProvider.family<List<Goods>, GoodsScope>((
+  ref,
+  scope,
+) {
+  if (scope.isEmpty) return Future.value(const []);
+  return ref
+      .watch(goodsRepositoryProvider)
+      .fetchFor(
+        groupIds: scope.groupIds.take(30).toList(),
+        oshiIds: scope.oshiIds.take(30).toList(),
+      );
+}, retry: firestoreRetry);

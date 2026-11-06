@@ -50,6 +50,16 @@ class HomePage extends ConsumerWidget {
                 label: const Text('ライブ一覧'),
               ),
             ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                key: const Key('home_trade_button'),
+                onPressed: () => context.push('/trade'),
+                icon: const Icon(Icons.swap_horiz),
+                label: const Text('グッズ交換'),
+              ),
+            ),
             const SizedBox(height: 24),
             Text('次の締切', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),

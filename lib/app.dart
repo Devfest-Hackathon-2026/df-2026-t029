@@ -18,6 +18,8 @@ import 'features/oshi/oshi_search_page.dart';
 import 'features/calendar/calendar_test_page.dart';
 import 'features/goods/goods_search_page.dart';
 import 'features/goods/goods_form_page.dart';
+import 'features/trade/trade_top_page.dart';
+import 'features/trade/trade_post_form_page.dart';
 
 import 'repositories/auth_repository.dart';
 
@@ -92,7 +94,26 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/goods/:id/edit',
         builder: (context, state) => GoodsFormPage(goodsId: state.pathParameters['id']),
-      )
+      ),
+      // 交換トップ。?tab=board / match / mine で開くタブを指定する
+      GoRoute(
+        path: '/trade',
+        builder: (context, state) => TradeTopPage(
+          initialTab: TradeTab.fromQuery(state.uri.queryParameters['tab']),
+        ),
+      ),
+      // G-3-2・G-2-6 で作った掲示板・自分の投稿の URL は、交換トップのタブへ移す
+      GoRoute(path: '/trade/board', redirect: (_, _) => '/trade?tab=board'),
+      GoRoute(path: '/trade/mine', redirect: (_, _) => '/trade?tab=mine'),
+      GoRoute(
+        path: '/trade/new',
+        builder: (context, state) => const TradePostFormPage(),
+      ),
+      GoRoute(
+        path: '/trade/:id/edit',
+        builder: (context, state) =>
+            TradePostFormPage(postId: state.pathParameters['id']),
+      ),
     ],
   );
 });
