@@ -114,15 +114,15 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
             return _message('この投稿は運営により非表示にされているため、編集できません');
           }
           _base ??= p;
-          // 新規作成では、プロフィールの X アカウントを初期値にする（G-8）
-          _draft ??= TradePostDraft(
-            xAccount: ref.read(myProfileProvider).value?.xAccount ?? '',
-          );
+          _draft ??= TradePostDraft.fromPost(p);
           return _form();
         },
       );
     }
-    _draft ??= TradePostDraft();
+    // 新規作成では、プロフィールの X アカウントを初期値にする（G-8）
+    _draft ??= TradePostDraft(
+      xAccount: ref.read(myProfileProvider).value?.xAccount ?? '',
+    );
     return _form();
   }
 

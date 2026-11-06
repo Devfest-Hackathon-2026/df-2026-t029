@@ -10,9 +10,11 @@ import 'package:oshiashi/models/goods.dart';
 import 'package:oshiashi/models/live.dart';
 import 'package:oshiashi/models/oshi.dart';
 import 'package:oshiashi/models/trade_post.dart';
+import 'package:oshiashi/models/user_profile.dart';
 import 'package:oshiashi/providers/goods_providers.dart';
 import 'package:oshiashi/providers/live_providers.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
+import 'package:oshiashi/providers/profile_providers.dart';
 import 'package:oshiashi/providers/trade_post_providers.dart';
 import 'package:oshiashi/repositories/auth_repository.dart';
 
@@ -86,6 +88,7 @@ Future<GoRouter> pumpForm(
   FakeGoodsRepository? goodsRepo,
   FakeMyLiveRepository? myRepo,
   String? displayName,
+  UserProfile? profile,
 }) async {
   usePhoneSize(tester);
   final router = GoRouter(
@@ -121,6 +124,8 @@ Future<GoRouter> pumpForm(
         tradePostRepositoryProvider.overrideWithValue(repo),
         if (displayName != null)
           myDisplayNameProvider.overrideWithValue(displayName),
+        if (profile != null)
+          myProfileProvider.overrideWithValue(AsyncData(profile)),
         goodsRepositoryProvider.overrideWithValue(
           goodsRepo ?? FakeGoodsRepository(const [acsta]),
         ),
@@ -207,6 +212,23 @@ void main() {
     await tapKey(tester, 'trade_handover_mail');
     await tapKey(tester, 'trade_save_button');
     expect(repo.created.single.displayName, 'テスト名');
+  });
+
+  testWidgets('新規作成では、プロフィールの X アカウントを初期値にする（G-8）', (tester) async {
+    await pumpForm(
+      tester,
+      repo: FakeTradePostRepository(),
+      profile: const UserProfile(displayName: 'テスト名', xAccount: 'oshi_fan'),
+    );
+    await tester.scrollUntilVisible(
+      _key('trade_x_account'),
+      200,
+      scrollable: listScrollable(),
+    );
+    expect(
+      tester.widget<TextFormField>(_key('trade_x_account')).initialValue,
+      'oshi_fan',
+    );
   });
 
   testWidgets('保存に失敗したら、エラーを出して画面に残る', (tester) async {

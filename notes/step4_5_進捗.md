@@ -73,6 +73,13 @@
 - `firestore.rules`: `users/{uid}/myLives/{liveId}` のルールを追加し、広い `users/{uid}/{subcollection}` から `myLives` を除外。
 - 仕様書 `markdown/app_config.md`（1章・4.2・4.4）と DB 設計案 `markdown/Database_config.md`（2章・3.8.1・5章・6章）を Step4.5 の内容に更新。
 
+### 5-2. dev のマージ（2026-11-06、G-5・G-8 を取り込み）で直したこと（横山さんに伝える）
+- コンフリクトは無し。ただし意味の上でぶつかった箇所と、dev 側の不具合を直した。
+- `lib/features/trade/trade_post_detail_page.dart`（G-5 の新しい画面）: `_Performances` が Step4.5 で削除した `performancesProvider`・`livesProvider` を使っていたため、`myPerformancesProvider`・`myLivesProvider` に差し替えた。他人の投稿の手渡しの公演名は、自分のライブ一覧にある公演だけ名前が出て、無いものは「（公演の情報を表示できません）」になる。改善案: 投稿の `performanceIds` で公演を直接読む（リポジトリのメソッドの追加が要る）。
+- `lib/features/trade/trade_post_form_page.dart`（G-8 の不具合）: 「新規作成ではプロフィールの X アカウントを初期値にする」処理が編集の側に入っていて、編集で保存済みの内容が読み込まれなかった。編集は `TradePostDraft.fromPost(p)` に戻し、初期値の処理を新規作成の側へ移した（ユーザーの了承済み）。
+- テスト: `trade_post_detail_page_test.dart` に `myLiveRepositoryProvider` の差し替えを追加。`trade_post_form_page_test.dart` に「新規作成では、プロフィールの X アカウントを初期値にする」を追加。
+- 結果: `flutter analyze` 0件、`flutter test` 810件成功、ルールのテスト 245件成功。
+
 ### 6. コミット案（ユーザーの了承後に実行）
 - 含めるファイル: `firestore.rules`、`lib/`（app.dart、features/home/home_page.dart、features/live/*.dart、features/live_add/、features/trade/board_filter_sheet.dart・trade_post_form_page.dart、models/my_live.dart、providers/live_providers.dart、repositories/live_repository.dart・my_live_repository.dart、utils/live_search.dart）、`test/`（変更・新規すべて）、`test_rules/mylives.test.js`、`markdown/app_config.md`・`Database_config.md`・`feature_step4_5_mylive_plan.md`、`notes/判断ログ_A.md`・`step4_5_進捗.md`・`step4_5_レビュー記録.md`
 - 含めるか要確認（作業前からあった変更）: `.gitignore`、`CLAUDE.md`、`.claude/scripts/`
