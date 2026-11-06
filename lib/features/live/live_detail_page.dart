@@ -17,6 +17,7 @@ import 'live_changes.dart';
 import 'live_list_entries.dart';
 import 'official_url_link.dart';
 import '../../providers/live_providers.dart';
+import '../../providers/memory_providers.dart';
 
 /// 受付種別の表示名
 const receptionTypeLabels = {
@@ -196,6 +197,8 @@ class _LiveDetailPageState extends ConsumerState<LiveDetailPage> {
     final now = ref.watch(nowProvider);
     // 「変更あり」の印（読めなくても詳細は出す）
     final recent = ref.watch(recentChangesProvider(liveId)).value ?? const {};
+    // 記録のある公演の ID（読み込み中・エラーのときは null で、ボタンを出さない）
+    final memoryIds = ref.watch(myMemoriesProvider).value?.keys.toSet();
     // 自分のライブ一覧に入っているか（読み込み中は null）
     final inMine = ref.watch(isInMyLivesProvider(liveId)).value;
 
@@ -228,6 +231,7 @@ class _LiveDetailPageState extends ConsumerState<LiveDetailPage> {
             busy: _busy,
             onChangeStatus: _setStatus,
             recent: recent,
+            memoryIds: memoryIds,
             inMine: inMine,
             togglingMine: _togglingMine,
             onToggleMine: () => _toggleMine(inMine ?? false),
@@ -272,10 +276,14 @@ class _DetailView extends StatelessWidget {
     required this.busy,
     required this.onChangeStatus,
     required this.recent,
+    required this.memoryIds,
     required this.inMine,
     required this.togglingMine,
     required this.onToggleMine,
   });
+
+  /// 記録のある公演の ID。読み込み中なら null
+  final Set<String>? memoryIds;
 
   /// 自分のライブ一覧に入っているか（null は読み込み中）
   final bool? inMine;
@@ -383,7 +391,12 @@ class _DetailView extends StatelessWidget {
             child: Text('公演はまだ登録されていません'),
           ),
         for (final p in detail.performances) ...[
-          _PerformanceTile(p: p, now: now),
+          _PerformanceTile(
+            p: p,
+            now: now,
+            liveId: live.id!,
+            hasMemory: memoryIds?.contains(p.id),
+          ),
           ?_markOf(HistoryCollection.performances, p.id),
         ],
         const SizedBox(height: 24),
@@ -421,10 +434,19 @@ class _DetailView extends StatelessWidget {
 }
 
 class _PerformanceTile extends StatelessWidget {
-  const _PerformanceTile({required this.p, required this.now});
+  const _PerformanceTile({
+    required this.p,
+    required this.now,
+    required this.liveId,
+    required this.hasMemory,
+  });
 
   final Performance p;
   final DateTime now;
+  final String liveId;
+
+  /// 記録があれば true。記録の読み込み中なら null（ボタンを出さない）
+  final bool? hasMemory;
 
   @override
   Widget build(BuildContext context) {
@@ -441,6 +463,8 @@ class _PerformanceTile extends StatelessWidget {
       PerformanceDay.today => '（本日）',
       PerformanceDay.future => '',
     };
+    final id = p.id;
+    final has = hasMemory;
     return ListTile(
       key: Key('live_detail_performance_${p.id}'),
       contentPadding: EdgeInsets.zero,
@@ -449,6 +473,15 @@ class _PerformanceTile extends StatelessWidget {
       subtitle: Text(
         [if (openAt != null) '${formatDateTime(openAt)} 開場', place].join('\n'),
       ),
+      trailing: id == null || has == null
+          ? null
+          : TextButton(
+              key: Key('live_detail_memory_button_$id'),
+              onPressed: () => has
+                  ? context.push('/memories/$id')
+                  : context.go('/lives/$liveId/memory/$id'),
+              child: Text(has ? '記録を見る' : '記録する'),
+            ),
     );
   }
 }
