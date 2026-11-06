@@ -3,13 +3,17 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../features/live_form/live_draft_to_models.dart';
 import '../models/application.dart';
+import '../models/history_entry.dart';
 import '../models/live.dart';
 import '../models/performance.dart';
 import '../models/reception.dart';
 import '../repositories/application_repository.dart';
 import '../repositories/live_repository.dart';
 import '../utils/deadline.dart';
+import '../utils/live_diff.dart';
+import '../utils/live_match.dart';
 import 'oshi_providers.dart';
 
 /// ライブ・公演・受付のリポジトリ。テストでは `overrideWithValue` で差し替える
@@ -159,3 +163,81 @@ AsyncValue<R> _combine2<A, B, R>(
   if (!a.hasValue || !b.hasValue) return const AsyncLoading();
   return AsyncData(combine(a.requireValue, b.requireValue));
 }
+
+// ---------------------------------------------------------------------------
+// Step4: 照合・変更履歴（D6 で実装）
+// ---------------------------------------------------------------------------
+
+/// [input] と同じライブの候補（強い順に最大3件）。出演者が重なるライブを
+/// 1回だけ読み、[findLiveCandidates] で判定する。保存ボタンから呼ぶ。
+/// 読み取りに失敗したら Firestore の例外をそのまま投げる
+Future<List<LiveCandidate>> fetchLiveCandidates(
+  LiveRepository repo,
+  LiveModels input,
+) async {
+  final existing = await repo.fetchCandidates(
+    groupIds: input.live.groupIds,
+    oshiIds: input.live.oshiIds,
+  );
+  return findLiveCandidates(input, existing);
+}
+
+/// ライブ1件の一式（編集用。1回だけ読む）。無い・読めないなら null
+final existingLiveProvider = FutureProvider.autoDispose
+    .family<ExistingLive?, String>(
+      (ref, liveId) => ref.watch(liveRepositoryProvider).fetchExisting(liveId),
+      retry: firestoreRetry,
+    );
+
+/// ドキュメント1件の変更履歴（新しい順）
+final historyProvider = StreamProvider.autoDispose
+    .family<List<HistoryEntry>, HistoryTarget>(
+      (ref, target) => ref.watch(liveRepositoryProvider).watchHistory(target),
+      retry: firestoreRetry,
+    );
+
+/// そのライブ本体と公演・受付の作成日時・更新日時
+final docStampsProvider = StreamProvider.autoDispose
+    .family<List<DocStamp>, String>(
+      (ref, liveId) => ref.watch(liveRepositoryProvider).watchDocStamps(liveId),
+      retry: firestoreRetry,
+    );
+
+/// ライブ詳細の変更履歴: ライブ・公演・受付の変更と、後から追加された
+/// 公演・受付を新しい順に並べたもの（[buildLiveChanges]）。
+/// ドキュメントごとに履歴を購読し、どれかがエラーならエラー、読み込み中なら
+/// 読み込み中
+final liveChangesProvider = Provider.autoDispose
+    .family<AsyncValue<List<LiveChange>>, String>((ref, liveId) {
+      final stamps = ref.watch(docStampsProvider(liveId));
+      if (stamps case AsyncError(:final error, :final stackTrace)) {
+        return AsyncError(error, stackTrace);
+      }
+      if (!stamps.hasValue) return const AsyncLoading();
+      final docs = stamps.requireValue;
+      final history = <HistoryEntry>[];
+      var loading = false;
+      for (final s in docs) {
+        final h = ref.watch(historyProvider(s.target));
+        if (h case AsyncError(:final error, :final stackTrace)) {
+          return AsyncError(error, stackTrace);
+        }
+        if (h.hasValue) {
+          history.addAll(h.requireValue);
+        } else {
+          loading = true;
+        }
+      }
+      if (loading) return const AsyncLoading();
+      return AsyncData(buildLiveChanges(stamps: docs, history: history));
+    });
+
+/// ライブ詳細の「変更あり」: 7日以内に変わったドキュメント → 直近の変更
+/// （[latestRecentChangeByTarget]。[nowProvider] を使う）
+final recentChangesProvider = Provider.autoDispose
+    .family<AsyncValue<Map<HistoryTarget, LiveChange>>, String>((ref, liveId) {
+      final now = ref.watch(nowProvider);
+      return ref
+          .watch(liveChangesProvider(liveId))
+          .whenData((changes) => latestRecentChangeByTarget(changes, now));
+    });

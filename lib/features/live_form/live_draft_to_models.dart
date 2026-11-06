@@ -1,6 +1,8 @@
 import '../../models/live.dart';
+import '../../models/oshi.dart';
 import '../../models/performance.dart';
 import '../../models/reception.dart';
+import '../../repositories/live_repository.dart';
 import 'live_draft.dart';
 
 /// 保存前に検査する長さ・個数の上限（計画書 3.1。ルールと同じ値）。
@@ -178,3 +180,107 @@ String formatYen(int amount) => amount.toString().replaceAllMapped(
   RegExp(r'\B(?=(\d{3})+(?!\d))'),
   (_) => ',',
 );
+
+/// 編集（計画書 3.7）用の下書きと、下書きの公演・受付が既存のどの ID から
+/// 来たかの対応（下書きのオブジェクトそのもの → ID）。
+///
+/// 画面で行を足したり消したり並べ替えたりしても、オブジェクトが同じなら
+/// 対応は保たれる。保存するときは [idsInOrder] で `diffLive` に渡す ID の
+/// 並びを作る。
+class LiveEditSeed {
+  LiveEditSeed({
+    required this.liveId,
+    required this.draft,
+    required Map<PerformanceDraft, String> performanceIds,
+    required Map<ReceptionDraft, String> receptionIds,
+  }) : _performanceIds = Map.identity()..addAll(performanceIds),
+       _receptionIds = Map.identity()..addAll(receptionIds);
+
+  /// 編集中のライブの ID
+  final String liveId;
+
+  /// 編集する下書き（画面がそのまま書き換えてよい）
+  final LiveDraft draft;
+
+  final Map<PerformanceDraft, String> _performanceIds;
+  final Map<ReceptionDraft, String> _receptionIds;
+
+  /// 今の [draft] の公演・受付の並びに合わせた、既存の ID の並び
+  /// （新しく足した行は null）。`diffLive` の performanceIds・receptionIds に渡す
+  ({List<String?> performanceIds, List<String?> receptionIds}) idsInOrder() => (
+    performanceIds: [for (final p in draft.performances) _performanceIds[p]],
+    receptionIds: [for (final r in draft.receptions) _receptionIds[r]],
+  );
+}
+
+/// 既存のライブ一式から、編集用の下書きを作る（計画書 3.7）。
+///
+/// - 出演者は [allOshis] から種類と ID で引く（見つからない ID は出演者に
+///   入れない。差分では出演者を外さないので、既存の出演者は消えない）
+/// - 公演・受付は [existing] と同じ順番。無い任意項目は空文字・null
+LiveEditSeed liveDraftFromExisting(
+  ExistingLive existing,
+  List<OshiSummary> allOshis,
+) {
+  final live = existing.live;
+  final liveId = live.id;
+  if (liveId == null) throw ArgumentError('既存のライブに ID がありません');
+  OshiSummary? find(OshiKind kind, String id) =>
+      allOshis.where((o) => o.kind == kind && o.id == id).firstOrNull;
+
+  final performanceIds = <PerformanceDraft, String>{};
+  final receptionIds = <ReceptionDraft, String>{};
+  final draft = LiveDraft(
+    title: live.title,
+    officialUrl: live.officialUrl ?? '',
+    selectedPerformers: [
+      for (final id in live.groupIds) ?find(OshiKind.group, id),
+      for (final id in live.oshiIds) ?find(OshiKind.person, id),
+    ],
+    performances: [
+      for (final p in existing.performances)
+        _track(
+          PerformanceDraft(
+            startAt: p.startAt,
+            openAt: p.openAt,
+            venue: p.venue,
+            prefecture: p.prefecture ?? '',
+          ),
+          p.id,
+          performanceIds,
+        ),
+    ],
+    receptions: [
+      for (final r in existing.receptions)
+        _track(
+          ReceptionDraft(
+            type: r.type,
+            name: r.name,
+            applyStartAt: r.applyStartAt,
+            applyEndAt: r.applyEndAt,
+            resultAt: r.resultAt,
+            paymentDeadline: r.paymentDeadline,
+            prices: [
+              for (final p in r.prices)
+                PriceDraft(seat: p.seat, amount: p.amount),
+            ],
+            winnersOnly: r.winnersOnly,
+          ),
+          r.id,
+          receptionIds,
+        ),
+    ],
+  );
+  return LiveEditSeed(
+    liveId: liveId,
+    draft: draft,
+    performanceIds: performanceIds,
+    receptionIds: receptionIds,
+  );
+}
+
+/// [draft] を [ids] に記録して返す（ID が無ければ記録しない）
+T _track<T extends Object>(T draft, String? id, Map<T, String> ids) {
+  if (id != null) ids[draft] = id;
+  return draft;
+}

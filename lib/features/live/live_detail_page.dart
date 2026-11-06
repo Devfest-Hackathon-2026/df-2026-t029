@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../models/application.dart';
+import '../../models/history_entry.dart';
 import '../../models/live.dart';
 import '../../models/oshi.dart';
 import '../../models/performance.dart';
@@ -11,6 +13,7 @@ import '../../utils/deadline.dart';
 import '../live_form/date_time_field.dart';
 import '../live_form/live_draft_to_models.dart' show formatYen;
 import 'deadline_format.dart';
+import 'live_changes.dart';
 import 'live_list_entries.dart';
 import 'official_url_link.dart';
 import '../../providers/live_providers.dart';
@@ -136,6 +139,8 @@ class _LiveDetailPageState extends ConsumerState<LiveDetailPage> {
     final liveId = widget.liveId;
     final detail = ref.watch(liveDetailProvider(liveId));
     final now = ref.watch(nowProvider);
+    // 「変更あり」の印（読めなくても詳細は出す）
+    final recent = ref.watch(recentChangesProvider(liveId)).value ?? const {};
 
     return Scaffold(
       appBar: AppBar(title: const Text('ライブ詳細')),
@@ -165,6 +170,7 @@ class _LiveDetailPageState extends ConsumerState<LiveDetailPage> {
             now: now,
             busy: _busy,
             onChangeStatus: _setStatus,
+            recent: recent,
           ),
           _ => const Center(
             key: Key('live_detail_loading'),
@@ -205,12 +211,49 @@ class _DetailView extends StatelessWidget {
     required this.now,
     required this.busy,
     required this.onChangeStatus,
+    required this.recent,
   });
 
   final LiveDetail detail;
   final DateTime now;
   final Set<String> busy;
   final void Function(Reception, ApplicationStatus?) onChangeStatus;
+
+  /// 7日以内に変わったドキュメント → 直近の変更（data の判定の結果）
+  final Map<HistoryTarget, LiveChange> recent;
+
+  String _nameOf(String id) {
+    for (final o in detail.oshis) {
+      if (o.id == id) return o.name;
+    }
+    return id;
+  }
+
+  /// 変更履歴の見出し
+  String _titleOf(HistoryTarget target) {
+    switch (target.collection) {
+      case HistoryCollection.lives:
+        return 'ライブ';
+      case HistoryCollection.performances:
+        for (final p in detail.performances) {
+          if (p.id == target.docId) {
+            return '公演 ${formatDateTime(p.startAt)} ${p.venue}';
+          }
+        }
+        return '公演';
+      case HistoryCollection.receptions:
+        for (final r in detail.receptions) {
+          if (r.id == target.docId) return '受付「${r.name}」';
+        }
+        return '受付';
+    }
+  }
+
+  Widget? _markOf(HistoryCollection collection, String? id) {
+    final change = id == null ? null : recent[HistoryTarget(collection, id)];
+    if (change == null) return null;
+    return ChangedMark(change: change, now: now, nameOf: _nameOf);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -228,6 +271,7 @@ class _DetailView extends StatelessWidget {
           key: const Key('live_detail_title'),
           style: theme.textTheme.titleLarge,
         ),
+        ?_markOf(HistoryCollection.lives, live.id),
         if (performers.isNotEmpty) ...[
           const SizedBox(height: 4),
           Text(performers.join('、'), key: const Key('live_detail_performers')),
@@ -236,6 +280,15 @@ class _DetailView extends StatelessWidget {
           const SizedBox(height: 4),
           OfficialUrlLink(key: const Key('live_detail_official_url'), url: url),
         ],
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            key: const Key('live_detail_edit_button'),
+            onPressed: () => context.go('/lives/${live.id}/edit'),
+            icon: const Icon(Icons.edit),
+            label: const Text('このライブを編集'),
+          ),
+        ),
         const SizedBox(height: 24),
         Text('公演', style: theme.textTheme.titleMedium),
         if (detail.performances.isEmpty)
@@ -244,7 +297,10 @@ class _DetailView extends StatelessWidget {
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Text('公演はまだ登録されていません'),
           ),
-        for (final p in detail.performances) _PerformanceTile(p: p, now: now),
+        for (final p in detail.performances) ...[
+          _PerformanceTile(p: p, now: now),
+          ?_markOf(HistoryCollection.performances, p.id),
+        ],
         const SizedBox(height: 24),
         Text('受付', style: theme.textTheme.titleMedium),
         if (detail.receptions.isEmpty)
@@ -260,7 +316,10 @@ class _DetailView extends StatelessWidget {
             status: detail.applications[r.id]?.status,
             busy: busy.contains(r.id),
             onChangeStatus: (s) => onChangeStatus(r, s),
+            mark: _markOf(HistoryCollection.receptions, r.id),
           ),
+        const SizedBox(height: 24),
+        LiveHistorySection(liveId: live.id!, titleOf: _titleOf),
       ],
     );
   }
@@ -306,9 +365,13 @@ class _ReceptionCard extends StatelessWidget {
     required this.status,
     required this.busy,
     required this.onChangeStatus,
+    this.mark,
   });
 
   final Reception r;
+
+  /// 「変更あり」の印（無ければ null）
+  final Widget? mark;
   final DateTime now;
 
   /// 自分の申込状況（null は未申込）
@@ -349,6 +412,7 @@ class _ReceptionCard extends StatelessWidget {
                   ),
               ],
             ),
+            ?mark,
             const SizedBox(height: 8),
             if (applyStartAt != null)
               _DateRow(
