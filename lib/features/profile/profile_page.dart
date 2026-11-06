@@ -23,6 +23,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   final _x = TextEditingController();
   bool _filled = false;
   bool _saving = false;
+  /// 初回作成として開いたか
+  bool _creating = false;
 
   @override
   void dispose() {
@@ -35,6 +37,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   void _fill(UserProfile? profile) {
     if (_filled) return;
     _filled = true;
+    _creating = profile == null;
     _name.text = profile?.displayName ?? '';
     _x.text = profile?.xAccount ?? '';
   }
@@ -72,10 +75,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             xAccount: _normalizeX(_x.text),
           );
       if (!mounted) return;
-      if (isInitial || !context.canPop()) {
-        context.go('/');
-      } else {
+      // 初回作成は、プロフィールが届いた時点で build の ref.listen がホームへ移す
+      if (isInitial) return;
+      if (context.canPop()) {
         context.pop();
+      } else {
+        context.go('/');
       }
     } catch (e) {
       if (!mounted) return;
@@ -89,6 +94,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    // 初回作成を保存したら、プロフィールが届いてからホームへ移す
+    // （先に移ると、ルーターがまだ未作成と判定して作成画面へ戻すため）
+    ref.listen(myProfileProvider, (_, next) {
+      if (_creating && next.value != null) {
+        _creating = false;
+        context.go('/');
+      }
+    });
     return ref.watch(myProfileProvider).when(
           loading: () => const Scaffold(
             body: Center(child: CircularProgressIndicator()),
