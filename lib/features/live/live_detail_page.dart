@@ -194,6 +194,8 @@ class _LiveDetailPageState extends ConsumerState<LiveDetailPage> {
     final recent = ref.watch(recentChangesProvider(liveId)).value ?? const {};
     // 記録のある公演の ID（読み込み中・エラーのときは null で、ボタンを出さない）
     final memoryIds = ref.watch(myMemoriesProvider).value?.keys.toSet();
+    // 自分のライブ一覧に入っているか（読み込み中は null）
+    final inMine = ref.watch(isInMyLivesProvider(liveId)).value;
 
     return Scaffold(
       appBar: AppBar(title: const Text('ライブ詳細')),
@@ -225,6 +227,9 @@ class _LiveDetailPageState extends ConsumerState<LiveDetailPage> {
             onChangeStatus: _setStatus,
             recent: recent,
             memoryIds: memoryIds,
+            inMine: inMine,
+            togglingMine: _togglingMine,
+            onToggleMine: () => _toggleMine(inMine ?? false),
           ),
           _ => const Center(
             key: Key('live_detail_loading'),
@@ -267,10 +272,19 @@ class _DetailView extends StatelessWidget {
     required this.onChangeStatus,
     required this.recent,
     required this.memoryIds,
+    required this.inMine,
+    required this.togglingMine,
+    required this.onToggleMine,
   });
 
   /// 記録のある公演の ID。読み込み中なら null
   final Set<String>? memoryIds;
+
+  /// 自分のライブ一覧に入っているか（null は読み込み中）
+  final bool? inMine;
+  final bool togglingMine;
+  final VoidCallback onToggleMine;
+
   final LiveDetail detail;
   final DateTime now;
   final Set<String> busy;

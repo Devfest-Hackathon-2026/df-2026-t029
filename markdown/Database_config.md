@@ -32,6 +32,7 @@ chats/{chatId}                    個人チャット
   └ messages/{messageId}          メッセージ
 users/{uid}                       ユーザー（個人データ）
   ├ applications/{receptionId}    申込状況
+  ├ myLives/{liveId}              自分のライブ一覧
   └ memories/{performanceId}      ライブの記録
 ```
 
