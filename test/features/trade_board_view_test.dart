@@ -67,6 +67,7 @@ Future<void> pumpBoard(
   WidgetTester tester,
   FakeTradePostRepository repo, {
   FakeMyLiveRepository? myRepo,
+  FakeFollowRepository? follow,
 }) async {
   usePhoneSize(tester);
   await tester.pumpWidget(
@@ -75,7 +76,7 @@ Future<void> pumpBoard(
         currentUidProvider.overrideWithValue('u1'),
         authStateProvider.overrideWith((ref) => Stream<User?>.value(null)),
         oshiRepositoryProvider.overrideWithValue(FakeOshiRepository(oshis)),
-        followRepositoryProvider.overrideWithValue(following()),
+        followRepositoryProvider.overrideWithValue(follow ?? following()),
         liveRepositoryProvider.overrideWithValue(
           FakeLiveRepository(
             lives: const [
@@ -125,7 +126,11 @@ Future<void> pumpBoard(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  // 先頭の推しが自動で選ばれ、投稿の読み込みが始まる。偽物が何も流さないあいだは
+  // 読み込み中の表示が動き続けて pumpAndSettle が終わらないので、決まった時間だけ進める
+  for (var i = 0; i < 10; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
 }
 
 /// 推しを選ぶ。読み込み中のまま止まる場合は [settle] を false にする
@@ -146,9 +151,21 @@ Future<void> selectOshi(
 }
 
 void main() {
-  testWidgets('推しを選ぶまでは案内を出す', (tester) async {
-    await pumpBoard(tester, FakeTradePostRepository());
-    expect(find.text('推しを選んでください'), findsOneWidget);
+  testWidgets('フォロー中の先頭の推しが、最初から選ばれている', (tester) async {
+    final repo = FakeTradePostRepository();
+    await pumpBoard(tester, repo);
+    expect(repo.watchedOpen.first, (OshiKind.group, 'g1', 50));
+    expect(find.text('グループ1（グループ）'), findsOneWidget);
+    expect(find.text('推しを選んでください'), findsNothing);
+  });
+
+  testWidgets('フォロー中の推しが0件なら、推しを探す案内を出す', (tester) async {
+    final repo = FakeTradePostRepository();
+    await pumpBoard(tester, repo, follow: FakeFollowRepository());
+    expect(_key('trade_board_no_oshi'), findsOneWidget);
+    expect(find.text('推しをフォローすると、交換の投稿が見られます'), findsOneWidget);
+    expect(_key('trade_board_find_oshi_button'), findsOneWidget);
+    expect(repo.watchedOpen, isEmpty);
   });
 
   testWidgets('推しを選ぶと、募集中の投稿を新しい順に出す', (tester) async {
@@ -253,7 +270,7 @@ void main() {
   testWidgets('読み込めなかったらエラーを出す', (tester) async {
     final repo = FakeTradePostRepository();
     await pumpBoard(tester, repo);
-    await selectOshi(tester, 'グループ1（グループ）', settle: false);
+    // 最初から選ばれている推しの投稿が、読み込み中のまま
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     repo.open.addError(permissionDenied());
     await tester.pumpAndSettle();

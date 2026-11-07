@@ -74,7 +74,10 @@ void main() {
     await pumpTop(tester, repo);
     await tester.pumpAndSettle();
     expect(find.text('グッズ交換'), findsOneWidget);
-    expect(find.text('フォロー中の推しがいません。先に推しをフォローしてください'), findsOneWidget);
+    // フォロー中の推しが0件なら、推しを探す案内（Da-6）
+    expect(find.text('推しをフォローすると、交換の投稿が見られます'), findsOneWidget);
+    expect(_key('trade_board_find_oshi_button'), findsOneWidget);
+    expect(find.text('フォロー中の推しがいません。先に推しをフォローしてください'), findsNothing);
 
     await tester.tap(_key('trade_tab_match'));
     await tester.pumpAndSettle();
