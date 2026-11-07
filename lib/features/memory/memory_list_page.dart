@@ -6,6 +6,7 @@ import '../../models/live_memory.dart';
 import '../../providers/memory_providers.dart';
 import '../../utils/memory_album.dart';
 import '../live_form/date_time_field.dart';
+import '../common/empty_state.dart';
 
 import 'memory_album_card.dart';
 
@@ -33,10 +34,12 @@ class MemoryListPage extends ConsumerWidget {
             ),
           ),
           AsyncData(value: MemoryAlbum(upcoming: [], attended: [])) =>
-            const _Message(
+            const EmptyState(
               key: Key('memory_list_empty'),
-              text: 'まだ記録がありません。\nライブの詳細の公演から「記録する」で残せます',
-            ),
+              icon: Icons.photo_album_outlined,
+              title: '参戦したライブを記録すると、ここに並びます',
+              message: 'ライブの詳細の公演から「記録する」で残せます',
+          ),
           AsyncData(:final value) => _AlbumView(album: value),
           _ => const Center(
             key: Key('memory_list_loading'),
@@ -104,7 +107,13 @@ class _AlbumView extends StatelessWidget {
           ),
         header('参戦済み'),
         if (album.attended.isEmpty)
-          none('参戦済みの記録はありません')
+          const SliverToBoxAdapter(
+            child: EmptyState(
+              key: Key('memory_list_attended_empty'),
+              icon: Icons.photo_album_outlined,
+              title: '参戦したライブを記録すると、ここに並びます',
+            ),
+          )
         else
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
