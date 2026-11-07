@@ -6,6 +6,8 @@ import '../../repositories/auth_repository.dart';
 
 /// この幅以上なら左に縦のタブ、未満なら下に横のタブを出す（紹介ページと同じ基準）
 const kShellWideBreakpoint = 720.0;
+/// PC の幅のとき、中身をこの幅までにする
+const kShellMaxContentWidth = 960.0;
 
 /// タブ1つ分（ラベル、アイコン、選択中のアイコン、押したときの移動先）
 typedef _Tab = (String label, IconData icon, IconData selectedIcon, String path);
@@ -51,6 +53,18 @@ class AppShell extends StatelessWidget {
               selectedIndex: index,
               onDestinationSelected: onSelect,
               labelType: NavigationRailLabelType.all,
+              // タブの一番上にアプリ名を出す（ロゴの画像は使わない）
+              leading: Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 16),
+                child: Text(
+                  'おしあし',
+                  key: const Key('shell_app_name'),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ),
               destinations: [
                 for (final (label, icon, selectedIcon, _) in _tabs)
                   NavigationRailDestination(
@@ -71,7 +85,16 @@ class AppShell extends StatelessWidget {
               ),
             ),
             const VerticalDivider(width: 1),
-            Expanded(child: child),
+            // 中身は最大幅を決めて中央に寄せる（横に広がりすぎないように）
+            Expanded(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: kShellMaxContentWidth),
+                  child: child,
+                ),
+              ),
+            ),
           ],
         ),
       );
