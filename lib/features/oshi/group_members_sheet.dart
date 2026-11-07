@@ -72,13 +72,12 @@ class _GroupMembersSheetState extends ConsumerState<_GroupMembersSheet> {
       for (final o in all)
         if (o.kind == OshiKind.person && o.groupIds.contains(group.id)) o,
     ];
-    final members = [
-      ...searchOshis(allMembers, ''),
-      ...searchOshis([
-        for (final o in allMembers)
-          if (!o.isApproved) o,
-      ], '').where((o) => !o.isApproved),
-    ];
+    // searchOshis は空の検索語だと承認済みだけを返すので、申請中は自分で並べる
+    final pending = [
+      for (final o in allMembers)
+        if (!o.isApproved) o,
+    ]..sort((a, b) => a.name.compareTo(b.name));
+    final members = [...searchOshis(allMembers, ''), ...pending];
 
     return Padding(
       key: Key('group_members_sheet_${group.id}'),
