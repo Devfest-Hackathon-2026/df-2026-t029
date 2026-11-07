@@ -13,6 +13,8 @@ analyzer:
   exclude:
     - build/**
     - web/**
+    # Git で管理しない下書き置き場（Claude が出した下書き）。解析しない
+    - "Claude outputs/**"
 
 linter:
   # The lint rules applied to this project can be customized in the

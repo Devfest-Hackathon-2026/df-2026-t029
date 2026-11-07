@@ -472,7 +472,7 @@ void main() {
       await tester.tap(_key('trade_reply_approve_confirm'));
       await tester.pumpAndSettle();
       expect(chatRepo.approved, [(postId: 'p1', replyId: 'r1')]);
-      expect(find.text('承認して、チャットを作りました'), findsOneWidget);
+      expect(find.text('承認して、チャットを作りました（募集を終了しました）'), findsOneWidget);
       // 承認したら、そのままチャットを開く
       expect(find.text('route:chat:p1_x'), findsOneWidget);
     });
