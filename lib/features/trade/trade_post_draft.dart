@@ -6,6 +6,7 @@ import '../../providers/goods_providers.dart';
 import '../../utils/oshi_search.dart';
 import '../../utils/trade_keys.dart';
 import '../goods/goods_draft.dart';
+import '../common/photo_items.dart';
 
 /// 入力中の譲セット
 class GiveSetDraft {
@@ -13,14 +14,15 @@ class GiveSetDraft {
     List<GiveItem>? items,
     this.pickCount = '',
     this.note = '',
-    this.images = const [],
-  }) : items = items ?? [];
+    List<PhotoItem>? photos,
+  }) : items = items ?? [],
+       photos = photos ?? [];
 
   factory GiveSetDraft.fromSet(GiveSet s) => GiveSetDraft(
     items: [...s.items],
     pickCount: s.pickCount?.toString() ?? '',
     note: s.note ?? '',
-    images: s.images,
+    photos: savedPhotoItems(s.images),
   );
 
   final List<GiveItem> items;
@@ -46,13 +48,15 @@ class GiveSetDraft {
   String pickCount;
   String note;
 
-  /// セットの写真。G-7 で対応するまでは、保存済みの値をそのまま引き継ぐ
-  final List<String> images;
+  /// セットの写真（G-7）
+  final List<PhotoItem> photos;
 
-  GiveSet toSet() => GiveSet(
+  /// 保存用のセットにする。写真は [uploaded]（新しい写真 → パス）で
+  /// パスにする。[uploaded] が null なら写真は空（入力の検査用）
+  GiveSet toSet({Map<NewPhoto, String>? uploaded}) => GiveSet(
     items: [...items],
     pickCount: _parsePickCount(pickCount),
-    images: images,
+    images: uploaded == null ? const [] : photoPathsOf(photos, uploaded),
     note: _trimOrNull(note),
   );
 }
@@ -206,13 +210,15 @@ class TradePostDraft {
     this.note = '',
     List<GiveSetDraft>? gives,
     List<WantSetDraft>? wants,
+    List<PhotoItem>? photos,
   }) : gives = gives ?? [],
        wants = wants ?? [],
        groupIds = groupIds ?? [],
        oshiIds = oshiIds ?? [],
        tags = tags ?? {},
        handover = handover ?? {},
-       performanceIds = performanceIds ?? [];
+       performanceIds = performanceIds ?? [],
+       photos = photos ?? [];
 
   /// 保存済みの投稿から、編集用に作る
   factory TradePostDraft.fromPost(TradePost p) => TradePostDraft(
@@ -226,6 +232,7 @@ class TradePostDraft {
     note: p.note ?? '',
     gives: [for (final s in p.gives) GiveSetDraft.fromSet(s)],
     wants: [for (final s in p.wants) WantSetDraft.fromSet(s)],
+    photos: savedPhotoItems(p.images),
   );
 
   // 上限はセキュリティルールと同じ
@@ -253,6 +260,19 @@ class TradePostDraft {
   String note;
   final List<GiveSetDraft> gives;
   final List<WantSetDraft> wants;
+
+  /// 投稿全体の写真（G-7）
+  final List<PhotoItem> photos;
+
+  /// 写真の枚数（投稿全体とセットの合計。上限は [TradePost.maxImages]）
+  int get photoCount =>
+      photos.length + gives.fold<int>(0, (n, s) => n + s.photos.length);
+
+  /// 投稿全体とすべてのセットの写真（アップロード用）
+  List<PhotoItem> get allPhotos => [
+    ...photos,
+    for (final s in gives) ...s.photos,
+  ];
 
   bool get hasPrice =>
       tags.contains(TradeTag.sell) || tags.contains(TradeTag.buy);
@@ -316,6 +336,9 @@ class TradePostDraft {
     if ((cleanedNote?.length ?? 0) > maxNoteLength) {
       errors.add('備考は$maxNoteLength文字以内で入力してください');
     }
+    if (photoCount > TradePost.maxImages) {
+      errors.add('写真は投稿全体とセットの合計で${TradePost.maxImages}枚までです');
+    }
     _validateSets(
       errors,
       name: '譲セット',
@@ -373,29 +396,32 @@ class TradePostDraft {
 
   /// 保存用のモデルに変換する（[validate] の結果が空のときだけ呼ぶ）。
   ///
-  /// 編集のときは [base] を渡す。ID・投稿全体の写真は [base] のまま引き継ぐ。
+  /// 編集のときは [base] を渡す（ID を引き継ぐ）。写真は [uploaded]
+  /// （新しい写真 → パス）でパスにする。[uploaded] が null なら写真は空
+  /// （[validate] の中で使う）。
   /// 価格の区分は譲渡・買取希望のときだけ、公演は手渡しのときだけ残す
-  TradePost toPost({TradePost? base}) => TradePost(
-    id: base?.id,
-    groupIds: [...groupIds],
-    oshiIds: [...oshiIds],
-    // 表示の順をそろえる
-    tags: [
-      for (final t in TradeTag.values)
-        if (tags.contains(t)) t,
-    ],
-    priceType: hasPrice ? priceType : null,
-    gives: [for (final s in gives) s.toSet()],
-    wants: [for (final s in wants) s.toSet()],
-    handover: [
-      for (final h in HandoverMethod.values)
-        if (handover.contains(h)) h,
-    ],
-    performanceIds: isHand ? [...performanceIds] : const [],
-    xAccount: cleanedXAccount,
-    note: cleanedNote,
-    images: base?.images ?? const [],
-  );
+  TradePost toPost({TradePost? base, Map<NewPhoto, String>? uploaded}) =>
+      TradePost(
+        id: base?.id,
+        groupIds: [...groupIds],
+        oshiIds: [...oshiIds],
+        // 表示の順をそろえる
+        tags: [
+          for (final t in TradeTag.values)
+            if (tags.contains(t)) t,
+        ],
+        priceType: hasPrice ? priceType : null,
+        gives: [for (final s in gives) s.toSet(uploaded: uploaded)],
+        wants: [for (final s in wants) s.toSet()],
+        handover: [
+          for (final h in HandoverMethod.values)
+            if (handover.contains(h)) h,
+        ],
+        performanceIds: isHand ? [...performanceIds] : const [],
+        xAccount: cleanedXAccount,
+        note: cleanedNote,
+        images: uploaded == null ? const [] : photoPathsOf(photos, uploaded),
+      );
 }
 
 /// 手渡しの公演の候補（開演の早い順）。

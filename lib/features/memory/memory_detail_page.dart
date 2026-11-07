@@ -8,6 +8,7 @@ import '../../theme/hako_app_widgets.dart';
 import '../../theme/hako_fonts.dart';
 import '../../providers/live_providers.dart';
 import '../../providers/memory_providers.dart';
+import '../common/photo_grid.dart';
 import '../live_form/date_time_field.dart';
 
 /// 記録の詳細（/memories/:performanceId）
@@ -103,7 +104,15 @@ class _DetailView extends StatelessWidget {
             ),
           ],
         ),
-        // TODO(M-5): 写真
+        // 写真は、あるときだけ出す（M-5 仕様書 6.3）
+        if (m.images.isNotEmpty)
+          _Section(
+            title: '写真',
+            child: PhotoGrid(
+              key: const Key('memory_detail_photos'),
+              paths: m.images,
+            ),
+          ),
         _Section(
           title: '座席',
           child: Text(

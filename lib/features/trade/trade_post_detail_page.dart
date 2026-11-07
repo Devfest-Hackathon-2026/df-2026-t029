@@ -14,6 +14,7 @@ import '../../providers/oshi_providers.dart';
 import '../../providers/trade_post_providers.dart';
 import '../live/official_url_link.dart';
 import '../live_form/date_time_field.dart';
+import '../common/photo_grid.dart';
 import 'trade_post_summary.dart';
 import 'trade_replies_section.dart';
 
@@ -90,6 +91,7 @@ class TradePostDetailPage extends ConsumerWidget {
   );
 }
 
+/// 投稿の詳細（内容、X へのリンク、返信）
 class _PostBody extends ConsumerWidget {
   const _PostBody({
     required this.post,
@@ -162,6 +164,14 @@ class _PostBody extends ConsumerWidget {
           const SizedBox(height: 8),
           const Text('品目なし（自動のマッチングの対象外）'),
         ],
+        // 投稿全体の写真（G-7 仕様書 6.3）
+        if (post.images.isNotEmpty) ...[
+          heading('写真'),
+          PhotoGrid(
+            key: const Key('trade_detail_photos'),
+            paths: post.images,
+          ),
+        ],
         if (post.gives.isNotEmpty) ...[
           heading('譲（出せるもの）'),
           for (final (i, s) in post.gives.indexed)
@@ -171,6 +181,7 @@ class _PostBody extends ConsumerWidget {
               pickCount: s.pickCount,
               labels: [for (final it in s.items) it.label],
               note: s.note,
+              images: s.images,
             ),
         ],
         if (post.wants.isNotEmpty) ...[
@@ -205,7 +216,7 @@ class _PostBody extends ConsumerWidget {
   }
 }
 
-/// セット1つ（「この中から N 個」、品目、備考）
+/// セット1つ（「この中から N 個」、品目、写真、備考）
 class _SetCard extends StatelessWidget {
   const _SetCard({
     super.key,
@@ -213,12 +224,16 @@ class _SetCard extends StatelessWidget {
     required this.pickCount,
     required this.labels,
     required this.note,
+    this.images = const [],
   });
 
   final String title;
   final int? pickCount;
   final List<String> labels;
   final String? note;
+
+  /// セットの写真（譲セットだけ。G-7）
+  final List<String> images;
 
   @override
   Widget build(BuildContext context) {
@@ -236,6 +251,10 @@ class _SetCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             for (final l in labels) Text('・$l'),
+            if (images.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              PhotoGrid(paths: images, maxWidth: 360),
+            ],
             if (note case final n?) ...[
               const SizedBox(height: 4),
               Text('備考：$n', style: theme.textTheme.bodySmall),

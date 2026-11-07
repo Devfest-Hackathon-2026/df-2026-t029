@@ -1,0 +1,214 @@
+/**
+ * リマインド通知（Step6 仕様書 3章・6章）
+ *
+ * 15分おきに、FCM トークンを持つユーザーごとに、自分のライブ一覧の受付の
+ * 「次の締切」を調べ、1日前・3時間前に Web プッシュを送る。
+ * 次の締切の規則は lib/utils/deadline.dart の nextDeadlineOf、
+ * 当選者のみの受付の条件は lib/utils/winners_only.dart と同じ。
+ */
+const {setGlobalOptions} = require("firebase-functions/v2");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
+const logger = require("firebase-functions/logger");
+const {initializeApp} = require("firebase-admin/app");
+const {getFirestore, FieldValue, Timestamp} = require("firebase-admin/firestore");
+const {getMessaging} = require("firebase-admin/messaging");
+
+initializeApp();
+setGlobalOptions({region: "asia-northeast1", maxInstances: 1});
+
+/** 公開先の URL（通知を押したときに開く。秘密ではない） */
+const APP_URL = "https://oshiashi-test.web.app";
+
+const HOUR = 60 * 60 * 1000;
+
+/** 締切の種類の名前（DeadlineKind.label と同じ） */
+const KIND_LABEL = {
+  apply: "申込期限",
+  result: "当落発表",
+  payment: "入金期限",
+};
+
+/** 無効なトークンのエラー（fcmTokens から消す） */
+const INVALID_TOKEN_ERRORS = new Set([
+  "messaging/registration-token-not-registered",
+  "messaging/invalid-registration-token",
+]);
+
+/** Firestore の値を Date に（無ければ null） */
+function toDate(value) {
+  return value && typeof value.toDate === "function" ? value.toDate() : null;
+}
+
+/**
+ * 受付1件の次の締切（nextDeadlineOf と同じ規則）。
+ * 未申込（不明な値も含む）→ 申込期限、申込済 → 当落発表、当選 → 入金期限、
+ * 落選・入金済 → なし。日時が無ければ null。
+ */
+function nextDeadline(reception, status) {
+  let kind;
+  let at;
+  if (status === "applied") {
+    kind = "result";
+    at = toDate(reception.resultAt);
+  } else if (status === "won") {
+    kind = "payment";
+    at = toDate(reception.paymentDeadline);
+  } else if (status === "lost" || status === "paid") {
+    return null;
+  } else {
+    kind = "apply";
+    at = toDate(reception.applyEndAt);
+  }
+  return at ? {kind, at} : null;
+}
+
+/** 残り時間から段階を決める（Step6 仕様書 3.2）。対象外は null */
+function stageOf(remainingMs) {
+  if (remainingMs <= 0) return null;
+  if (remainingMs <= 3 * HOUR) return "3h";
+  if (remainingMs <= 24 * HOUR) return "1d";
+  return null;
+}
+
+/** 日本時間で「11/9(月) 23:59」の形にする */
+function formatAt(date) {
+  const parts = new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const get = (type) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("month")}/${get("day")}(${get("weekday")}) ` +
+    `${get("hour")}:${get("minute")}`;
+}
+
+/** 配列を size 件ずつに分ける（Firestore の in は30件まで） */
+function chunk(list, size) {
+  const result = [];
+  for (let i = 0; i < list.length; i += size) {
+    result.push(list.slice(i, i + size));
+  }
+  return result;
+}
+
+/** ユーザー1人分を調べて送る。送った件数を返す */
+async function remindUser(db, messaging, uid, tokens, now) {
+  const userRef = db.collection("users").doc(uid);
+
+  const myLivesSnap = await userRef.collection("myLives").get();
+  const liveIds = myLivesSnap.docs.map((d) => d.id);
+  if (liveIds.length === 0) return 0;
+
+  const appsSnap = await userRef.collection("applications").get();
+  const statusOf = new Map();
+  const winnerLiveIds = new Set();
+  for (const d of appsSnap.docs) {
+    const {status, liveId} = d.data();
+    statusOf.set(d.id, status);
+    if ((status === "won" || status === "paid") && typeof liveId === "string") {
+      winnerLiveIds.add(liveId);
+    }
+  }
+
+  const receptions = [];
+  for (const ids of chunk(liveIds, 30)) {
+    const snap = await db.collection("receptions")
+        .where("liveId", "in", ids).get();
+    receptions.push(...snap.docs);
+  }
+  if (receptions.length === 0) return 0;
+
+  const liveSnaps = await db.getAll(
+      ...liveIds.map((id) => db.collection("lives").doc(id)));
+  const titleOf = new Map(
+      liveSnaps.filter((s) => s.exists).map((s) => [s.id, s.data().title]));
+
+  let sent = 0;
+  for (const doc of receptions) {
+    if (tokens.length === 0) break;
+    const r = doc.data();
+    // 当選者のみの受付は、そのライブで当選している人だけ（isReceptionVisible）
+    if (r.winnersOnly === true && !winnerLiveIds.has(r.liveId)) continue;
+
+    const deadline = nextDeadline(r, statusOf.get(doc.id));
+    if (!deadline) continue;
+    const remaining = deadline.at.getTime() - now.getTime();
+    const stage = stageOf(remaining);
+    if (!stage) continue;
+
+    const sentRef = userRef.collection("sentNotifications")
+        .doc(`${doc.id}_${deadline.kind}_${stage}`);
+    if ((await sentRef.get()).exists) continue;
+
+    const label = KIND_LABEL[deadline.kind];
+    const hours = Math.ceil(remaining / HOUR);
+    const liveTitle = titleOf.get(r.liveId) ?? "ライブ";
+    const title = `${label}まで あと${hours}時間`;
+    const body = `${liveTitle}（${r.name}）\n${formatAt(deadline.at)} まで`;
+
+    const res = await messaging.sendEachForMulticast({
+      tokens,
+      notification: {title, body},
+      data: {liveId: r.liveId},
+      webpush: {
+        notification: {icon: `${APP_URL}/icons/Icon-192.png`},
+        fcmOptions: {link: `${APP_URL}/lives/${r.liveId}`},
+      },
+    });
+
+    // 無効なトークンは消し、このあとの送信からも外す
+    const invalid = [];
+    res.responses.forEach((resp, i) => {
+      if (!resp.success && INVALID_TOKEN_ERRORS.has(resp.error?.code)) {
+        invalid.push(tokens[i]);
+      }
+    });
+    for (const token of invalid) {
+      await userRef.collection("fcmTokens").doc(token).delete();
+    }
+    tokens = tokens.filter((t) => !invalid.includes(t));
+
+    await sentRef.set({
+      receptionId: doc.id,
+      kind: deadline.kind,
+      stage,
+      deadlineAt: Timestamp.fromDate(deadline.at),
+      sentAt: FieldValue.serverTimestamp(),
+    });
+    sent += res.successCount;
+  }
+  return sent;
+}
+
+exports.sendDeadlineReminders = onSchedule(
+    {schedule: "every 15 minutes", timeZone: "Asia/Tokyo"},
+    async () => {
+      const db = getFirestore();
+      const messaging = getMessaging();
+      const now = new Date();
+
+      // FCM トークンを uid ごとにまとめる
+      const tokenSnap = await db.collectionGroup("fcmTokens").get();
+      const tokensByUid = new Map();
+      for (const d of tokenSnap.docs) {
+        const uid = d.ref.parent.parent.id;
+        if (!tokensByUid.has(uid)) tokensByUid.set(uid, []);
+        tokensByUid.get(uid).push(d.id);
+      }
+
+      let total = 0;
+      for (const [uid, tokens] of tokensByUid) {
+        try {
+          total += await remindUser(db, messaging, uid, tokens, now);
+        } catch (e) {
+          // 1人の失敗で全体を止めない
+          logger.error(`ユーザー ${uid} の通知に失敗しました`, e);
+        }
+      }
+      logger.info(`リマインド通知: ユーザー ${tokensByUid.size} 人、送信 ${total} 件`);
+    },
+);

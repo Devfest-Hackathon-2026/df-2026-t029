@@ -14,12 +14,14 @@ import 'package:oshiashi/models/user_profile.dart';
 import 'package:oshiashi/providers/goods_providers.dart';
 import 'package:oshiashi/providers/live_providers.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
+import 'package:oshiashi/providers/photo_providers.dart';
 import 'package:oshiashi/providers/profile_providers.dart';
 import 'package:oshiashi/providers/trade_post_providers.dart';
 import 'package:oshiashi/repositories/auth_repository.dart';
 
 import 'live_test_helpers.dart';
 import 'oshi_test_helpers.dart';
+import 'photo_test_helpers.dart';
 import 'trade_test_helpers.dart';
 
 Finder _key(String k) => find.byKey(Key(k));
@@ -122,6 +124,7 @@ Future<GoRouter> pumpForm(
         ),
         nowProvider.overrideWithValue(now),
         tradePostRepositoryProvider.overrideWithValue(repo),
+        photoRepositoryProvider.overrideWithValue(FakePhotoRepository()),
         if (displayName != null)
           myDisplayNameProvider.overrideWithValue(displayName),
         if (profile != null)
@@ -138,6 +141,13 @@ Future<GoRouter> pumpForm(
   router.push(location);
   await tester.pumpAndSettle();
   return router;
+}
+
+/// 入力欄まで下へスクロールしてから文字を入れる（画面外の項目は作られないため）
+Future<void> enterKey(WidgetTester tester, String key, String text) async {
+  await tester.scrollUntilVisible(_key(key), 200, scrollable: listScrollable());
+  await tester.pumpAndSettle();
+  await tester.enterText(_key(key), text);
 }
 
 Future<void> tapKey(WidgetTester tester, String key) async {
@@ -183,8 +193,8 @@ void main() {
     expect(_key('trade_performance_old'), findsNothing);
     expect(find.text('ツアー2026'), findsOneWidget);
     await tapKey(tester, 'trade_performance_f1');
-    await tester.enterText(_key('trade_x_account'), '@oshi_fan');
-    await tester.enterText(_key('trade_note'), '送料はご負担ください');
+    await enterKey(tester, 'trade_x_account', '@oshi_fan');
+    await enterKey(tester, 'trade_note', '送料はご負担ください');
     await tapKey(tester, 'trade_save_button');
 
     expect(repo.created, hasLength(1));

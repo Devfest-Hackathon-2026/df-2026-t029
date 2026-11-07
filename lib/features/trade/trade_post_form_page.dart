@@ -1,4 +1,4 @@
-import '../../theme/hako_app_widgets.dart';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,8 +11,11 @@ import '../../models/trade_post.dart';
 import '../../providers/goods_providers.dart';
 import '../../providers/live_providers.dart';
 import '../../providers/oshi_providers.dart';
+import '../../providers/photo_providers.dart';
 import '../../providers/trade_post_providers.dart';
 import '../../providers/profile_providers.dart';
+import '../../theme/hako_app_widgets.dart';
+import '../common/photo_items.dart';
 import '../live_form/date_time_field.dart';
 import 'trade_post_draft.dart';
 import 'trade_sets_section.dart';
@@ -34,6 +37,9 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
   TradePost? _base;
   List<String> _errors = const [];
   bool _saving = false;
+
+  /// 写真を選んでいる最中（G-7）
+  bool _picking = false;
 
   bool get _isEdit => widget.postId != null;
   String get _title => _isEdit ? '投稿を編集' : '交換・売買の投稿を作る';
@@ -58,9 +64,28 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
     }
   }
 
+  /// 写真を選んで [target]（投稿全体またはセットの写真）の最後に足す。
+  /// 選べる枚数は、投稿全体とセットの合計の残り（G-7 仕様書 6.2）
+  Future<void> _addPhotos(List<PhotoItem> target) async {
+    final draft = _draft;
+    if (draft == null || _saving || _picking) return;
+    setState(() => _picking = true);
+    final added = await pickNewPhotos(
+      context,
+      remaining: TradePost.maxImages - draft.photoCount,
+    );
+    if (!mounted) return;
+    setState(() {
+      target.addAll(added);
+      _picking = false;
+    });
+  }
+
+  /// 保存（G-7 仕様書 6.2）。新しい写真をアップロード → 投稿を保存 →
+  /// 編集では、外した写真を消す
   Future<void> _save() async {
     final draft = _draft;
-    if (draft == null) return;
+    if (draft == null || _saving || _picking) return;
     final errors = draft.validate(goodsById: await _goodsForKeys(draft));
     if (!mounted) return;
     if (errors.isNotEmpty) {
@@ -74,18 +99,41 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
       _saving = true;
       _errors = const [];
     });
+    final photoRepo = ref.read(photoRepositoryProvider);
+    var uploaded = const <NewPhoto, String>{};
+    var saved = false;
     try {
+      // アップロードに失敗したら、上げた分は uploadNewPhotos が消している
+      uploaded = await uploadNewPhotos(
+        photoRepo,
+        'tradePhotos/$uid',
+        draft.allPhotos,
+      );
       final repository = ref.read(tradePostRepositoryProvider);
       final base = _base;
       if (base == null) {
         await repository.create(
-          draft.toPost(),
+          draft.toPost(uploaded: uploaded),
           uid: uid,
           displayName: ref.read(myDisplayNameProvider),
         );
+        saved = true;
       } else {
-        await repository.update(draft.toPost(base: base));
+        final post = draft.toPost(base: base, uploaded: uploaded);
+        await repository.update(post);
+        saved = true;
         ref.invalidate(tradePostByIdProvider(base.id!));
+        // 外した写真（消したセットの写真も含む）を消す。失敗しても無視・待たない
+        final kept = {
+          ...post.images,
+          for (final s in post.gives) ...s.images,
+        };
+        unawaited(
+          photoRepo.deleteAll([
+            ...base.images,
+            for (final s in base.gives) ...s.images,
+          ].where((p) => !kept.contains(p))),
+        );
       }
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -93,6 +141,8 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
       ).showSnackBar(SnackBar(content: Text(_isEdit ? '投稿を更新しました' : '投稿しました')));
       context.pop();
     } catch (e) {
+      // 投稿の保存に失敗したときは、この保存でアップロードした写真を消す
+      if (!saved) await photoRepo.deleteAll(uploaded.values);
       if (!mounted) return;
       setState(() => _errors = ['保存できませんでした: $e']);
     } finally {
@@ -156,6 +206,10 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
       padding: const EdgeInsets.only(top: 20, bottom: 4),
       child: Text(text, style: theme.textTheme.titleMedium),
     );
+    // 写真（G-7）：合計の上限・処理中は追加できない。保存中は外せない
+    final photosEnabled = !_saving && !_picking;
+    final canAddPhoto =
+        photosEnabled && draft.photoCount < TradePost.maxImages;
 
     return HakoPageScaffold(
       title: _title,
@@ -239,9 +293,29 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
             ],
             heading('譲（出せるもの）'),
             const Text('譲・求の片方だけでも、どちらもなくても投稿できます。品目を選ばない投稿は、自動のマッチングの対象外です'),
-            GiveSetsSection(draft: draft, onChanged: () => setState(() {})),
+            GiveSetsSection(
+              draft: draft,
+              onChanged: () => setState(() {}),
+              canAddPhoto: canAddPhoto,
+              photosEnabled: photosEnabled,
+              onAddPhotos: (set) => _addPhotos(set.photos),
+            ),
             heading('求（欲しいもの）'),
             WantSetsSection(draft: draft, onChanged: () => setState(() {})),
+            heading(
+              '写真（投稿全体とセットで${draft.photoCount}/${TradePost.maxImages}枚）',
+            ),
+            const Text('譲の現物の写真は、各譲セットの中にも付けられます'),
+            const SizedBox(height: 8),
+            PhotoEditSection(
+              title: '投稿全体の写真',
+              photos: draft.photos,
+              canAdd: canAddPhoto,
+              enabled: photosEnabled,
+              onAdd: () => _addPhotos(draft.photos),
+              onRemove: (i) => setState(() => draft.photos.removeAt(i)),
+              addButtonKey: const Key('trade_add_photo'),
+            ),
             heading('連絡先・備考'),
             TextFormField(
               key: const Key('trade_x_account'),
@@ -271,7 +345,7 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
             const SizedBox(height: 8),
             FilledButton(
               key: const Key('trade_save_button'),
-              onPressed: _saving ? null : _save,
+              onPressed: _saving || _picking ? null : _save,
               child: Text(_saving ? '保存中…' : (_isEdit ? '更新する' : '投稿する')),
             ),
           ],

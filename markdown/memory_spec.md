@@ -146,7 +146,7 @@ users/{uid}/memories/{performanceId}   記録（ドキュメント ID は公演 
 | seat | string | | 座席（100文字まで） |
 | setlist | array | | 曲名（string の配列。100曲まで、各100文字まで） |
 | impression | string | | 感想（2,000文字まで） |
-| images | array | ○ | 写真（Storage のパスの配列。8枚まで）。M-5 までは空 |
+| images | array | ○ | 写真（Storage のパス `users/{uid}/memories/{performanceId}/{ファイル名}` の配列。8枚まで。1枚目が表紙） |
 | createdAt | timestamp | ○ | 作成日時 |
 | updatedAt | timestamp | ○ | 更新日時 |
 
@@ -161,7 +161,7 @@ users/{uid}/memories/{performanceId}   記録（ドキュメント ID は公演 
 | M-2 | モデル・リポジトリ・プロバイダ | 完了 |
 | M-3 | 記録の作成・編集・削除の画面と、ライブの詳細画面への「記録する」の追加 | 完了 |
 | M-4 | メモリー一覧・記録の詳細と、ホームの入口 | 完了 |
-| M-5 | 写真（Blaze への切り替え後、G-7 とあわせて行う） | 未着手（GitHub の issue で管理） |
+| M-5 | 写真（Blaze への切り替え後、G-7 とあわせて行う） | 完了（11/7） |
 
 M-3・M-4 はライブの詳細画面とホーム（A の担当範囲）にかかわるため、着手前に A と共有する。
 

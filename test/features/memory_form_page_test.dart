@@ -11,9 +11,11 @@ import 'package:oshiashi/models/live_memory.dart';
 import 'package:oshiashi/providers/live_providers.dart';
 import 'package:oshiashi/providers/memory_providers.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
+import 'package:oshiashi/providers/photo_providers.dart';
 import 'package:oshiashi/repositories/memory_repository.dart';
 
 import 'live_test_helpers.dart';
+import 'photo_test_helpers.dart';
 
 Finder _key(String k) => find.byKey(Key(k));
 
@@ -131,6 +133,7 @@ Future<void> pumpForm(
           ),
         ),
         memoryRepositoryProvider.overrideWithValue(memories),
+        photoRepositoryProvider.overrideWithValue(FakePhotoRepository()),
       ],
       retry: (_, _) => null,
       child: MaterialApp.router(
@@ -216,6 +219,8 @@ void main() {
         300,
         scrollable: find.byType(Scrollable).first,
       );
+      await tester.ensureVisible(_key('memory_form_save_button'));
+      await tester.pumpAndSettle();
       await tester.tap(_key('memory_form_save_button'));
       await tester.pumpAndSettle();
       expect(repo.calls, ['create']);
