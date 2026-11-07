@@ -11,6 +11,7 @@ import 'home_section_header.dart';
 import 'home_recent_memories.dart';
 import 'home_upcoming_lives.dart';
 import 'home_new_trades.dart';
+import 'home_expense_summary.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -53,6 +54,9 @@ class HomePage extends ConsumerWidget {
             const UpcomingDeadlinesSection(),
             const SizedBox(height: 24),
             const HomeUpcomingLives(),
+            const SizedBox(height: 24),
+            // 今月の推し活費（H-3）
+            const HomeExpenseSummary(),
             const SizedBox(height: 24),
             const HomeNewTrades(),
             const SizedBox(height: 24),

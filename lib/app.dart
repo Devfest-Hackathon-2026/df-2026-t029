@@ -33,6 +33,7 @@ import 'features/memory/memory_list_page.dart';
 import 'features/welcome/welcome_page.dart';
 import 'features/oshi/oshi_page.dart';
 import 'features/shell/app_shell.dart';
+import 'features/expense/expense_page.dart';
 
 import 'repositories/auth_repository.dart';
 
@@ -173,6 +174,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                     ],
                   ),
                 ],
+              ),
+              // 費用管理（H-3）。ホームの下に置き、戻るとホームへ戻る
+              GoRoute(
+                path: 'expenses',
+                builder: (context, state) => const ExpensePage(),
               ),
             ],
           ),
