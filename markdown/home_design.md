@@ -4,7 +4,7 @@
 > チームメンバーおよび開発支援に使う LLM が、この文書だけを読んで同じ前提で作業できるように、現状のコードの構造と、変更後の具体的な形を書いている。
 > 「決定事項」と「未決定事項」を分けて記載している。ホームの構成は、横山の手書きの案（2026-11-07）をもとにしている。
 > 前提として、プロジェクト仕様書（`markdown/app_config.md`）、データベース設計案（`markdown/Database_config.md`）、`CLAUDE.md` をあわせて参照すること。
-> 改訂：11/7 テーマカラーをユーザーが設定できるようにする（3.1・3.8・D-6）を追加。
+> 改訂：11/7 テーマカラーをユーザーが設定できるようにする（3.1・3.8・D-6）を追加。11/7 タブの順番を「ホーム・推し・ライブ一覧・グッズ交換・メモリー」に変更（推しの優先度が高いため）。
  
 ## 0. LLM への指示
  
@@ -33,7 +33,7 @@
 - 今どの機能を開いているかがわからない。
 ### 1.2 変更後の利用の流れ
  
-1. ログイン後、PC の幅では画面の左に、スマホの幅では画面の下に、5つのタブ（ホーム・ライブ一覧・グッズ交換・メモリー・推し）が常に出る。
+1. ログイン後、PC の幅では画面の左に、スマホの幅では画面の下に、5つのタブ（ホーム・推し・ライブ一覧・グッズ交換・メモリー）が常に出る。
 2. タブを押すと、その機能の画面に移る。今いる機能のタブは強調される。詳細画面（ライブの詳細など）でも、その機能のタブが強調されたまま。
 3. ホームでは、上から「あいさつと行きたいライブの追加」「次の締切」「今後のライブ」「新しい交換」「最近の思い出」を見られ、それぞれの詳細・一覧に移れる。
 4. プロフィールの画面でテーマカラーを選ぶと、ログイン後の全画面がその色になる。ほかの端末でログインしても同じ色になる。
@@ -42,8 +42,8 @@
 ### 2.1 `lib/app.dart`
  
 - `routerProvider`（`Provider<GoRouter>`）でルーターを作る。`redirect` で、未ログインなら `/welcome`、プロフィール未作成なら `/profile` に移す（紹介ページの仕様書 W-1 で実装済み）。
-- `App`（`ConsumerWidget` の `MaterialApp.router`）は `title: 'おしあし'` と `routerConfig` だけを渡しており、`theme`・`scrollBehavior` は未設定。
-- ルートの構成（`routes:` の中、上から順）：
+- `App`（`ConsumerWidget` の `MaterialApp.router`）は `title: 'おしあし'` と `routerConfig` だけを渡しており、`theme`・`scrollBehavior` は未設定（D-1 で設定済み）。
+- D-2 より前のルートの構成（`routes:` の中、上から順）：
 ```
 /                      HomePage
   ├ oshi/search        OshiSearchPage
@@ -124,10 +124,10 @@
   - 中心の機能は申込・入金の期限を逃さない予定管理。落ち着いた色で、長く使う道具としての信頼感を出す。
   - ピンクが多い既存の推し活アプリと、見た目で区別する。
 - 捨てた案：ピンク系の固定（推し活らしいが、既存のアプリと似て、推しの色とも合わないことがある）、今の紫を整えるだけ（印象が変わらない）。
-`themeSeedColorProvider` の置き場所と形（D-1 では初期の色だけを返し、D-6 で設定を反映する）：
+`themeSeedColorProvider` の置き場所と形（D-1 で作成済み。D-6 で設定を反映する）：
  
 ```dart
-// lib/providers/theme_providers.dart（新規）
+// lib/providers/theme_providers.dart
  
 /// 初期のテーマカラー（基準の色）。紹介ページの色が決まったら、ここだけを直す
 const kDefaultSeedColor = Color(0xFF795548);
@@ -138,7 +138,7 @@ final themeSeedColorProvider = Provider<Color>((ref) => kDefaultSeedColor);
  
 ### 3.2 マウスでの横スクロール
  
-- Flutter Web は、標準ではマウスのドラッグで横にスクロールできない（`ScrollBehavior.dragDevices` にマウスが含まれない）。ホームの横に並べる区画（3.5）を PC で動かせるように、`MaterialApp.router` の `scrollBehavior` に、マウスのドラッグを許す `ScrollBehavior` を設定する。
+- Flutter Web は、標準ではマウスのドラッグで横にスクロールできない（`ScrollBehavior.dragDevices` にマウスが含まれない）。ホームの横に並べる区画（3.5）を PC で動かせるように、`MaterialApp.router` の `scrollBehavior` に、マウスのドラッグを許す `ScrollBehavior` を設定する（D-1 で作成済み）。
 ```dart
 /// マウスのドラッグでもスクロールできるようにする（Web で横の一覧を動かすため）
 class _AppScrollBehavior extends MaterialScrollBehavior {
@@ -157,28 +157,32 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
  
 #### タブと、選択中にするパス
  
+推しの優先度が高いため、推しをホームの次に置く。
+ 
 | 順 | タブ | アイコン（目安） | 押したときの移動先 | 選択中にするパス（上から順に判定） |
 |---|---|---|---|---|
 | 0 | ホーム | `Icons.home_outlined`／選択中 `Icons.home` | `/` | 1〜4 のどれにも当たらないとき |
-| 1 | ライブ一覧 | `Icons.event_note_outlined`／`Icons.event_note` | `/lives` | `/lives`・`/register`・`/live-form` で始まる |
-| 2 | グッズ交換 | `Icons.swap_horiz` | `/trade` | `/trade`・`/chats`・`/goods` で始まる |
-| 3 | メモリー | `Icons.photo_album_outlined`／`Icons.photo_album` | `/memories` | `/memories` で始まる |
-| 4 | 推し | `Icons.favorite_outline`／`Icons.favorite` | `/oshi` | `/oshi` で始まる |
+| 1 | 推し | `Icons.favorite_outline`／`Icons.favorite` | `/oshi` | `/oshi` |
+| 2 | ライブ一覧 | `Icons.event_note_outlined`／`Icons.event_note` | `/lives` | `/lives`・`/register`・`/live-form` |
+| 3 | グッズ交換 | `Icons.swap_horiz` | `/trade` | `/trade`・`/chats`・`/goods` |
+| 4 | メモリー | `Icons.photo_album_outlined`／`Icons.photo_album` | `/memories` | `/memories` |
  
-- 判定に使うパスは `GoRouterState.of(context).uri.path`（クエリを除いたパス）。判定は純粋関数1つにまとめる（例：`int tabIndexFor(String path)`。`lib/features/shell/app_shell.dart` 内に置く）。
-- 例：`/lives/abc/memory/xyz`（記録の作成）はライブ一覧、`/chats/abc` はグッズ交換、`/oshi/search` は推し、`/` はホーム。
+- 「`/lives`」に当たるとは、パスが `/lives` そのもの、または `/lives/` で始まること（`/livesx` などに誤って当たらないようにする）。
+- 判定に使うパスは、`ShellRoute` の `builder` に渡される `state.uri.path`（クエリを除いたパス）。判定は純粋関数 `int tabIndexFor(String path)` にまとめ、`lib/features/shell/app_shell.dart` に置く。
+- 例：`/oshi/search` は推し、`/lives/abc/memory/xyz`（記録の作成）はライブ一覧、`/chats/abc` はグッズ交換、`/` はホーム。
 - タブを押したら `context.go(移動先)` で移る（タブの切り替えは履歴に積まない）。今のタブをもう一度押したときも、その機能の最初の画面（上の表の移動先）に移る。
 #### 見た目
  
-- 画面の幅が **720px 以上**（紹介ページと同じ基準）のときは、画面の左に縦のタブ（`NavigationRail`）を置き、その右に各画面を出す。`labelType: NavigationRailLabelType.all` でラベルを常に出す。タブと画面の間に区切り線（`VerticalDivider(width: 1)`）を入れる。
+- 画面の幅が **720px 以上**（紹介ページと同じ基準。定数 `kShellWideBreakpoint`）のときは、画面の左に縦のタブ（`NavigationRail`）を置き、その右に各画面を出す。`labelType: NavigationRailLabelType.all` でラベルを常に出す。タブと画面の間に区切り線（`VerticalDivider(width: 1)`）を入れる。
 - 720px 未満（スマホ）のときは、画面の下に横のタブ（`NavigationBar`）を置く。
 - 選択中のタブの強調は、Material 3 の標準の表示（選択中の背景の帯と色）を使う。色はテーマカラーに従う。
-- 左のタブの一番下に、アカウントのボタン（`Icons.account_circle`、Key：`shell_account_button`）を置く。押すとメニュー（`PopupMenuButton` など）で「プロフィール」（`context.push('/profile')`）と「ログアウト」（`authRepositoryProvider` の `signOut()`）を選べる。
+- 左のタブの一番下に、アカウントのボタン（`Icons.account_circle`、Key：`shell_account_button`）を置く（`NavigationRail` の `trailing` に `Expanded` ＋ `Align(alignment: Alignment.bottomCenter)` で置く）。押すとメニュー（`PopupMenuButton`）で「プロフィール」（`context.push('/profile')`）と「ログアウト」（`authRepositoryProvider` の `signOut()`）を選べる。
 - スマホの幅では、下のタブにアカウントは入れない。代わりに、ホームの `AppBar` の右に、今と同じプロフィールとログアウトのアイコンを置く（3.5 ①）。PC の幅では、ホームの `AppBar` に出さない（左下と重複するため）。
+- Key：縦のタブは `shell_rail`、横のタブは `shell_bottom_bar`。
 #### 作り方
  
-- 新規ファイル `lib/features/shell/app_shell.dart` に、外枠の画面 `AppShell`（`child` を受け取る）を作る。`LayoutBuilder` か `MediaQuery.sizeOf(context).width` で幅を判定し、上の2つの見た目を切り替える。
-- `lib/app.dart` の `routes:` で、ログイン後の画面のルートを `ShellRoute(builder: (context, state, child) => AppShell(child: child), routes: [...])` で包む。**各ルートのパス・画面・入れ子の関係は変えない**（既存の `context.go`・`context.push` のパスがそのまま動くようにする）。
+- 新規ファイル `lib/features/shell/app_shell.dart` に、外枠の画面 `AppShell`（`location`（今のパス）と `child` を受け取る `StatelessWidget`）を作る。`MediaQuery.sizeOf(context).width` で幅を判定し、上の2つの見た目を切り替える。
+- `lib/app.dart` の `routes:` で、ログイン後の画面のルートを `ShellRoute(builder: (context, state, child) => AppShell(location: state.uri.path, child: child), routes: [...])` で包む。**各ルートのパス・画面・入れ子の関係は変えない**（既存の `context.go`・`context.push` のパスがそのまま動くようにする）。
 - `ShellRoute` の中に入れるもの：`/`（入れ子ごと）、`/register`、`/live-form`、`/goods`・`/goods/new`・`/goods/:id/edit`、`/trade`・`/trade/board`・`/trade/mine`・`/chats`・`/chats/:id`・`/trade/new`・`/trade/:id/edit`・`/trade/:id`。順番は今と同じにする（`/trade/:id` は `/trade/new` などより後）。
 - `ShellRoute` の外に置くもの：`/welcome`、`/login`、`/profile`（初回のプロフィールの作成でタブを出さないため）、`/calendar-test`（接続テスト）。重複している2つ目の `/login` は、並べ替えのついでに消し、1つだけにする。
 - `redirect` は変えない。
@@ -211,7 +215,7 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
  
 - 右下の `FloatingActionButton`（`home_add_live_fab`）は、①のボタンに置き換えるため削除する。
 - 旧ボタン4つ（`home_search_button` など）は、タブに置き換えるため削除する。`FollowingOshiList` は推しの画面（3.4）に移すため、ホームからは外す。
-- `AppBar`：タイトルは「おしあし」。スマホの幅のときだけ、右にプロフィール（`/profile`）とログアウトのアイコンを置く（3.3）。
+- `AppBar`：タイトルは「おしあし」。スマホの幅（`kShellWideBreakpoint` 未満）のときだけ、右にプロフィール（`/profile`）とログアウトのアイコンを置く（3.3）。
 #### ③ 今後のライブのカード
  
 - 幅 220px 程度、高さはそろえる（横に並べる `ListView` の高さを固定し、カードはその高さに合わせる）。
@@ -294,10 +298,10 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
  
 | ファイル | 変更 | 内容 |
 |---|---|---|
-| `lib/providers/theme_providers.dart` | 新規 | `kDefaultSeedColor`、`themeSeedColorProvider` |
+| `lib/providers/theme_providers.dart` | 新規（D-1） | `kDefaultSeedColor`、`themeSeedColorProvider` |
 | `lib/app.dart` | 変更（A と共有） | テーマ（`themeSeedColorProvider` を使う）、`scrollBehavior`、`ShellRoute`、`/oshi` のルート、重複した `/login` の削除 |
-| `lib/features/shell/app_shell.dart` | 新規 | 外枠（タブ、アカウントのボタン、`tabIndexFor`） |
-| `lib/features/oshi/oshi_page.dart` | 新規 | 推しの画面 |
+| `lib/features/shell/app_shell.dart` | 新規（D-2） | 外枠（タブ、アカウントのボタン、`tabIndexFor`、`kShellWideBreakpoint`） |
+| `lib/features/oshi/oshi_page.dart` | 新規（D-2） | 推しの画面 |
 | `lib/features/home/home_page.dart` | 作り直し（A と共有） | ホーム |
 | `lib/features/home/home_*.dart` | 新規 | ホームの区画（③④⑤） |
 | `lib/providers/trade_post_providers.dart` | 変更 | `homeTradePostsProvider` |
@@ -311,7 +315,7 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
  
 | Step | 内容 | 完了の目安 | 状況 |
 |---|---|---|---|
-| D-1 | テーマ（3.1。`themeSeedColorProvider` は初期の色だけを返す）と、マウスでの横スクロール（3.2） | 全画面が初期の色の基調になる。`flutter analyze` 0 件 | |
+| D-1 | テーマ（3.1。`themeSeedColorProvider` は初期の色だけを返す）と、マウスでの横スクロール（3.2） | 全画面が初期の色の基調になる。`flutter analyze` 0 件 | 完了 |
 | D-2 | 外枠とタブ（3.3）、推しの画面（3.4）、重複した `/login` の削除 | 8章の「タブ」の確認がすべて通る | |
 | D-3 | ホームの①②、旧ボタン・FAB・フォロー中の推しの削除、`AppBar` の出し分け | ホームが①②だけになり、行きたいライブの追加ができる | |
 | D-4 | ホームの③今後のライブ・⑤最近の思い出 | 横に並び、PC のマウスで動かせる。押すと詳細に移る | |
@@ -329,8 +333,8 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
 - 締切の警告などの色が、背景に埋もれずに読める。
 ### タブ（D-2）
  
-- どの画面からでもタブで5つの機能に移れ、今いる機能のタブが選択中になる。
-- 詳細画面でも、その機能のタブが選択中になる（例：ライブの詳細→ライブ一覧、チャット→グッズ交換、推しを探す→推し）。
+- どの画面からでもタブで5つの機能に移れ、今いる機能のタブが選択中になる。タブの順番は「ホーム・推し・ライブ一覧・グッズ交換・メモリー」。
+- 詳細画面でも、その機能のタブが選択中になる（例：推しを探す→推し、ライブの詳細→ライブ一覧、チャット→グッズ交換）。
 - PC の幅では左、スマホの幅では下にタブが出る。ブラウザの幅を変えると切り替わる。
 - 左下のアカウントのボタンから、プロフィールを開け、ログアウトできる。ログアウトすると紹介ページに移る。
 - 紹介ページ・ログイン画面・初回のプロフィールの作成では、タブが出ない。
