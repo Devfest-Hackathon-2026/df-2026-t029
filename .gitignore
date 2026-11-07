@@ -46,3 +46,14 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Claude Code（個人の設定。agent team の有効化と品質ゲートのフック）
+.claude/settings.local.json
+
+# Firestore ルールのテスト（Node.js）
+test_rules/node_modules/
+tools/seed/node_modules/
+
+# 自動再開の見張り役を止めるための目印
+.claude/auto-resume.stop
+.claude/logs/

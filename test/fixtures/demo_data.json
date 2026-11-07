@@ -1,0 +1,309 @@
+{
+ "groups": {
+  "demo-group-stellanote": {
+   "name": "ステラノート",
+   "aliases": [
+    "ステラ",
+    "STELLA NOTE"
+   ],
+   "genre": "idol",
+   "status": "approved",
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z"
+  }
+ },
+ "oshis": {
+  "demo-oshi-luna": {
+   "name": "星宮ルナ",
+   "aliases": [
+    "ルナ"
+   ],
+   "genre": "idol",
+   "groupIds": [
+    "demo-group-stellanote"
+   ],
+   "status": "approved",
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z"
+  },
+  "demo-oshi-sora": {
+   "name": "月城ソラ",
+   "aliases": [
+    "ソラ"
+   ],
+   "genre": "idol",
+   "groupIds": [
+    "demo-group-stellanote"
+   ],
+   "status": "approved",
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z"
+  },
+  "demo-oshi-hikari": {
+   "name": "陽野ヒカリ",
+   "aliases": [
+    "ヒカリ"
+   ],
+   "genre": "idol",
+   "groupIds": [
+    "demo-group-stellanote"
+   ],
+   "status": "approved",
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z"
+  },
+  "demo-oshi-kanata": {
+   "name": "空野カナタ",
+   "aliases": [
+    "カナタ"
+   ],
+   "genre": "artist",
+   "groupIds": [],
+   "status": "approved",
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z"
+  }
+ },
+ "lives": {
+  "demo-live-tour": {
+   "title": "ステラノート 全国ツアー 2026「ひかりの旋律」",
+   "groupIds": [
+    "demo-group-stellanote"
+   ],
+   "oshiIds": [],
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z",
+   "updatedBy": "demo-seed",
+   "updatedAt": "2026-10-06T03:00:00.000Z"
+  },
+  "demo-live-fest": {
+   "title": "ほしぞらフェス 2026",
+   "groupIds": [
+    "demo-group-stellanote"
+   ],
+   "oshiIds": [
+    "demo-oshi-kanata"
+   ],
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z",
+   "updatedBy": "demo-seed",
+   "updatedAt": "2026-10-06T03:00:00.000Z"
+  },
+  "demo-live-past": {
+   "title": "ステラノート 1st ライブ「はじまりの夜」",
+   "groupIds": [
+    "demo-group-stellanote"
+   ],
+   "oshiIds": [],
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z",
+   "updatedBy": "demo-seed",
+   "updatedAt": "2026-10-06T03:00:00.000Z"
+  }
+ },
+ "performances": {
+  "demo-perf-tour-1": {
+   "liveId": "demo-live-tour",
+   "groupIds": [
+    "demo-group-stellanote"
+   ],
+   "oshiIds": [],
+   "startAt": "2026-12-15T09:00:00.000Z",
+   "openAt": "2026-12-15T08:00:00.000Z",
+   "venue": "東京ドリームホール",
+   "prefecture": "東京都",
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z",
+   "updatedBy": "demo-seed",
+   "updatedAt": "2026-10-06T03:00:00.000Z"
+  },
+  "demo-perf-tour-2": {
+   "liveId": "demo-live-tour",
+   "groupIds": [
+    "demo-group-stellanote"
+   ],
+   "oshiIds": [],
+   "startAt": "2026-12-22T08:00:00.000Z",
+   "openAt": "2026-12-22T07:00:00.000Z",
+   "venue": "大阪ミライアリーナ",
+   "prefecture": "大阪府",
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z",
+   "updatedBy": "demo-seed",
+   "updatedAt": "2026-10-06T03:00:00.000Z"
+  },
+  "demo-perf-tour-3": {
+   "liveId": "demo-live-tour",
+   "groupIds": [
+    "demo-group-stellanote"
+   ],
+   "oshiIds": [],
+   "startAt": "2026-12-29T08:30:00.000Z",
+   "venue": "福岡ベイホール",
+   "prefecture": "福岡県",
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z",
+   "updatedBy": "demo-seed",
+   "updatedAt": "2026-10-06T03:00:00.000Z"
+  },
+  "demo-perf-fest-1": {
+   "liveId": "demo-live-fest",
+   "groupIds": [
+    "demo-group-stellanote"
+   ],
+   "oshiIds": [
+    "demo-oshi-kanata"
+   ],
+   "startAt": "2026-12-05T03:00:00.000Z",
+   "openAt": "2026-12-05T01:30:00.000Z",
+   "venue": "静岡ほしぞら公園 特設ステージ",
+   "prefecture": "静岡県",
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z",
+   "updatedBy": "demo-seed",
+   "updatedAt": "2026-10-06T03:00:00.000Z"
+  },
+  "demo-perf-past-1": {
+   "liveId": "demo-live-past",
+   "groupIds": [
+    "demo-group-stellanote"
+   ],
+   "oshiIds": [],
+   "startAt": "2026-10-16T09:00:00.000Z",
+   "openAt": "2026-10-16T08:00:00.000Z",
+   "venue": "横浜ハーバーホール",
+   "prefecture": "神奈川県",
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z",
+   "updatedBy": "demo-seed",
+   "updatedAt": "2026-10-06T03:00:00.000Z"
+  }
+ },
+ "receptions": {
+  "demo-rec-tour-fc": {
+   "liveId": "demo-live-tour",
+   "groupIds": [
+    "demo-group-stellanote"
+   ],
+   "oshiIds": [],
+   "type": "fc",
+   "name": "FC 先行（抽選）",
+   "applyStartAt": "2026-10-31T03:00:00.000Z",
+   "applyEndAt": "2026-11-07T14:59:00.000Z",
+   "resultAt": "2026-11-11T09:00:00.000Z",
+   "paymentDeadline": "2026-11-14T14:59:00.000Z",
+   "prices": [
+    {
+     "seat": "S席",
+     "amount": 12000
+    },
+    {
+     "seat": "A席",
+     "amount": 9800
+    }
+   ],
+   "winnersOnly": false,
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z",
+   "updatedBy": "demo-seed",
+   "updatedAt": "2026-10-06T03:00:00.000Z"
+  },
+  "demo-rec-tour-general": {
+   "liveId": "demo-live-tour",
+   "groupIds": [
+    "demo-group-stellanote"
+   ],
+   "oshiIds": [],
+   "type": "general",
+   "name": "一般発売",
+   "applyStartAt": "2026-11-17T01:00:00.000Z",
+   "applyEndAt": "2026-11-24T14:59:00.000Z",
+   "resultAt": "2026-11-27T09:00:00.000Z",
+   "prices": [
+    {
+     "seat": "指定席",
+     "amount": 9800
+    }
+   ],
+   "winnersOnly": false,
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z",
+   "updatedBy": "demo-seed",
+   "updatedAt": "2026-10-06T03:00:00.000Z"
+  },
+  "demo-rec-tour-upgrade": {
+   "liveId": "demo-live-tour",
+   "groupIds": [
+    "demo-group-stellanote"
+   ],
+   "oshiIds": [],
+   "type": "upgrade",
+   "name": "アップグレード（当選者のみ）",
+   "applyStartAt": "2026-11-02T03:00:00.000Z",
+   "applyEndAt": "2026-11-06T14:59:00.000Z",
+   "resultAt": "2026-11-08T09:00:00.000Z",
+   "paymentDeadline": "2026-11-05T08:00:00.000Z",
+   "prices": [
+    {
+     "seat": "VIP席への差額",
+     "amount": 8000
+    }
+   ],
+   "winnersOnly": true,
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z",
+   "updatedBy": "demo-seed",
+   "updatedAt": "2026-10-06T03:00:00.000Z"
+  },
+  "demo-rec-fest-first": {
+   "liveId": "demo-live-fest",
+   "groupIds": [
+    "demo-group-stellanote"
+   ],
+   "oshiIds": [
+    "demo-oshi-kanata"
+   ],
+   "type": "other",
+   "name": "プレイガイド先行",
+   "applyStartAt": "2026-10-22T03:00:00.000Z",
+   "applyEndAt": "2026-10-29T14:59:00.000Z",
+   "resultAt": "2026-11-02T09:00:00.000Z",
+   "paymentDeadline": "2026-11-09T14:59:00.000Z",
+   "prices": [
+    {
+     "seat": "自由席",
+     "amount": 7500
+    }
+   ],
+   "winnersOnly": false,
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z",
+   "updatedBy": "demo-seed",
+   "updatedAt": "2026-10-06T03:00:00.000Z"
+  },
+  "demo-rec-past-general": {
+   "liveId": "demo-live-past",
+   "groupIds": [
+    "demo-group-stellanote"
+   ],
+   "oshiIds": [],
+   "type": "general",
+   "name": "一般発売",
+   "applyStartAt": "2026-09-06T01:00:00.000Z",
+   "applyEndAt": "2026-09-16T14:59:00.000Z",
+   "resultAt": "2026-09-19T09:00:00.000Z",
+   "paymentDeadline": "2026-09-26T14:59:00.000Z",
+   "prices": [
+    {
+     "seat": "指定席",
+     "amount": 6800
+    }
+   ],
+   "winnersOnly": false,
+   "createdBy": "demo-seed",
+   "createdAt": "2026-10-06T03:00:00.000Z",
+   "updatedBy": "demo-seed",
+   "updatedAt": "2026-10-06T03:00:00.000Z"
+  }
+ }
+}

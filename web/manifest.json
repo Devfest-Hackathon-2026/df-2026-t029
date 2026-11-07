@@ -1,11 +1,11 @@
 {
-    "name": "oshiashi",
-    "short_name": "oshiashi",
+    "name": "おしあし",
+    "short_name": "おしあし",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "推し活のライブ・チケットの申込期限・入金期限をまとめて管理するアプリ",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

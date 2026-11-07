@@ -1,0 +1,30 @@
+// 既存の .devcontainer/devcontainer.json と同じイメージに、Claude Code（agent team 用）を追加した構成。
+// VS Code のコマンドパレットで「Dev Containers: Reopen in Container」を実行し、
+// 「Flutter Web + Claude Code」を選ぶ。既存の構成はそのまま残している。
+{
+    "name": "Flutter Web + Claude Code",
+    "build": {
+        "dockerfile": "../Dockerfile",
+        "context": ".."
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "dart-code.flutter"
+            ]
+        }
+    },
+    "forwardPorts": [8080],
+    "mounts": [
+        "source=oshiashi-firebase-login,target=/root/.config/configstore,type=volume",
+        "source=oshiashi-claude-config,target=/root/.claude,type=volume"
+    ],
+    // Claude Code のログイン情報と設定をボリュームに置き、コンテナを作り直しても残す
+    "containerEnv": {
+        "CLAUDE_CONFIG_DIR": "/root/.claude"
+    },
+    "remoteEnv": {
+        "PATH": "/root/.local/bin:${containerEnv:PATH}"
+    },
+    "postCreateCommand": "bash .devcontainer/claude-team/post-create.sh"
+}
