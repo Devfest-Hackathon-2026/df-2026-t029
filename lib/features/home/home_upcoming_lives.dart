@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../providers/live_providers.dart';
 import '../../utils/deadline.dart';
-import '../live_form/date_time_field.dart';
 import 'home_horizontal_list.dart';
 import 'home_section_header.dart';
 
@@ -63,7 +62,7 @@ int _daysUntil(DateTime now, DateTime at) {
   return day.difference(today).inDays;
 }
 
-/// 今後のライブのカード
+/// 今後のライブのカード（左に日付の枠、右に印とライブ名、下に時刻と会場）
 class _UpcomingLiveCard extends StatelessWidget {
   const _UpcomingLiveCard({required this.entry, required this.now});
 
@@ -80,6 +79,8 @@ class _UpcomingLiveCard extends StatelessWidget {
             ?.venue ??
         '';
     final days = _daysUntil(now, next);
+    final time =
+        '${next.hour.toString().padLeft(2, '0')}:${next.minute.toString().padLeft(2, '0')}';
     return Card(
       key: Key('home_upcoming_live_${entry.live.id}'),
       margin: EdgeInsets.zero,
@@ -91,26 +92,86 @@ class _UpcomingLiveCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 7日以内なら日数を強調する
-              if (days <= 7) ...[
-                _DaysBadge(days: days),
-                const SizedBox(height: 6),
-              ],
-              Text(
-                entry.live.title,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _DateBlock(at: next),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 7日以内なら日数を強調する
+                        if (days <= 7) ...[
+                          _DaysBadge(days: days),
+                          const SizedBox(height: 6),
+                        ],
+                        Text(
+                          entry.live.title,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const Spacer(),
-              _IconText(icon: Icons.event, text: formatDateTime(next)),
-              const SizedBox(height: 2),
-              _IconText(icon: Icons.place, text: venue),
+              _IconText(
+                icon: Icons.schedule,
+                text: venue.isEmpty ? time : '$time ・ $venue',
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// カードの左の日付の枠（上から「12月」「20」「日」）
+class _DateBlock extends StatelessWidget {
+  const _DateBlock({required this.at});
+
+  final DateTime at;
+
+  static const _weekdays = ['月', '火', '水', '木', '金', '土', '日'];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final color = scheme.primary;
+    return Container(
+      width: 56,
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        // テーマの色を薄く透かす（Da-4 の締切の印と同じ）
+        color: scheme.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(
+            '${at.month}月',
+            style: theme.textTheme.labelSmall?.copyWith(color: color),
+          ),
+          Text(
+            '${at.day}',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.bold,
+              height: 1.1,
+            ),
+          ),
+          Text(
+            _weekdays[at.weekday - 1],
+            style: theme.textTheme.labelSmall?.copyWith(color: color),
+          ),
+        ],
       ),
     );
   }

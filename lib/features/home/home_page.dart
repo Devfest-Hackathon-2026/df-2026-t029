@@ -18,15 +18,16 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(myProfileProvider).value;
-    // PC の幅では、アカウントのボタンが左下のタブにあるので AppBar には出さない
+    // PC の幅では、アプリ名とアカウントのボタンが左のタブにある
     final wide = MediaQuery.sizeOf(context).width >= kShellWideBreakpoint;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('おしあし'),
-        actions: wide
-            ? null
-            : [
+      // PC の幅では、アプリ名とアカウントのボタンが左のタブにあるので AppBar を出さない
+      appBar: wide
+          ? null
+          : AppBar(
+              title: const Text('おしあし'),
+              actions: [
                 IconButton(
                   icon: const Icon(Icons.account_circle),
                   tooltip: 'プロフィール',
@@ -38,11 +39,12 @@ class HomePage extends ConsumerWidget {
                   onPressed: () => ref.read(authRepositoryProvider).signOut(),
                 ),
               ],
-      ),
+            ),
       body: SafeArea(
         child: ListView(
           key: const Key('home_page'),
-          padding: const EdgeInsets.all(16),
+          // PC では AppBar がない分、上を広めにあける
+          padding: EdgeInsets.fromLTRB(16, wide ? 24 : 16, 16, 16),
           children: [
             _Greeting(name: profile?.displayName ?? 'ゲスト'),
             const SizedBox(height: 24),
@@ -59,6 +61,7 @@ class HomePage extends ConsumerWidget {
         ),
       ),
     );
+
   }
 }
 

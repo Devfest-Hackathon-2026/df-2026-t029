@@ -11,7 +11,10 @@ class OshiPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('推し')),
+      appBar: AppBar(
+        title: const Text('推し'),
+        automaticallyImplyLeading: false,
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),

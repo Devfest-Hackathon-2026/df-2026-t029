@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../common/empty_state.dart';
 import '../../models/oshi.dart';
 import '../../models/trade_post.dart';
 import '../../providers/oshi_providers.dart';
@@ -25,6 +26,25 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
   /// タブを切り替えても、読んだ件数とスクロール位置を残す
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    // フォロー中の推しが読めたら、まだ選んでいなければ先頭の推しを選ぶ
+    ref.listenManual<AsyncValue<List<OshiSummary>>>(followingOshisProvider, (
+      _,
+      next,
+    ) {
+      final oshis = next.value;
+      if (oshis == null || oshis.isEmpty) return;
+      if (ref.read(boardTargetProvider) != null) return;
+      // 画面を作っている途中ではプロバイダを変えられないので、描き終わってから選ぶ
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || ref.read(boardTargetProvider) != null) return;
+        ref.read(boardTargetProvider.notifier).select(oshis.first);
+      });
+    }, fireImmediately: true);
+  }
 
   /// 読む件数（「もっと見る」で増やす）
   int _limit = boardPageSize;
@@ -151,6 +171,21 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
 
   Widget _buildResults(OshiSummary? target) {
     if (target == null) {
+      // フォロー中の推しが0件なら、推しを探す案内を出す
+      final noOshi = ref.watch(followingOshisProvider).value?.isEmpty ?? false;
+      if (noOshi) {
+        return EmptyState(
+          key: const Key('trade_board_no_oshi'),
+          icon: Icons.favorite_outline,
+          title: '推しをフォローすると、交換の投稿が見られます',
+          action: FilledButton.icon(
+            key: const Key('trade_board_find_oshi_button'),
+            onPressed: () => context.push('/oshi/search'),
+            icon: const Icon(Icons.search),
+            label: const Text('推しを探す'),
+          ),
+        );
+      }
       return const Center(child: Text('推しを選んでください'));
     }
     final board = ref.watch(
@@ -224,9 +259,8 @@ class _OshiSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (oshis.isEmpty) {
-      return const Text('フォロー中の推しがいません。先に推しをフォローしてください');
-    }
+    if (oshis.isEmpty) return const SizedBox.shrink();
+    
     // 承認などで中身が変わっても同じ推しとして扱えるよう、key で選ぶ
     final byKey = {for (final o in oshis) o.key: o};
     final selectedKey = byKey.containsKey(selected?.key) ? selected!.key : null;

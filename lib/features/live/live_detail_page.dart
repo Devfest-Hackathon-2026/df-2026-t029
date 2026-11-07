@@ -361,40 +361,39 @@ class _DetailView extends StatelessWidget {
           const SizedBox(height: 4),
           OfficialUrlLink(key: const Key('live_detail_official_url'), url: url),
         ],
-        if (inMine != null)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: inMine!
-                ? OutlinedButton.icon(
-                    key: const Key('live_detail_remove_mine_button'),
-                    onPressed: togglingMine ? null : onToggleMine,
-                    icon: const Icon(Icons.check),
-                    label: const Text('ライブ一覧から外す'),
-                  )
-                : FilledButton.icon(
-                    key: const Key('live_detail_add_mine_button'),
-                    onPressed: togglingMine ? null : onToggleMine,
-                    icon: const Icon(Icons.add),
-                    label: const Text('ライブ一覧に追加'),
-                  ),
-          ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            key: const Key('live_detail_edit_button'),
-            onPressed: () => context.go('/lives/${live.id}/edit'),
-            icon: const Icon(Icons.edit),
-            label: const Text('このライブを編集'),
-          ),
-        ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            key: const Key('live_detail_calendar_button'),
-            onPressed: onAddToCalendar,
-            icon: const Icon(Icons.event),
-            label: const Text('Google カレンダーに追加'),
-          ),
+        const SizedBox(height: 12),
+        // 操作のボタンは横に並べ、狭い幅では折り返す
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (inMine != null)
+              inMine!
+                  ? OutlinedButton.icon(
+                      key: const Key('live_detail_remove_mine_button'),
+                      onPressed: togglingMine ? null : onToggleMine,
+                      icon: const Icon(Icons.check),
+                      label: const Text('ライブ一覧から外す'),
+                    )
+                  : FilledButton.icon(
+                      key: const Key('live_detail_add_mine_button'),
+                      onPressed: togglingMine ? null : onToggleMine,
+                      icon: const Icon(Icons.add),
+                      label: const Text('ライブ一覧に追加'),
+                    ),
+            OutlinedButton.icon(
+              key: const Key('live_detail_edit_button'),
+              onPressed: () => context.go('/lives/${live.id}/edit'),
+              icon: const Icon(Icons.edit),
+              label: const Text('このライブを編集'),
+            ),
+            OutlinedButton.icon(
+              key: const Key('live_detail_calendar_button'),
+              onPressed: onAddToCalendar,
+              icon: const Icon(Icons.event),
+              label: const Text('Google カレンダーに追加'),
+            ),
+          ],
         ),
         const SizedBox(height: 24),
         Text('公演', style: theme.textTheme.titleMedium),

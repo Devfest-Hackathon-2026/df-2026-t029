@@ -41,7 +41,10 @@ class LiveListPage extends ConsumerWidget {
     final isEmpty = !rows.hasError && (rows.value?.isEmpty ?? false);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('ライブ一覧')),
+      appBar: AppBar(
+        title: const Text('ライブ一覧'),
+        automaticallyImplyLeading: false,
+      ),
       // 0件のときだけ、ホームと同じ右下の「ライブを追加する」を出す
       floatingActionButton: isEmpty
           ? FloatingActionButton.extended(

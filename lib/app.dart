@@ -38,6 +38,8 @@ import 'repositories/auth_repository.dart';
 import 'providers/profile_providers.dart';
 import 'providers/theme_providers.dart';
 
+import 'theme/app_theme.dart';
+
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authRepositoryProvider);
   final refresh = _AuthRefresh(auth.authStateChanges());
@@ -227,12 +229,7 @@ class App extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
       title: 'おしあし',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: ref.watch(themeSeedColorProvider),
-        ),
-        useMaterial3: true,
-      ),
+      theme: buildAppTheme(ref.watch(themeSeedColorProvider)),
       scrollBehavior: const _AppScrollBehavior(),
       routerConfig: ref.watch(routerProvider),
     );
