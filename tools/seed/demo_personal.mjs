@@ -54,6 +54,8 @@ function buildKenProfile(b, uid, name) {
       ),
       followingOshiIds: ['luna', 'kanata'].map(oshiId),
       createdAt: at(b, -30, 12),
+      // これが無いと、アプリはプロフィール未作成と判断する
+      profileUpdatedAt: at(b, -30, 12),
       // themeColor は入れない（動画の中で選んで見せるため）
     },
   });
@@ -347,6 +349,8 @@ function buildPartner(b, partnerUid, partnerName) {
         followingGroupIds: [groupId('stellanote')],
         followingOshiIds: [oshiId('sora')],
         createdAt: at(b, -20, 12),
+        // これが無いと、アプリはプロフィール未作成と判断する
+        profileUpdatedAt: at(b, -20, 12),
       },
     },
     // けんの ken-2 と相互マッチ
