@@ -14,7 +14,7 @@ test('日時は基準日からの相対（日本時間）', () => {
   assert.equal(at(b, 2, 23, 59).toISOString(), '2026-11-11T14:59:00.000Z');
   const d1 = buildDemoData('2026-11-09');
   const d2 = buildDemoData('2026-11-10');
-  const key = 'demo-rec-tour-fc';
+  const key = 'demo-rec-stella-tour-fc';
   assert.equal(
     d2.receptions[key].applyEndAt - d1.receptions[key].applyEndAt,
     86400000,
@@ -23,7 +23,7 @@ test('日時は基準日からの相対（日本時間）', () => {
 
 test('アプグレは winnersOnly で、受付は親ライブと出演者が同じ', () => {
   const d = buildDemoData('2026-11-09');
-  assert.equal(d.receptions['demo-rec-tour-upgrade'].winnersOnly, true);
+  assert.equal(d.receptions['demo-rec-stella-tour-upgrade'].winnersOnly, true);
   for (const r of Object.values(d.receptions)) {
     const live = d.lives[r.liveId];
     assert.deepEqual(r.groupIds, live.groupIds);

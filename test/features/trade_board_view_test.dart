@@ -154,8 +154,12 @@ void main() {
   testWidgets('フォロー中の先頭の推しが、最初から選ばれている', (tester) async {
     final repo = FakeTradePostRepository();
     await pumpBoard(tester, repo);
-    expect(repo.watchedOpen.first, (OshiKind.group, 'g1', 50));
-    expect(find.text('グループ1（グループ）'), findsOneWidget);
+    expect(repo.watchedOpen.first, (
+      OshiKind.person,
+      'p1',
+      50,
+    )); // 個人から並べる（Fb-1）
+    expect(find.text('個人1（個人）'), findsOneWidget);
     expect(find.text('推しを選んでください'), findsNothing);
   });
 
