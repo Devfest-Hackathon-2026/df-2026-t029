@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:oshiashi/features/auth/login_page.dart';
 import 'package:oshiashi/features/live/official_url_link.dart';
 import 'package:oshiashi/repositories/auth_repository.dart';
+import 'package:oshiashi/theme/google_logo.dart';
+import 'package:oshiashi/theme/hako_widgets.dart';
 
 import 'auth_test_helpers.dart';
 
@@ -80,6 +83,10 @@ Future<void> _tap(WidgetTester tester, String key) async {
 }
 
 void main() {
+  setUpAll(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+  });
+
   group('モードの初期値と切り替え', () {
     testWidgets('既定は「ログイン」: 確認欄が無く、「パスワードを忘れた方」がある', (tester) async {
       await pumpLogin(tester);
@@ -102,13 +109,15 @@ void main() {
       expect(find.text('8文字以上'), findsOneWidget);
       expect(find.textContaining('登録すると確認メールが届きます'), findsOneWidget);
       expect(
-        tester
-            .widget<SegmentedButton<LoginMode>>(
-              find.byType(SegmentedButton<LoginMode>),
-            )
-            .selected,
-        {LoginMode.signUp},
+        tester.widget<HakoTab>(_key('login_mode_signup')).selected,
+        isTrue,
       );
+      expect(
+        tester.widget<HakoTab>(_key('login_mode_signin')).selected,
+        isFalse,
+      );
+      // 5.2: 新規登録の見出し
+      expect(find.text('はじめまして。\n入口はこちら。'), findsOneWidget);
     });
 
     testWidgets('切り替えると欄が出たり消えたりし、メールアドレスは残る', (tester) async {
@@ -261,11 +270,11 @@ void main() {
         isNull,
       );
       expect(
-        tester
-            .widget<SegmentedButton<LoginMode>>(
-              find.byType(SegmentedButton<LoginMode>),
-            )
-            .onSelectionChanged,
+        tester.widget<HakoTab>(_key('login_mode_signin')).onPressed,
+        isNull,
+      );
+      expect(
+        tester.widget<HakoTab>(_key('login_mode_signup')).onPressed,
         isNull,
       );
       expect(
@@ -640,6 +649,74 @@ void main() {
       await _tap(tester, 'login_submit_button');
       await tester.pumpAndSettle();
       expect(_key('login_error'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('案6の見た目', () {
+    testWidgets('見出しがモードで変わる（5.2）', (tester) async {
+      await pumpLogin(tester);
+      expect(find.text('おかえりなさい。\n入口はこちら。'), findsOneWidget);
+      expect(find.text('はじめまして。\n入口はこちら。'), findsNothing);
+      await _tap(tester, 'login_mode_signup');
+      expect(find.text('はじめまして。\n入口はこちら。'), findsOneWidget);
+      expect(find.text('おかえりなさい。\n入口はこちら。'), findsNothing);
+      expect(
+        tester.widget<HakoTab>(_key('login_mode_signup')).selected,
+        isTrue,
+      );
+      await _tap(tester, 'login_mode_signin');
+      expect(
+        tester.widget<HakoTab>(_key('login_mode_signin')).selected,
+        isTrue,
+      );
+    });
+
+    testWidgets('区切りの文言・G のロゴ・色の帯・中身の幅', (tester) async {
+      await pumpLogin(tester, size: const Size(800, 1200));
+      expect(find.text('またはメールで'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: _key('login_google_button'),
+          matching: find.byType(GoogleLogo),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(ColorStrip), findsNWidgets(2));
+      // 紙は全幅、中身は 430 以下で中央
+      expect(tester.getSize(_key('hako_column')).width, 800);
+      final field = tester.getRect(_key('login_email_field'));
+      expect(field.width, lessThanOrEqualTo(430));
+      expect(field.center.dx, closeTo(400, 0.5));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('幅 320 でもはみ出さない（ログイン・新規登録）', (tester) async {
+      for (final mode in LoginMode.values) {
+        await pumpLogin(tester, mode: mode, size: const Size(320, 640));
+        expect(tester.takeException(), isNull, reason: mode.name);
+        for (final k in [
+          'login_google_button',
+          'login_email_field',
+          'login_submit_button',
+          'login_mode_signin',
+          'login_mode_signup',
+        ]) {
+          final rect = tester.getRect(_key(k));
+          expect(rect.left, greaterThanOrEqualTo(0), reason: k);
+          expect(rect.right, lessThanOrEqualTo(320), reason: k);
+        }
+      }
+    });
+
+    testWidgets('文字を 1.3 倍にしても例外が出ない', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await pumpLogin(
+        tester,
+        mode: LoginMode.signUp,
+        size: const Size(360, 640),
+      );
       expect(tester.takeException(), isNull);
     });
   });

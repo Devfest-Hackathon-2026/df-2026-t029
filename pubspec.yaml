@@ -71,6 +71,16 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  fonts:
+    - family: ArchivoHako
+      fonts:
+        - asset: assets/fonts/ArchivoHako-Bold110.ttf
+          weight: 700
+        - asset: assets/fonts/ArchivoHako-ExtraBold125.ttf
+          weight: 800
+        - asset: assets/fonts/ArchivoHako-Black125.ttf
+          weight: 900
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
