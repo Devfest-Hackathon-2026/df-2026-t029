@@ -132,20 +132,63 @@ class _DeadlineTile extends StatelessWidget {
   final DeadlineEntry entry;
   final DateTime now;
 
+  /// 締切の種類ごとのアイコン（急ぎでないときに出す）
+  static IconData _kindIcon(DeadlineKind kind) => switch (kind) {
+        DeadlineKind.apply => Icons.edit_calendar,
+        DeadlineKind.result => Icons.campaign,
+        DeadlineKind.payment => Icons.payments,
+      };
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final reception = entry.deadline.reception;
     final action = describeNextDeadline(entry.deadline, now);
+    // 急ぎ：24時間以内（RemainingLabel の判定と同じ）
     final urgent = action.isUrgent;
+    // 近い：7日以内（24時間より先）
+    final soon =
+        !urgent && entry.deadline.at.difference(now) <= const Duration(days: 7);
     final opens = action.opensText;
+
+    final Widget remaining;
+    if (urgent) {
+      remaining = Text(
+        action.text,
+        style: TextStyle(color: scheme.error, fontWeight: FontWeight.bold),
+      );
+    } else if (soon) {
+      // 近い締切は、小さな印で囲んで目立たせる
+      remaining = Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          key: Key('home_deadline_soon_${reception.id}'),
+          margin: const EdgeInsets.symmetric(vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            // テーマの色を薄く透かす（どのテーマの色でも文字が読めるように）
+            color: scheme.primary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            action.text,
+            style: TextStyle(
+              color: scheme.primary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      );
+    } else {
+      remaining = Text(action.text);
+    }
 
     return ListTile(
       key: Key('home_deadline_tile_${reception.id}'),
       contentPadding: EdgeInsets.zero,
       leading: Icon(
-        urgent ? Icons.warning_amber_rounded : Icons.schedule,
-        color: urgent ? scheme.error : null,
+        urgent ? Icons.warning_amber_rounded : _kindIcon(entry.deadline.kind),
+        color: urgent ? scheme.error : scheme.primary,
       ),
       title: Text(entry.live.title),
       subtitle: Column(
@@ -154,12 +197,7 @@ class _DeadlineTile extends StatelessWidget {
           Text(
             [reception.name, if (reception.winnersOnly) '【当選者のみ】'].join(' '),
           ),
-          Text(
-            action.text,
-            style: urgent
-                ? TextStyle(color: scheme.error, fontWeight: FontWeight.bold)
-                : null,
-          ),
+          remaining,
           if (opens != null) Text(opens),
         ],
       ),

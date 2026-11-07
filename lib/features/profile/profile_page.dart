@@ -6,6 +6,8 @@ import '../../models/user_profile.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/profile_providers.dart';
 
+import 'theme_color_picker.dart';
+
 /// プロフィールの作成・編集画面（G-8）。未作成なら初回作成として開く
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
@@ -157,6 +159,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                           _saving ? null : () => _save(isInitial: isInitial),
                       child: Text(_saving ? '保存中…' : '保存'),
                     ),
+                    // テーマカラーは編集のときだけ（初回の作成は短く保つ）
+                    if (!isInitial) ...[
+                      const SizedBox(height: 32),
+                      const Divider(),
+                      const SizedBox(height: 16),
+                      const ThemeColorPicker(),
+                    ],
                   ],
                 ),
               ),
