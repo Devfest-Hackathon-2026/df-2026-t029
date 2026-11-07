@@ -20,6 +20,41 @@ Future<bool> showCalendarAddSheet(
   return added ?? false;
 }
 
+/// 登録済みのライブを読み、予定を選んで Google カレンダーに追加する。
+/// ライブの追加画面・ライブ詳細から使う（F-4）
+Future<void> addLiveToCalendar(
+  BuildContext context,
+  WidgetRef ref,
+  String liveId,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final existing = await ref.read(liveRepositoryProvider).fetchExisting(liveId);
+  if (!context.mounted) return;
+  if (existing == null) {
+    messenger.showSnackBar(
+      const SnackBar(content: Text('ライブを読み込めませんでした')),
+    );
+    return;
+  }
+  final events = buildCalendarEvents(
+    live: existing.live,
+    performances: existing.performances,
+    receptions: existing.receptions,
+  );
+  if (events.isEmpty) {
+    messenger.showSnackBar(
+      const SnackBar(content: Text('カレンダーに追加できる予定がありません')),
+    );
+    return;
+  }
+  final added = await showCalendarAddSheet(context, events, liveId: liveId);
+  if (added) {
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Google カレンダーに追加しました')),
+    );
+  }
+}
+
 class _CalendarAddSheet extends ConsumerStatefulWidget {
   const _CalendarAddSheet({required this.events, this.liveId});
 

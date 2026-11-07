@@ -139,6 +139,11 @@ class FirestoreTradeChatRepository implements TradeChatRepository {
             .doc(reply.id),
         {'approved': true},
       )
+      // 承認と同時に、投稿の募集を終了する
+      ..update(_db.collection('tradePosts').doc(postId), {
+        'status': 'closed',
+        'updatedAt': FieldValue.serverTimestamp(),
+      })
       ..set(_chats.doc(chatId), {
         'postId': postId,
         'replyId': reply.id,

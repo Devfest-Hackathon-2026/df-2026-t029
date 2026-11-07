@@ -97,7 +97,9 @@ class _ReplyTile extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('この人と個人チャットを開きますか？'),
-        content: const Text('返信を承認すると、2人だけのチャットができます。承認は取り消せません'),
+        content: const Text(
+            '返信を承認すると、2人だけのチャットができ、この投稿の募集も終了します'
+            '（自分の投稿のタブから再開できます）。承認は取り消せません'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -120,7 +122,7 @@ class _ReplyTile extends ConsumerWidget {
         message = 'この人とのチャットはすでにあるので、それを開きます';
       } else {
         await repo.approveReply(post: post, reply: reply);
-        message = '承認して、チャットを作りました';
+        message = '承認して、チャットを作りました（募集を終了しました）';
       }
     } catch (e) {
       if (!context.mounted) return;
