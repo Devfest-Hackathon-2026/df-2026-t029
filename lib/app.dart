@@ -28,6 +28,7 @@ import 'features/profile/profile_page.dart';
 import 'features/memory/memory_form_page.dart';
 import 'features/memory/memory_detail_page.dart';
 import 'features/memory/memory_list_page.dart';
+import 'features/welcome/welcome_page.dart';
 
 import 'repositories/auth_repository.dart';
 
@@ -48,16 +49,18 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: Listenable.merge([refresh, profileRefresh]),
     redirect: (context, state) {
       final loggedIn = auth.currentUser != null;
-      final atLogin = state.matchedLocation == '/login';
-      if (!loggedIn) return atLogin ? null : '/login';
+      // ログインしていなくても見られるページ（紹介ページとログイン画面）
+      final location = state.matchedLocation;
+      final isPublic = location == '/welcome' || location == '/login';
+      if (!loggedIn) return isPublic ? null : '/welcome';
 
       // プロフィール未作成なら作成画面へ。読み込み中・エラーのときは判定しない
       final profile = ref.read(myProfileProvider);
       final needsProfile = profile is AsyncData && profile.value == null;
       if (needsProfile) {
-        return state.matchedLocation == '/profile' ? null : '/profile';
+        return location == '/profile' ? null : '/profile';
       }
-      if (atLogin) return '/';
+      if (isPublic) return '/';
       return null;
     },
     routes: [
@@ -134,6 +137,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
+      GoRoute(path: '/welcome', builder: (context, state) => const WelcomePage()),
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
       GoRoute(path: '/register', builder: (context, state) => const ScanPage()),
       GoRoute(
