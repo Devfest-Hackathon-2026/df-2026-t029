@@ -6,6 +6,7 @@ class UserProfile {
     required this.displayName,
     this.xAccount,
     this.updatedAt,
+    this.themeColor,
   });
 
   /// ハンドルネーム。投稿・返信・チャットの表示名に使う
@@ -16,6 +17,9 @@ class UserProfile {
 
   /// 最後に保存した日時。保存直後（サーバー時刻の確定前）は null のことがある
   final DateTime? updatedAt;
+
+  /// テーマカラー（色の ARGB の32ビット値）。未設定なら null で、初期の色を使う
+  final int? themeColor;
 
   /// `users/{uid}` のデータから作る。プロフィール未作成なら null。
   ///
@@ -29,10 +33,12 @@ class UserProfile {
     if (name is! String || name.trim().isEmpty) return null;
     final x = data['xAccount'];
     final updatedAt = data['profileUpdatedAt'];
+    final themeColor = data['themeColor'];
     return UserProfile(
       displayName: name,
       xAccount: x is String && x.isNotEmpty ? x : null,
       updatedAt: updatedAt is Timestamp ? updatedAt.toDate() : null,
+      themeColor: themeColor is int ? themeColor : null,
     );
   }
 }
