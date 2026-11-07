@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/gestures.dart';
 
 import 'features/auth/login_page.dart';
 import 'features/home/home_page.dart';
@@ -33,6 +34,7 @@ import 'features/welcome/welcome_page.dart';
 import 'repositories/auth_repository.dart';
 
 import 'providers/profile_providers.dart';
+import 'providers/theme_providers.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authRepositoryProvider);
@@ -204,9 +206,27 @@ class App extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
       title: 'おしあし',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: ref.watch(themeSeedColorProvider),
+        ),
+        useMaterial3: true,
+      ),
+      scrollBehavior: const _AppScrollBehavior(),
       routerConfig: ref.watch(routerProvider),
     );
   }
+}
+
+/// マウスのドラッグでもスクロールできるようにする（Web で横の一覧を動かすため）
+class _AppScrollBehavior extends MaterialScrollBehavior {
+  const _AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        ...super.dragDevices,
+        PointerDeviceKind.mouse,
+      };
 }
 
 /// ログイン状態が変わったら、ルーターに再判定させる
