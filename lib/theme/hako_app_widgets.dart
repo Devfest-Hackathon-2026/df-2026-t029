@@ -186,6 +186,7 @@ class HakoPageScaffold extends StatelessWidget {
     this.barColor,
     this.underlineColor,
     this.showDesktopTitle = true,
+    this.maxContentWidth = kHakoContentMaxWidth,
   });
 
   final String title;
@@ -209,6 +210,9 @@ class HakoPageScaffold extends StatelessWidget {
   /// false のとき、PC の幅で本文の上のタイトル（と「戻る」）を出さない（ホーム）。
   /// スマホの上のバーは変わらない
   final bool showDesktopTitle;
+
+  /// PC の幅での本文の最大幅。2列にする画面（メモリーなど）で広げる（Fc 5.2）
+  final double maxContentWidth;
 
   static bool isWide(BuildContext context) =>
       MediaQuery.sizeOf(context).width >= kHakoWideBreakpoint;
@@ -244,7 +248,7 @@ class HakoPageScaffold extends StatelessWidget {
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: kHakoContentMaxWidth),
+          constraints: BoxConstraints(maxWidth: maxContentWidth),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

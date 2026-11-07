@@ -13,7 +13,8 @@ import '../common/empty_state.dart';
 
 import 'memory_album_card.dart';
 
-/// メモリー一覧（/memories）。参戦予定と参戦済み（アルバム）を縦に並べる
+/// メモリー一覧（/memories）。参戦予定と参戦済み（アルバム）を並べる。
+/// PC で本文の幅が広いときは、左に参戦予定・右に参戦済みの2列にする（Fc 5.2）
 class MemoryListPage extends ConsumerWidget {
   const MemoryListPage({super.key});
 
@@ -22,6 +23,7 @@ class MemoryListPage extends ConsumerWidget {
     final album = ref.watch(memoryAlbumProvider);
     return HakoPageScaffold(
       title: 'メモリー',
+      maxContentWidth: 1080,
       body: SafeArea(
         child: switch (album) {
           AsyncError() => _Message(
@@ -87,6 +89,9 @@ class _AlbumView extends StatelessWidget {
 
   final MemoryAlbum album;
 
+  /// この幅以上なら2列にする（Fc 5.2）
+  static const double _twoColumnWidth = 900;
+
   @override
   Widget build(BuildContext context) {
     final pad = HakoPageScaffold.padding(context);
@@ -103,58 +108,95 @@ class _AlbumView extends StatelessWidget {
         ),
       ),
     );
+    final top = SliverPadding(
+      padding: EdgeInsets.only(top: pad.top - 22 < 0 ? 0 : pad.top - 22),
+    );
 
-    return CustomScrollView(
-      key: const Key('memory_list'),
-      slivers: [
+    // 参戦予定（行）
+    final upcoming = <Widget>[
+      header('参戦予定'),
+      if (album.upcoming.isEmpty)
+        none('参戦予定の記録はありません')
+      else
         SliverPadding(
-          padding: EdgeInsets.only(top: pad.top - 22 < 0 ? 0 : pad.top - 22),
+          padding: EdgeInsets.symmetric(horizontal: pad.left),
+          sliver: SliverList.list(
+            children: [
+              for (final m in album.upcoming) _UpcomingTile(memory: m),
+            ],
+          ),
         ),
-        header('参戦予定'),
-        if (album.upcoming.isEmpty)
-          none('参戦予定の記録はありません')
-        else
-          SliverPadding(
-            padding: EdgeInsets.symmetric(horizontal: pad.left),
-            sliver: SliverList.list(
-              children: [
-                for (final m in album.upcoming) _UpcomingTile(memory: m),
-              ],
-            ),
+    ];
+
+    // 参戦済み（カードのグリッド）
+    final attended = <Widget>[
+      header('参戦済み'),
+      if (album.attended.isEmpty)
+        const SliverToBoxAdapter(
+          child: EmptyState(
+            key: Key('memory_list_attended_empty'),
+            icon: Icons.photo_album_outlined,
+            title: '参戦したライブを記録すると、ここに並びます',
           ),
-        header('参戦済み'),
-        if (album.attended.isEmpty)
-          const SliverToBoxAdapter(
-            child: EmptyState(
-              key: Key('memory_list_attended_empty'),
-              icon: Icons.photo_album_outlined,
-              title: '参戦したライブを記録すると、ここに並びます',
+        )
+      else
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(pad.left, 8, pad.right, pad.bottom),
+          sliver: SliverGrid.builder(
+            gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 190,
+              // 文字を大きくしても下にはみ出さないよう、文字の分だけ高さを伸ばす
+              mainAxisExtent: 150 + MediaQuery.textScalerOf(context).scale(80),
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
             ),
-          )
-        else
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(pad.left, 8, pad.right, pad.bottom),
-            sliver: SliverGrid.builder(
-              gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 190,
-                // 文字を大きくしても下にはみ出さないよう、文字の分だけ高さを伸ばす
-                mainAxisExtent:
-                    150 + MediaQuery.textScalerOf(context).scale(80),
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
+            itemCount: album.attended.length,
+            itemBuilder: (context, i) {
+              final m = album.attended[i];
+              return MemoryAlbumCard(
+                key: Key('memory_list_attended_${m.performanceId}'),
+                memory: m,
+                onTap: () => context.go('/memories/${m.performanceId}'),
+              );
+            },
+          ),
+        ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < _twoColumnWidth) {
+          return CustomScrollView(
+            key: const Key('memory_list'),
+            slivers: [top, ...upcoming, ...attended],
+          );
+        }
+        // 左（2/5）に参戦予定、右（3/5）に参戦済み。左右は別にスクロールする
+        return Row(
+          key: const Key('memory_list'),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 2,
+              child: CustomScrollView(
+                key: const Key('memory_list_upcoming_column'),
+                slivers: [
+                  top,
+                  ...upcoming,
+                  SliverPadding(padding: EdgeInsets.only(bottom: pad.bottom)),
+                ],
               ),
-              itemCount: album.attended.length,
-              itemBuilder: (context, i) {
-                final m = album.attended[i];
-                return MemoryAlbumCard(
-                  key: Key('memory_list_attended_${m.performanceId}'),
-                  memory: m,
-                  onTap: () => context.go('/memories/${m.performanceId}'),
-                );
-              },
             ),
-          ),
-      ],
+            Expanded(
+              flex: 3,
+              child: CustomScrollView(
+                key: const Key('memory_list_attended_column'),
+                slivers: [top, ...attended],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
