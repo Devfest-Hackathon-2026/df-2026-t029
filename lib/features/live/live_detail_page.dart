@@ -10,19 +10,19 @@ import '../../models/oshi.dart';
 import '../../models/performance.dart';
 import '../../models/reception.dart';
 import '../../providers/oshi_providers.dart';
+import '../../providers/trip_providers.dart';
 import '../../utils/deadline.dart';
 import '../../utils/travel_links.dart';
-import '../../providers/live_providers.dart';
-import '../../providers/memory_providers.dart';
-
 import '../live_form/date_time_field.dart';
 import '../live_form/live_draft_to_models.dart' show formatYen;
 import '../calendar/calendar_add_sheet.dart';
-
+import '../travel/trip_sheet.dart';
 import 'deadline_format.dart';
 import 'live_changes.dart';
 import 'live_list_entries.dart';
 import 'official_url_link.dart';
+import '../../providers/live_providers.dart';
+import '../../providers/memory_providers.dart';
 
 /// 受付種別の表示名
 const receptionTypeLabels = {
@@ -412,6 +412,7 @@ class _DetailView extends StatelessWidget {
             p: p,
             now: now,
             liveId: live.id!,
+            liveTitle: live.title,
             hasMemory: memoryIds?.contains(p.id),
           ),
           ?_markOf(HistoryCollection.performances, p.id),
@@ -450,11 +451,12 @@ class _DetailView extends StatelessWidget {
   }
 }
 
-class _PerformanceTile extends StatelessWidget {
+class _PerformanceTile extends ConsumerWidget {
   const _PerformanceTile({
     required this.p,
     required this.now,
     required this.liveId,
+    required this.liveTitle,
     required this.hasMemory,
   });
 
@@ -462,11 +464,15 @@ class _PerformanceTile extends StatelessWidget {
   final DateTime now;
   final String liveId;
 
+  /// ライブ名（遠征メモに複製する）
+  final String liveTitle;
+
   /// 記録があれば true。記録の読み込み中なら null（ボタンを出さない）
   final bool? hasMemory;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final openAt = p.openAt;
     final place = [
       p.venue,
@@ -485,6 +491,9 @@ class _PerformanceTile extends StatelessWidget {
     // 遠征サポート（E-1）：これから行く公演だけ、行き方と周辺の宿を出す
     final directions = finished ? null : directionsUri(p);
     final hotels = finished ? null : hotelsUri(p);
+    // 遠征メモ（E-2）：オンライン以外の公演に出す（終わった後に記録する人もいるので、終了後も出す）
+    final canTrip = id != null && !isOnlineVenue(p);
+    final trip = id == null ? null : ref.watch(myTripsProvider).value?[id];
 
     return ListTile(
       key: Key('live_detail_performance_${p.id}'),
@@ -500,7 +509,19 @@ class _PerformanceTile extends StatelessWidget {
               place,
             ].join('\n'),
           ),
-          if (directions != null || hotels != null)
+          if (trip != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                tripSummary(trip),
+                key: Key('live_detail_trip_summary_$id'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          if (directions != null || hotels != null || canTrip)
             Wrap(
               spacing: 4,
               children: [
@@ -523,6 +544,17 @@ class _PerformanceTile extends StatelessWidget {
                     ),
                     icon: const Icon(Icons.hotel, size: 18),
                     label: const Text('周辺の宿'),
+                  ),
+                if (canTrip)
+                  TextButton.icon(
+                    key: Key('live_detail_trip_button_${p.id}'),
+                    onPressed: () => showTripSheet(
+                      context,
+                      performance: p,
+                      liveTitle: liveTitle,
+                    ),
+                    icon: const Icon(Icons.luggage, size: 18),
+                    label: const Text('遠征メモ'),
                   ),
               ],
             ),
