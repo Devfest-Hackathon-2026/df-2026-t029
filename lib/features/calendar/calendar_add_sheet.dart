@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/live_providers.dart';
 import '../../services/calendar_events.dart';
 import '../../services/google_calendar_service.dart';
-import '../../services/calendar_events.dart';
 import '../live_form/date_time_field.dart';
 
 /// 予定を選んで Google カレンダーに追加するシート。追加したら true を返す
