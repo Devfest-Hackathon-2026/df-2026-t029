@@ -1,0 +1,212 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../models/oshi.dart';
+import '../../providers/oshi_providers.dart';
+import '../../theme/brand_colors.dart';
+import '../../theme/hako_fonts.dart';
+import '../../utils/oshi_search.dart';
+import 'follow_actions.dart';
+import 'oshi_list_tile.dart';
+
+/// グループのメンバー（Fc 4.1）。承認済み（名前順）→ 申請中（名前順）。
+/// 申請中のグループは、メンバーも申請中なので、申請中も含めて返す
+List<OshiSummary> groupMembersOf(OshiSummary group, List<OshiSummary> all) {
+  final allMembers = [
+    for (final o in all)
+      if (o.kind == OshiKind.person && o.groupIds.contains(group.id)) o,
+  ];
+  // searchOshis は空の検索語だと承認済みだけを返すので、申請中は自分で並べる
+  final pending = [
+    for (final o in allMembers)
+      if (!o.isApproved) o,
+  ]..sort((a, b) => a.name.compareTo(b.name));
+  return [...searchOshis(allMembers, ''), ...pending];
+}
+
+/// このグループのメンバーを申請する画面のパス（このグループを所属に選んだ状態）
+String memberRequestPath(OshiSummary group) => Uri(
+  path: '/oshi/request',
+  queryParameters: {'group': group.id},
+).toString();
+
+/// 「メンバー全員をフォロー（n人）」のボタン（Fc 4.2）。
+/// 対象は、承認済みで、まだフォローしていないメンバー。
+/// 0人なら「全員フォロー中」で押せない。承認済みのメンバーがいなければ何も出さない
+class FollowAllMembersButton extends ConsumerStatefulWidget {
+  const FollowAllMembersButton({super.key, required this.group});
+
+  final OshiSummary group;
+
+  @override
+  ConsumerState<FollowAllMembersButton> createState() =>
+      _FollowAllMembersButtonState();
+}
+
+class _FollowAllMembersButtonState
+    extends ConsumerState<FollowAllMembersButton> {
+  bool _running = false;
+
+  /// 1人ずつ順にフォローする。上限（種別ごとに200）を超える分はフォローしない
+  Future<void> _followAll(
+    List<OshiSummary> targets,
+    FollowState following,
+  ) async {
+    if (_running) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _running = true);
+    final room = FollowState.maxFollows - following.oshiIds.length;
+    final list = targets.take(room < 0 ? 0 : room).toList();
+    var ok = 0;
+    var failed = 0;
+    for (final t in list) {
+      final error = await runFollowAction(ref, t, follow: true);
+      if (!mounted) return;
+      if (error == null) {
+        ok++;
+      } else {
+        failed++;
+      }
+    }
+    setState(() => _running = false);
+    final skipped = targets.length - list.length;
+    final message = [
+      if (ok > 0) '$ok人をフォローしました',
+      if (failed > 0) '$failed人はフォローできませんでした',
+      if (skipped > 0) 'フォローできるのは${FollowState.maxFollows}件までのため、$skipped人はフォローしていません',
+    ].join('。');
+    if (message.isEmpty) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final all = ref.watch(allOshisProvider).value ?? const <OshiSummary>[];
+    final followAsync = ref.watch(followStateProvider);
+    final following = followAsync.value ?? FollowState.empty;
+    final approved = [
+      for (final m in groupMembersOf(widget.group, all))
+        if (m.isApproved) m,
+    ];
+    if (approved.isEmpty) return const SizedBox.shrink();
+    final targets = [
+      for (final m in approved)
+        if (!following.isFollowing(m)) m,
+    ];
+    final key = Key('group_follow_all_${widget.group.id}');
+    if (targets.isEmpty) {
+      return OutlinedButton.icon(
+        key: key,
+        onPressed: null,
+        icon: const Icon(Icons.check, size: 18),
+        label: const Text('全員フォロー中'),
+      );
+    }
+    return FilledButton.icon(
+      key: key,
+      onPressed: _running || !followAsync.hasValue
+          ? null
+          : () => _followAll(targets, following),
+      icon: const Icon(Icons.group_add_outlined, size: 18),
+      label: Text(
+        _running ? 'フォローしています…' : 'メンバー全員をフォロー（${targets.length}人）',
+      ),
+    );
+  }
+}
+
+/// グループの行の下に開く、メンバーの一覧（Fc 4.1）。
+/// 左に字下げし、左端に墨の縦線を引く。
+/// 上から：全員フォロー → メンバーの行 → 「メンバーを申請する」
+class GroupMembersPanel extends ConsumerStatefulWidget {
+  const GroupMembersPanel({super.key, required this.group});
+
+  final OshiSummary group;
+
+  @override
+  ConsumerState<GroupMembersPanel> createState() => _GroupMembersPanelState();
+}
+
+class _GroupMembersPanelState extends ConsumerState<GroupMembersPanel> {
+  /// フォロー・解除の処理中の推し（OshiSummary.key）
+  final Set<String> _busy = {};
+
+  Future<void> _toggleFollow(OshiSummary oshi, {required bool follow}) async {
+    if (_busy.contains(oshi.key)) return;
+    setState(() => _busy.add(oshi.key));
+    final error = await runFollowAction(ref, oshi, follow: follow);
+    if (!mounted) return;
+    setState(() => _busy.remove(oshi.key));
+    if (error != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final group = widget.group;
+    final all = ref.watch(allOshisProvider).value ?? const <OshiSummary>[];
+    final followAsync = ref.watch(followStateProvider);
+    final following = followAsync.value ?? FollowState.empty;
+    final names = groupNamesById(all);
+    final members = groupMembersOf(group, all);
+    final muted = HakoFonts.jp(size: 13, color: BrandColors.sub, height: 1.6);
+
+    return Padding(
+      key: Key('group_members_panel_${group.id}'),
+      padding: const EdgeInsets.only(left: 28, bottom: 8),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          border: Border(left: BorderSide(color: BrandColors.ink, width: 2)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.only(left: 12, top: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FollowAllMembersButton(group: group),
+              ),
+              if (members.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text('まだメンバーが登録されていません', style: muted),
+                )
+              else
+                for (final m in members)
+                  OshiListTile(
+                    oshi: m,
+                    isFollowing: following.isFollowing(m),
+                    isBusy: !followAsync.hasValue || _busy.contains(m.key),
+                    onFollow: () => _toggleFollow(m, follow: true),
+                    onUnfollow: () => _toggleFollow(m, follow: false),
+                    groupNames: groupNamesOf(m, names),
+                  ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: group.isApproved
+                    ? Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          key: Key('group_members_request_${group.id}'),
+                          onPressed: () =>
+                              context.push(memberRequestPath(group)),
+                          icon: const Icon(Icons.person_add),
+                          label: const Text('メンバーを申請する'),
+                        ),
+                      )
+                    : Text('申請中のグループです。承認されるとメンバーを申請できます', style: muted),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

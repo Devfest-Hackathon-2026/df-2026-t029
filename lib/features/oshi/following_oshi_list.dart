@@ -8,7 +8,8 @@ import '../../theme/brand_colors.dart';
 import '../../theme/hako_fonts.dart';
 import 'follow_actions.dart';
 import 'oshi_list_tile.dart';
-import 'group_members_sheet.dart';
+// import 'group_members_sheet.dart';
+import 'group_members_panel.dart';
 
 /// 推しページに出す、フォロー中の推しの一覧。
 /// グループ／個人の絞り込み（Fc 3.1）と、最推しの星（Fc 3.2）を持つ。
@@ -27,6 +28,9 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
 
   /// 絞り込み（null ならすべて）。覚えておかない（Fc 3.1）
   OshiKind? _kind;
+
+  /// その場で開いているグループ（OshiSummary.key）。覚えておかない（Fc 4.1）
+  final Set<String> _expanded = {};
 
   void _showError(String error) {
     ScaffoldMessenger.of(context)
@@ -142,16 +146,21 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
             ),
           )
         else
-          for (final oshi in shown)
+          for (final oshi in shown) ...[
             OshiListTile(
               oshi: oshi,
               isFollowing: true,
               isBusy: _busy.contains(oshi.key),
               onFollow: () {},
               onUnfollow: () => _unfollow(oshi),
-              // グループの行を押すと、メンバーの一覧を出す
+              // グループの行を押すと、その場でメンバーを開く・閉じる（Fc 4.1）
               onTap: oshi.kind == OshiKind.group
-                  ? () => showGroupMembersSheet(context, oshi)
+                  ? () => setState(() {
+                      if (!_expanded.remove(oshi.key)) _expanded.add(oshi.key);
+                    })
+                  : null,
+              membersExpanded: oshi.kind == OshiKind.group
+                  ? _expanded.contains(oshi.key)
                   : null,
               groupNames: groupNamesOf(oshi, names),
               isFavorite: favoriteKey.value == oshi.key,
@@ -160,6 +169,8 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
                 favorite: favoriteKey.value != oshi.key,
               ),
             ),
+            if (_expanded.contains(oshi.key)) GroupMembersPanel(group: oshi),
+          ],
       ],
     );
   }

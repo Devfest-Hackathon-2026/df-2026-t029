@@ -34,6 +34,7 @@ class OshiListTile extends StatelessWidget {
     this.groupNames = const [],
     this.isFavorite = false,
     this.onToggleFavorite,
+    this.membersExpanded,
   });
 
   final OshiSummary oshi;
@@ -55,6 +56,10 @@ class OshiListTile extends StatelessWidget {
 
   /// 星を押したとき。null なら星を出さない（フォロー中の一覧だけで渡す）
   final VoidCallback? onToggleFavorite;
+
+  /// グループの行をその場で開く形のとき、開いているか（Fc 4.1）。
+  /// null なら今までどおり「メンバーを見る ›」（シートで開く）
+  final bool? membersExpanded;
 
   String get _keySuffix => '${oshi.kind.name}_${oshi.id}';
 
@@ -118,7 +123,11 @@ class OshiListTile extends StatelessWidget {
                         ),
                       if (onTap != null)
                         HakoTagChip(
-                          'メンバーを見る ›',
+                          switch (membersExpanded) {
+                            true => 'メンバー ▲',
+                            false => 'メンバー ▼',
+                            null => 'メンバーを見る ›',
+                          },
                           key: ValueKey('oshi_members_label_$_keySuffix'),
                           link: true,
                         ),
