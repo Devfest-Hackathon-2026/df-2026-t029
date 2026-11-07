@@ -33,20 +33,18 @@ final liveListRowsProvider = Provider<AsyncValue<List<LiveListRow>>>((ref) {
 /// 自分のライブ一覧（/lives）
 class LiveListPage extends ConsumerWidget {
   const LiveListPage({super.key});
-
+  
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rows = ref.watch(liveListRowsProvider);
-    // 下の switch と同じ順（エラーを先に見る）で、0件の表示かどうかを決める
-    final isEmpty = !rows.hasError && (rows.value?.isEmpty ?? false);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('ライブ一覧'),
         automaticallyImplyLeading: false,
       ),
-      // 0件のときだけ、ホームと同じ右下の「ライブを追加する」を出す
-      floatingActionButton: isEmpty
+      // 読み込めたら、件数によらず右下に「ライブを追加する」を出す
+      floatingActionButton: rows.hasValue && !rows.hasError
           ? FloatingActionButton.extended(
               key: const Key('live_list_register_fab'),
               onPressed: () => context.push('/lives/add'),
@@ -139,7 +137,8 @@ class _ListView extends StatelessWidget {
     final ended = rows.where((r) => r.entry.isEnded).toList();
     return ListView(
       key: const Key('live_list'),
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      // 下は、右下のボタンで最後の行が隠れないようにあける
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 88),
       children: [
         for (final r in upcoming) _LiveTile(row: r),
         if (ended.isNotEmpty) ...[
