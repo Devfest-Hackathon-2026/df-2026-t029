@@ -2,10 +2,22 @@ import 'package:flutter/material.dart';
 
 import '../../models/oshi.dart';
 
-/// 検索結果・フォロー一覧の1行
+/// グループの ID → グループ名（個人の行に「所属：◯◯」を出すのに使う）
+Map<String, String> groupNamesById(List<OshiSummary> all) => {
+  for (final o in all)
+    if (o.kind == OshiKind.group) o.id: o.name,
+};
+
+/// 個人の所属グループの名前（見つからない ID は除く）
+List<String> groupNamesOf(OshiSummary oshi, Map<String, String> names) => [
+  for (final id in oshi.groupIds) ?names[id],
+];
+
+/// 検索結果・フォロー一覧・メンバー一覧の1行
 ///
 /// 種別ラベル・申請中バッジ・フォロー／解除ボタンを出す。
 /// 申請中の推しはフォローボタンを押せない。
+/// [onTap] があれば行を押せる（グループの行で、メンバーの一覧を出すのに使う）。
 class OshiListTile extends StatelessWidget {
   const OshiListTile({
     super.key,
@@ -14,6 +26,8 @@ class OshiListTile extends StatelessWidget {
     required this.isBusy,
     required this.onFollow,
     required this.onUnfollow,
+    this.onTap,
+    this.groupNames = const [],
   });
 
   final OshiSummary oshi;
@@ -24,14 +38,23 @@ class OshiListTile extends StatelessWidget {
   final VoidCallback onFollow;
   final VoidCallback onUnfollow;
 
+  /// 行を押したときの動き（グループの行だけに渡す）
+  final VoidCallback? onTap;
+
+  /// 所属グループの名前（個人の行だけ）。「所属：◯◯」のラベルで出す
+  final List<String> groupNames;
+
   String get _keySuffix => '${oshi.kind.name}_${oshi.id}';
 
   @override
   Widget build(BuildContext context) {
     final isPending = !oshi.isApproved;
+    final isGroup = oshi.kind == OshiKind.group;
 
     return ListTile(
       key: ValueKey('oshi_tile_$_keySuffix'),
+      onTap: onTap,
+      leading: Icon(isGroup ? Icons.groups : Icons.person),
       title: Text(oshi.name, maxLines: 2, overflow: TextOverflow.ellipsis),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 4),
@@ -41,10 +64,21 @@ class OshiListTile extends StatelessWidget {
           children: [
             _Label(text: oshi.kind.label),
             _Label(text: oshi.genre.label),
+            if (groupNames.isNotEmpty)
+              _Label(
+                key: ValueKey('oshi_affiliation_$_keySuffix'),
+                text: '所属：${groupNames.join('・')}',
+              ),
             if (isPending)
               _Label(
                 key: ValueKey('oshi_pending_badge_$_keySuffix'),
                 text: '申請中',
+                highlight: true,
+              ),
+            if (onTap != null)
+              _Label(
+                key: ValueKey('oshi_members_label_$_keySuffix'),
+                text: 'メンバーを見る ›',
                 highlight: true,
               ),
           ],
@@ -87,8 +121,11 @@ class _Label extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final bg = highlight ? scheme.tertiaryContainer : scheme.surfaceContainer;
-    final fg = highlight ? scheme.onTertiaryContainer : scheme.onSurfaceVariant;
+    // 強調はテーマの色を薄く透かした背景（Da-4 の締切の印と同じ）
+    final bg = highlight
+        ? scheme.primary.withValues(alpha: 0.12)
+        : scheme.surfaceContainer;
+    final fg = highlight ? scheme.primary : scheme.onSurfaceVariant;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(

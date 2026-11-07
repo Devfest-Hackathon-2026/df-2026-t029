@@ -114,6 +114,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'request',
                     builder: (context, state) => OshiRequestPage(
                       initialName: state.uri.queryParameters['name'] ?? '',
+                      // グループのメンバーの一覧から開いたときは、そのグループの ID
+                      initialGroupId: state.uri.queryParameters['group'],
                     ),
                   ),
                 ],

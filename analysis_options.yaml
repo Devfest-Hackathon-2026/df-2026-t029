@@ -15,6 +15,8 @@ analyzer:
     - web/**
     # Git で管理しない下書き置き場（Claude が出した下書き）。解析しない
     - "Claude outputs/**"
+    # テストは直さない方針なので、analyze の対象から外す（ファイルは残す）
+    - test/**
 
 linter:
   # The lint rules applied to this project can be customized in the

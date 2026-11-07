@@ -61,7 +61,7 @@ final followStateProvider = StreamProvider<FollowState>((ref) {
   return ref.watch(followRepositoryProvider).watch(uid);
 }, retry: firestoreRetry);
 
-/// フォロー中で承認済みの推し（名前順）。
+/// フォロー中で承認済みの推し（個人が先、グループが後。それぞれ名前順）。
 ///
 /// [allOshisProvider] と [followStateProvider] のどちらかがエラーならエラー、
 /// どちらかが読み込み中なら読み込み中。フォロー中でも、削除された推しや
@@ -78,7 +78,15 @@ final followingOshisProvider = Provider<AsyncValue<List<OshiSummary>>>((ref) {
   final allValue = all.value;
   final followValue = follow.value;
   if (allValue == null || followValue == null) return const AsyncLoading();
-  return AsyncData(
-    searchOshis(allValue.where(followValue.isFollowing).toList(), ''),
+  final sorted = searchOshis(
+    allValue.where(followValue.isFollowing).toList(),
+    '',
   );
+  // ファンはふつう個人（推しメン）を選ぶので、個人を先に並べる
+  return AsyncData([
+    for (final o in sorted)
+      if (o.kind == OshiKind.person) o,
+    for (final o in sorted)
+      if (o.kind == OshiKind.group) o,
+  ]);
 });

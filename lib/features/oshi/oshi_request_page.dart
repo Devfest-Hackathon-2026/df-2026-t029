@@ -8,15 +8,23 @@ import '../../utils/text_normalizer.dart';
 import '../../providers/oshi_providers.dart';
 import 'group_picker_sheet.dart';
 
-/// 推しの追加申請画面（/oshi/request?name=...）
+/// 推しの追加申請画面（/oshi/request?name=...&group=...）
 ///
 /// 入力中に既存の推しを候補として出す。同じ種別に正規化後の名前・別名が
 /// 完全に一致する推しがあれば、申請ボタンを押せなくする（計画書 3.2）。
 class OshiRequestPage extends ConsumerStatefulWidget {
-  const OshiRequestPage({super.key, this.initialName = ''});
+  const OshiRequestPage({
+    super.key,
+    this.initialName = '',
+    this.initialGroupId,
+  });
 
   /// 検索欄の文字列（名前の初期値）
   final String initialName;
+
+  /// グループのメンバーの一覧から開いたときの、そのグループの ID。
+  /// あれば、種別を個人にし、所属グループに入れておく
+  final String? initialGroupId;
 
   @override
   ConsumerState<OshiRequestPage> createState() => _OshiRequestPageState();
@@ -34,13 +42,23 @@ class _OshiRequestPageState extends ConsumerState<OshiRequestPage> {
   /// 途中の行を消したときにフォーカスや変換中の文字が隣の欄へ移らないようにする
   final List<_AliasEntry> _aliases = [];
   int _nextAliasId = 0;
+
+  /// メンバーの欄（グループのときだけ使う。最初から1つ出しておく）。
+  /// 行の Key の考え方は別名と同じ
+  final List<_AliasEntry> _members = [_AliasEntry(0, TextEditingController())];
+  int _nextMemberId = 1;
+
   final _agencyController = TextEditingController();
   final _urlController = TextEditingController();
   final _xController = TextEditingController();
 
-  OshiKind _kind = OshiKind.group;
+  // ファンはふつう個人（推しメン）を申請するので、個人を初期値にする
+  OshiKind _kind = OshiKind.person;
   OshiGenre? _genre;
-  List<String> _groupIds = [];
+  // メンバーの一覧から開いたときは、そのグループを所属に入れておく
+  late List<String> _groupIds = [
+    if (widget.initialGroupId case final id? when id.isNotEmpty) id,
+  ];
 
   /// 申請ボタンを一度押したら、各項目のエラーを出す
   bool _showErrors = false;
@@ -51,6 +69,9 @@ class _OshiRequestPageState extends ConsumerState<OshiRequestPage> {
     _nameController.dispose();
     for (final a in _aliases) {
       a.controller.dispose();
+    }
+    for (final m in _members) {
+      m.controller.dispose();
     }
     _agencyController.dispose();
     _urlController.dispose();
@@ -104,11 +125,38 @@ class _OshiRequestPageState extends ConsumerState<OshiRequestPage> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
+  /// メンバーの欄に入っている名前（空の欄も含む）
+  List<String> get _memberTexts => [
+    for (final m in _members) m.controller.text,
+  ];
+
+  /// メンバーの欄のエラー（グループのときだけ）。問題がなければ null
+  String? get _memberError => _kind == OshiKind.group
+      ? validateMemberNames(cleanMemberNames(_memberTexts))
+      : null;
+
+  void _addMember() {
+    if (_members.length >= maxRequestMembers) return;
+    setState(
+      () => _members.add(_AliasEntry(_nextMemberId++, TextEditingController())),
+    );
+  }
+
+  void _removeMember(_AliasEntry entry) {
+    _members.remove(entry);
+    final c = entry.controller;
+    setState(() {});
+    // 次のフレームで破棄する（このフレームではまだ TextField が参照している）
+    WidgetsBinding.instance.addPostFrameCallback((_) => c.dispose());
+  }
+
   Future<void> _submit() async {
     if (_submitting) return;
     setState(() => _showErrors = true);
     final request = _request;
-    if (_genre == null || request.validate().isNotEmpty) {
+    if (_genre == null ||
+        request.validate().isNotEmpty ||
+        _memberError != null) {
       _showSnackBar('入力内容を確かめてください');
       return;
     }
@@ -120,7 +168,17 @@ class _OshiRequestPageState extends ConsumerState<OshiRequestPage> {
 
     setState(() => _submitting = true);
     try {
-      await ref.read(oshiRepositoryProvider).request(request, uid: uid);
+      final repository = ref.read(oshiRepositoryProvider);
+      if (_kind == OshiKind.group) {
+        // グループは、メンバーと一緒に作る（Fb-3）
+        await repository.requestGroupWithMembers(
+          request,
+          _memberTexts,
+          uid: uid,
+        );
+      } else {
+        await repository.request(request, uid: uid);
+      }
       // State.context を使うので、State の mounted で確認する
       if (!mounted) return;
       _showSnackBar('申請しました。運営の承認後に公開されます');
@@ -183,8 +241,8 @@ class _OshiRequestPageState extends ConsumerState<OshiRequestPage> {
             SegmentedButton<OshiKind>(
               key: const Key('oshi_request_kind'),
               segments: const [
-                ButtonSegment(value: OshiKind.group, label: Text('グループ')),
                 ButtonSegment(value: OshiKind.person, label: Text('個人')),
+                ButtonSegment(value: OshiKind.group, label: Text('グループ')),
               ],
               selected: {_kind},
               onSelectionChanged: _submitting
@@ -335,7 +393,7 @@ class _OshiRequestPageState extends ConsumerState<OshiRequestPage> {
               ),
               onChanged: (_) => _rebuild(),
             ),
-            if (_kind == OshiKind.person) ...[
+                        if (_kind == OshiKind.person) ...[
               const SizedBox(height: 16),
               _SectionLabel('所属グループ（${OshiRequest.maxGroupIds}個まで）'),
               _SelectedGroups(
@@ -356,6 +414,61 @@ class _OshiRequestPageState extends ConsumerState<OshiRequestPage> {
                       : () => _pickGroups(all),
                   icon: const Icon(Icons.group_add),
                   label: const Text('所属グループを選ぶ'),
+                ),
+              ),
+            ],
+            // グループは、メンバーを1人以上入れて申請する（Fb-3）
+            if (_kind == OshiKind.group) ...[
+              const SizedBox(height: 16),
+              _SectionLabel('メンバー（必須・$maxRequestMembers人まで）'),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text('メンバーも申請中として一緒に作られ、グループと一緒に承認されます。'),
+              ),
+              for (final (i, member) in _members.indexed)
+                Padding(
+                  key: ValueKey('oshi_request_member_row_${member.id}'),
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          key: Key('oshi_request_member_field_${member.id}'),
+                          controller: member.controller,
+                          enabled: !_submitting,
+                          decoration: InputDecoration(
+                            labelText: 'メンバー ${i + 1}',
+                            border: const OutlineInputBorder(),
+                          ),
+                          onChanged: (_) => _rebuild(),
+                        ),
+                      ),
+                      IconButton(
+                        key: Key(
+                          'oshi_request_remove_member_button_${member.id}',
+                        ),
+                        tooltip: 'このメンバーを消す',
+                        icon: const Icon(Icons.close),
+                        // 欄は1つは残す
+                        onPressed: _submitting || _members.length <= 1
+                            ? null
+                            : () => _removeMember(member),
+                      ),
+                    ],
+                  ),
+                ),
+              if (_showErrors && _memberError != null)
+                _ErrorText(_memberError!),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const Key('oshi_request_add_member_button'),
+                  onPressed:
+                      _submitting || _members.length >= maxRequestMembers
+                      ? null
+                      : _addMember,
+                  icon: const Icon(Icons.person_add),
+                  label: const Text('メンバーを追加'),
                 ),
               ),
             ],
