@@ -22,7 +22,7 @@ enum NotificationEnableResult {
   notConfigured,
 }
 
-/// リマインド通知の FCM トークン（仕様書 4.1・5.3）。
+/// リマインド通知の FCM トークン（Step6 仕様書 4.1・5.3）。
 ///
 /// トークンは `users/{uid}/fcmTokens/{token}` に保存する（ドキュメント ID がトークン）。
 class MessagingRepository {

@@ -13,7 +13,7 @@ final messagingRepositoryProvider = Provider<MessagingRepository>(
   ),
 );
 
-/// このブラウザでリマインド通知がオンか（仕様書 3.5）。
+/// このブラウザでリマインド通知がオンか（Step6 仕様書 3.5）。
 /// オン・オフを変えたら `ref.invalidate(notificationEnabledProvider)` で読み直す
 final notificationEnabledProvider = FutureProvider<bool>((ref) async {
   final uid = ref.watch(currentUidProvider);
@@ -21,7 +21,7 @@ final notificationEnabledProvider = FutureProvider<bool>((ref) async {
   return ref.read(messagingRepositoryProvider).isEnabled(uid);
 });
 
-/// アプリを開いているときに届いた通知（仕様書 3.6）
+/// アプリを開いているときに届いた通知（Step6 仕様書 3.6）
 final foregroundMessageProvider = StreamProvider<RemoteMessage>(
   (ref) => ref.watch(messagingRepositoryProvider).onForegroundMessage,
 );
