@@ -11,9 +11,11 @@ import { fileURLToPath } from 'node:url';
 import {
   DEMO_COLLECTIONS,
   DEMO_PREFIX,
+  baseMillis,
   buildDemoDocs,
   todayJst,
 } from './demo_data.mjs';
+import { buildTradeDocs } from './demo_trade.mjs';
 
 const EMULATOR_HOST = '127.0.0.1:8085'; // firebase.json の Firestore エミュレータ
 const EMULATOR_PROJECT = 'demo-oshiashi';
@@ -96,7 +98,9 @@ async function main() {
     return;
   }
   const base = opts.base ?? todayJst();
-  const n = await seed(db, Timestamp, buildDemoDocs(base));
+  const b = baseMillis(base);
+  const docs = [...buildDemoDocs(base), ...buildTradeDocs(base, b)];
+  const n = await seed(db, Timestamp, docs);
   console.log(`デモ用データを ${n} 件入れました（基準日 ${base}）: ${projectId}`);
 }
 

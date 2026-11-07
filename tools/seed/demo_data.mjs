@@ -60,7 +60,7 @@ export const recId = (liveKey, recKey) => `demo-rec-${liveKey}-${recKey}`;
 // ---------------------------------------------------------------
 
 /** メンバーは [ID のキー, 名前, 別名] */
-const GROUPS = [
+export const GROUPS = [
   {
     key: 'stellanote',
     name: 'ステラノート',
@@ -143,7 +143,7 @@ const GROUPS = [
 ];
 
 /** ソロは [ID のキー, 名前, 別名, ジャンル] */
-const SOLOS = [
+export const SOLOS = [
   ['reina', '白鳥レイナ', 'レイナ', 'idol'],
   ['minato', '柊ミナト', 'ミナト', 'voice_actor'],
   ['kanata', '空野カナタ', 'カナタ', 'artist'],
