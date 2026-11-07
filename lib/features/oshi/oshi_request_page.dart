@@ -38,7 +38,8 @@ class _OshiRequestPageState extends ConsumerState<OshiRequestPage> {
   final _urlController = TextEditingController();
   final _xController = TextEditingController();
 
-  OshiKind _kind = OshiKind.group;
+  // ファンはふつう個人（推しメン）を申請するので、個人を初期値にする
+  OshiKind _kind = OshiKind.person;
   OshiGenre? _genre;
   List<String> _groupIds = [];
 
@@ -183,8 +184,8 @@ class _OshiRequestPageState extends ConsumerState<OshiRequestPage> {
             SegmentedButton<OshiKind>(
               key: const Key('oshi_request_kind'),
               segments: const [
-                ButtonSegment(value: OshiKind.group, label: Text('グループ')),
                 ButtonSegment(value: OshiKind.person, label: Text('個人')),
+                ButtonSegment(value: OshiKind.group, label: Text('グループ')),
               ],
               selected: {_kind},
               onSelectionChanged: _submitting
