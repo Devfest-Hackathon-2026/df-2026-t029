@@ -114,6 +114,39 @@ final tradeBoardProvider = Provider.autoDispose
       );
     });
 
+/// ホームの「新しい交換」：フォロー中の推し（最大10件）の募集中の投稿を、
+/// 推しごとに5件ずつ読んでまとめ、自分の投稿を除いて新しい順に6件
+final homeTradePostsProvider =
+    Provider.autoDispose<AsyncValue<List<TradePost>>>((ref) {
+  final following = ref.watch(followingOshisProvider);
+  final uid = ref.watch(currentUidProvider);
+  if (following case AsyncError(:final error, :final stackTrace)) {
+    return AsyncError(error, stackTrace);
+  }
+  final oshis = following.value;
+  if (oshis == null) return const AsyncLoading();
+  if (oshis.isEmpty) return const AsyncData([]);
+
+  final values = [
+    for (final o in oshis.take(10))
+      ref.watch(openTradePostsProvider((kind: o.kind, id: o.id, limit: 5))),
+  ];
+  for (final v in values) {
+    if (v case AsyncError(:final error, :final stackTrace)) {
+      return AsyncError(error, stackTrace);
+    }
+  }
+  if (values.any((v) => !v.hasValue)) return const AsyncLoading();
+
+  // まとめる件数は多めに取り、自分の投稿を除いてから6件にする
+  final merged =
+      mergeBoardPosts([for (final v in values) v.requireValue], 50).posts;
+  return AsyncData([
+    for (final p in merged)
+      if (p.uid != uid) p,
+  ].take(6).toList());
+});
+
 /// 自分の募集中の投稿の求の検索用キー（重複なし・並べ替え済み）。
 /// 中身が変わったときだけ、[matchCandidatesProvider] を読み直させる
 final myOpenWantKeysProvider = FutureProvider<List<String>>((ref) async {

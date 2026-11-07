@@ -10,6 +10,7 @@ import '../shell/app_shell.dart' show kShellWideBreakpoint;
 import 'home_section_header.dart';
 import 'home_recent_memories.dart';
 import 'home_upcoming_lives.dart';
+import 'home_new_trades.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -50,7 +51,11 @@ class HomePage extends ConsumerWidget {
             const UpcomingDeadlinesSection(),
             const SizedBox(height: 24),
             const HomeUpcomingLives(),
-            // D-5 で、ここに新しい交換を足す
+            const HomeUpcomingLives(),
+            const SizedBox(height: 24),
+            const HomeNewTrades(),
+            const SizedBox(height: 24),
+            const HomeRecentMemories(),
             const SizedBox(height: 24),
             const HomeRecentMemories(),
           ],
