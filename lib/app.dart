@@ -34,6 +34,7 @@ import 'features/welcome/welcome_page.dart';
 import 'features/oshi/oshi_page.dart';
 import 'features/shell/app_shell.dart';
 import 'features/expense/expense_page.dart';
+import 'features/common/foreground_notification_listener.dart';
 
 import 'repositories/auth_repository.dart';
 
@@ -251,6 +252,8 @@ class App extends ConsumerWidget {
       theme: buildAppTheme(ref.watch(themeSeedColorProvider)),
       scrollBehavior: const _AppScrollBehavior(),
       routerConfig: ref.watch(routerProvider),
+      // アプリを開いているときに届いた通知を SnackBar で出す（Step6）
+      builder: (context, child) => ForegroundNotificationListener(child: child!),
     );
   }
 }
