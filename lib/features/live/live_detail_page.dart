@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/application.dart';
 import '../../models/history_entry.dart';
@@ -10,15 +11,18 @@ import '../../models/performance.dart';
 import '../../models/reception.dart';
 import '../../providers/oshi_providers.dart';
 import '../../utils/deadline.dart';
+import '../../utils/travel_links.dart';
+import '../../providers/live_providers.dart';
+import '../../providers/memory_providers.dart';
+
 import '../live_form/date_time_field.dart';
 import '../live_form/live_draft_to_models.dart' show formatYen;
 import '../calendar/calendar_add_sheet.dart';
+
 import 'deadline_format.dart';
 import 'live_changes.dart';
 import 'live_list_entries.dart';
 import 'official_url_link.dart';
-import '../../providers/live_providers.dart';
-import '../../providers/memory_providers.dart';
 
 /// 受付種別の表示名
 const receptionTypeLabels = {
@@ -478,13 +482,51 @@ class _PerformanceTile extends StatelessWidget {
     };
     final id = p.id;
     final has = hasMemory;
+    // 遠征サポート（E-1）：これから行く公演だけ、行き方と周辺の宿を出す
+    final directions = finished ? null : directionsUri(p);
+    final hotels = finished ? null : hotelsUri(p);
+
     return ListTile(
       key: Key('live_detail_performance_${p.id}'),
       contentPadding: EdgeInsets.zero,
       leading: Icon(finished ? Icons.event_available : Icons.event),
       title: Text('${formatDateTime(p.startAt)} 開演$dayLabel'),
-      subtitle: Text(
-        [if (openAt != null) '${formatDateTime(openAt)} 開場', place].join('\n'),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            [
+              if (openAt != null) '${formatDateTime(openAt)} 開場',
+              place,
+            ].join('\n'),
+          ),
+          if (directions != null || hotels != null)
+            Wrap(
+              spacing: 4,
+              children: [
+                if (directions != null)
+                  TextButton.icon(
+                    key: Key('live_detail_directions_button_${p.id}'),
+                    onPressed: () => launchUrl(
+                      directions,
+                      mode: LaunchMode.externalApplication,
+                    ),
+                    icon: const Icon(Icons.directions, size: 18),
+                    label: const Text('行き方'),
+                  ),
+                if (hotels != null)
+                  TextButton.icon(
+                    key: Key('live_detail_hotels_button_${p.id}'),
+                    onPressed: () => launchUrl(
+                      hotels,
+                      mode: LaunchMode.externalApplication,
+                    ),
+                    icon: const Icon(Icons.hotel, size: 18),
+                    label: const Text('周辺の宿'),
+                  ),
+              ],
+            ),
+        ],
       ),
       trailing: id == null || has == null
           ? null
