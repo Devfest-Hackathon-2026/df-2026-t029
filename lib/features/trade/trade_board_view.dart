@@ -8,6 +8,7 @@ import '../../models/trade_post.dart';
 import '../../models/goods.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/trade_post_providers.dart';
+import '../../providers/oshi_color_providers.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/hako_app_widgets.dart';
 import '../../utils/trade_board.dart';
@@ -41,7 +42,7 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
   Widget build(BuildContext context) {
     super.build(context);
     
-    final following = ref.watch(followingOshisProvider);
+      final following = ref.watch(followingOshisProvider);
     // null は「フォロー中すべて」（最初はこれ。Fc 5.1）。
     // 選んでいた推しのフォローを外したときも「フォロー中すべて」として扱う
     final selected = ref.watch(boardTargetProvider);
@@ -317,8 +318,8 @@ class _OshiSelector extends StatelessWidget {
   }
 }
 
-/// 掲示板の投稿1件（詳細画面は G-5-1 で作るため、まだタップできない）
-class _BoardCard extends StatelessWidget {
+/// 掲示板の投稿1件。対象の推しに色があれば、左端に 4px の帯を出す（Fc 5.3）
+class _BoardCard extends ConsumerWidget {
   const _BoardCard({
     required this.post,
     required this.all,
@@ -330,16 +331,26 @@ class _BoardCard extends StatelessWidget {
   final bool isMine;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final targets = targetNames(post, all);
+    final color = resolvePostColor(
+      post,
+      ref.watch(oshiColorsProvider).value ?? const {},
+      all,
+    );
     return Card(
       key: Key('trade_board_post_${post.id}'),
       margin: const EdgeInsets.symmetric(vertical: 6),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => context.push('/trade/${post.id}'),
-        child: Padding(
+        child: Container(
+          decoration: color == null
+              ? null
+              : BoxDecoration(
+                  border: Border(left: BorderSide(color: color, width: 4)),
+                ),
           padding: const EdgeInsets.all(12),
           // 写真があれば右に1枚目を出す（G-7）
           child: TradePostWithThumb(

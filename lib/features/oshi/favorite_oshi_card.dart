@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/oshi.dart';
 import '../../providers/favorite_oshi_providers.dart';
 import '../../providers/oshi_providers.dart';
-import '../../theme/brand_colors.dart';
+// import '../../theme/brand_colors.dart';
 import '../../theme/hako_app_widgets.dart';
 import '../../theme/hako_fonts.dart';
 import 'group_members_sheet.dart';
@@ -38,7 +38,7 @@ class FavoriteOshiCard extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
             child: Row(
               children: [
-                const Icon(Icons.star, size: 36, color: BrandColors.hall2),
+                OshiKindBadge(oshi: oshi, size: 44),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(

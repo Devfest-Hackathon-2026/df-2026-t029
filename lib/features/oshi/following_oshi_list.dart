@@ -8,6 +8,7 @@ import '../../theme/brand_colors.dart';
 import '../../theme/hako_fonts.dart';
 import 'follow_actions.dart';
 import 'oshi_list_tile.dart';
+import 'oshi_color_sheet.dart';
 // import 'group_members_sheet.dart';
 import 'group_members_panel.dart';
 
@@ -103,7 +104,7 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
             key: const Key('oshi_favorite_hint'),
             padding: const EdgeInsets.only(top: 2, bottom: 6),
             child: Text(
-              '☆を押すと最推しにできます',
+              '☆を押すと最推しに、丸い札を押すと色を選べます',
               style: HakoFonts.jp(size: 12, color: BrandColors.sub, height: 1.5),
             ),
           ),
@@ -168,6 +169,8 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
                 oshi,
                 favorite: favoriteKey.value != oshi.key,
               ),
+              // 札を押すと色を選ぶ（Fc 5.3）
+              onBadgeTap: () => showOshiColorSheet(context, oshi),
             ),
             if (_expanded.contains(oshi.key)) GroupMembersPanel(group: oshi),
           ],
