@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/live_memory.dart';
+import '../common/storage_image.dart';
 import '../live_form/date_time_field.dart';
 
 /// 参戦済みの記録のカード（メモリー一覧・ホームで使う）
@@ -21,16 +22,18 @@ class MemoryAlbumCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // TODO(M-5): images があれば1枚目を表紙にする
+            // 写真があれば1枚目を表紙にする。無ければ色付きの枠（仕様書 6.4）
             Expanded(
-              child: ColoredBox(
-                color: theme.colorScheme.secondaryContainer,
-                child: Icon(
-                  Icons.music_note,
-                  size: 48,
-                  color: theme.colorScheme.onSecondaryContainer,
-                ),
-              ),
+              child: memory.images.isEmpty
+                  ? ColoredBox(
+                      color: theme.colorScheme.secondaryContainer,
+                      child: Icon(
+                        Icons.music_note,
+                        size: 48,
+                        color: theme.colorScheme.onSecondaryContainer,
+                      ),
+                    )
+                  : StorageImage(path: memory.images.first),
             ),
             Padding(
               padding: const EdgeInsets.all(8),

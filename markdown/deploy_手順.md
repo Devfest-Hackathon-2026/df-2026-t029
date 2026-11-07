@@ -60,6 +60,14 @@ firebase deploy --only functions
 - 初回は必要な API の有効化を聞かれるので進める。コンテナイメージの削除ポリシーは既定の日数でよい。
 - すぐに動かして確かめるときは、Google Cloud コンソール → Cloud Scheduler → `firebase-schedule-sendDeadlineReminders-...` →「強制実行」。結果は Firebase コンソール → Functions → ログで見る。
 
+### 1.6 Storage のルール（変えたときだけ）
+
+```bash
+firebase deploy --only storage
+```
+
+- `storage.rules`。メモリーの写真（`users/{uid}/memories/...`）は本人だけが読み書きでき、作成は 5MB 未満の画像だけ。
+
 ## 2. コンソールでの設定
 
 ### 2.1 Firebase Authentication の承認済みドメイン
@@ -119,6 +127,19 @@ Google Cloud コンソール → API とサービス → 認証情報 → `lib/f
 - Firebase コンソール → プロジェクトの設定 → Cloud Messaging で、「Firebase Cloud Messaging API（V1）」が有効なことを確かめる。
 - 同じ画面の「ウェブ構成」→「ウェブプッシュ証明書」で鍵ペアを生成し、公開鍵を 1.1 のビルドの `FCM_VAPID_KEY` に渡す。リポジトリには書かない。
 
+### 2.8 Cloud Storage（写真）
+
+- バケットは `oshiashi-test.firebasestorage.app`（場所は US-EAST1。Storage の無料枠の対象。後から変えられない）。11/7 に作成済み。
+- Flutter Web で写真を表示するため、バケットに CORS を設定してある。設定し直すときは、Google Cloud コンソールの Cloud Shell で次を1行ずつ実行する。
+
+```bash
+echo '[{"origin": ["*"], "method": ["GET"], "maxAgeSeconds": 3600}]' > cors.json
+gcloud storage buckets update gs://oshiashi-test.firebasestorage.app --cors-file=cors.json
+```
+
+- 確認は `gcloud storage buckets describe gs://oshiashi-test.firebasestorage.app --format="default(cors_config)"`。
+- API キーの「API の制限」をかけるときは、Cloud Storage for Firebase も含める（2.5）。
+
 ## 3. 公開後の確認
 
 プレビュー・本番の両方で、PC の Chrome とスマホのブラウザで確かめる。
@@ -135,6 +156,7 @@ Google Cloud コンソール → API とサービス → 認証情報 → `lib/f
 10. App Check: App Check の API の画面に、公開したアプリからのリクエストが「検証済み」として数えられている。
 11. API キー: 許可していないサイトからは使えない（2.5 の設定が入っている）。
 12. リマインド通知: プロフィールで「リマインド通知」をオンにできる。期限が24時間以内の受付があると、15分以内に通知が届き、押すとライブ詳細が開く（Cloud Scheduler の強制実行ですぐ確かめられる）。PC か Android の Chrome で確かめる。
+13. メモリーの写真: 記録の編集で写真を追加・保存でき、詳細画面とアルバムのカードに表示される（表示されないときは 2.8 の CORS を確かめる）。
 
 ## 4. デモ用データ（架空）
 
