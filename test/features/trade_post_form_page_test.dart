@@ -463,4 +463,13 @@ void main() {
       expect(_key('trade_picker_goods_acsta'), findsOneWidget);
     });
   });
+
+  for (final w in layoutWidths) {
+    testWidgets('幅 ${w.toInt()} ではみ出さない', (tester) async {
+      phoneWidthOverride = w;
+      addTearDown(() => phoneWidthOverride = null);
+      await pumpForm(tester, repo: FakeTradePostRepository());
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

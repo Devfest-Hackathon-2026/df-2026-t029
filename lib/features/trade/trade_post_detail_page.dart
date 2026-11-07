@@ -1,3 +1,5 @@
+import '../../theme/brand_colors.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -120,12 +122,16 @@ class _PostBody extends ConsumerWidget {
             key: const Key('trade_detail_status_banner'),
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(12),
-            color: theme.colorScheme.errorContainer,
+            decoration: BoxDecoration(
+              color: BrandColors.tonal,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: BrandColors.ink, width: 1.5),
+            ),
             child: Text(
               post.status == TradePostStatus.hidden
                   ? 'この投稿は運営により非表示にされています'
                   : 'この投稿は募集終了です',
-              style: TextStyle(color: theme.colorScheme.onErrorContainer),
+              style: const TextStyle(color: BrandColors.ink),
             ),
           ),
         Row(

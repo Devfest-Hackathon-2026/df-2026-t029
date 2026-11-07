@@ -13,6 +13,9 @@ import '../../providers/oshi_providers.dart';
 import '../../repositories/live_repository.dart';
 import '../../services/calendar_events.dart';
 import '../../utils/live_match.dart';
+import '../../theme/brand_colors.dart';
+import '../../theme/hako_app_widgets.dart';
+import '../../theme/hako_fonts.dart';
 import '../calendar/calendar_add_sheet.dart';
 import '../live_merge/live_candidates_sheet.dart';
 import '../live_merge/merge_review_page.dart';
@@ -253,25 +256,28 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
       _unmatched = _draft.autoMatchPerformers(all);
     }
 
-    final titleStyle = Theme.of(context).textTheme.titleLarge;
+    final titleStyle = HakoFonts.jp(
+      size: 16,
+      weight: FontWeight.w700,
+      height: 1.4,
+    );
+    final subStyle = HakoFonts.jp(size: 12, color: BrandColors.sub);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.editSeed != null
-              ? 'ライブ情報の編集'
-              : widget.initial == null
-              ? 'ライブ情報の入力'
-              : 'ライブ情報の確認',
-        ),
-      ),
+    return HakoPageScaffold(
+      title: widget.editSeed != null
+          ? 'ライブ情報の編集'
+          : widget.initial == null
+          ? 'ライブ情報の入力'
+          : 'ライブ情報の確認',
+      showBack: true,
+      backFallback: widget.editSeed != null ? '/lives' : '/register',
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: HakoPageScaffold.padding(context),
         children: [
-          Text('ライブ', style: titleStyle),
+          HakoMarked('ライブ', style: titleStyle),
 
           const SizedBox(height: 8),
-          Text('出演者', style: Theme.of(context).textTheme.titleSmall),
+          Text('出演者', style: subStyle),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -279,6 +285,7 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
             children: [
               for (final o in _draft.selectedPerformers)
                 InputChip(
+                  backgroundColor: Colors.white,
                   avatar: Icon(
                     o.kind == OshiKind.group ? Icons.groups : Icons.person,
                     size: 18,
@@ -288,6 +295,8 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
                       setState(() => _draft.selectedPerformers.remove(o)),
                 ),
               ActionChip(
+                backgroundColor: BrandColors.tonal,
+                labelStyle: HakoFonts.jp(size: 13, weight: FontWeight.w700),
                 avatar: const Icon(Icons.add, size: 18),
                 label: const Text('出演者を追加'),
                 onPressed: () => _pickPerformer(),
@@ -320,7 +329,7 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
           const SizedBox(height: 24),
           Row(
             children: [
-              Expanded(child: Text('公演', style: titleStyle)),
+              Expanded(child: HakoMarked('公演', style: titleStyle)),
               TextButton.icon(
                 onPressed: () =>
                     setState(() => _draft.performances.add(PerformanceDraft())),
@@ -339,7 +348,7 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
           const SizedBox(height: 24),
           Row(
             children: [
-              Expanded(child: Text('受付', style: titleStyle)),
+              Expanded(child: HakoMarked('受付', style: titleStyle)),
               TextButton.icon(
                 onPressed: () =>
                     setState(() => _draft.receptions.add(ReceptionDraft())),
@@ -357,20 +366,17 @@ class _LiveFormPageState extends ConsumerState<LiveFormPage> {
             ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: FilledButton(
-            key: const Key('live_form_save_button'),
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('保存'),
-          ),
+      bottomBar: HakoSaveBar(
+        child: FilledButton(
+          key: const Key('live_form_save_button'),
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('保存'),
         ),
       ),
     );
@@ -391,48 +397,44 @@ class _PerformanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(top: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            DateTimeField(
-              label: '開演日時',
-              value: draft.startAt,
-              onChanged: (v) {
-                draft.startAt = v;
-                onChanged();
-              },
+    return HakoBox(
+      child: Column(
+        children: [
+          DateTimeField(
+            label: '開演日時',
+            value: draft.startAt,
+            onChanged: (v) {
+              draft.startAt = v;
+              onChanged();
+            },
+          ),
+          DateTimeField(
+            label: '開場日時',
+            value: draft.openAt,
+            onChanged: (v) {
+              draft.openAt = v;
+              onChanged();
+            },
+          ),
+          TextFormField(
+            initialValue: draft.venue,
+            decoration: const InputDecoration(labelText: '会場名'),
+            onChanged: (v) => draft.venue = v,
+          ),
+          TextFormField(
+            initialValue: draft.prefecture,
+            decoration: const InputDecoration(labelText: '都道府県'),
+            onChanged: (v) => draft.prefecture = v,
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: onRemove,
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('この公演を削除'),
             ),
-            DateTimeField(
-              label: '開場日時',
-              value: draft.openAt,
-              onChanged: (v) {
-                draft.openAt = v;
-                onChanged();
-              },
-            ),
-            TextFormField(
-              initialValue: draft.venue,
-              decoration: const InputDecoration(labelText: '会場名'),
-              onChanged: (v) => draft.venue = v,
-            ),
-            TextFormField(
-              initialValue: draft.prefecture,
-              decoration: const InputDecoration(labelText: '都道府県'),
-              onChanged: (v) => draft.prefecture = v,
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: onRemove,
-                icon: const Icon(Icons.delete_outline),
-                label: const Text('この公演を削除'),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -472,44 +474,40 @@ class _ReceptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(top: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            DropdownButtonFormField<ReceptionType>(
-              initialValue: draft.type,
-              decoration: const InputDecoration(labelText: '種別'),
-              items: [
-                for (final e in _typeLabels.entries)
-                  DropdownMenuItem(value: e.key, child: Text(e.value)),
-              ],
-              onChanged: (v) {
-                if (v == null) return;
-                draft.type = v;
-                onChanged();
-              },
-            ),
-            TextFormField(
-              initialValue: draft.name,
-              decoration: const InputDecoration(labelText: '表示名（例：FC1次先行）'),
-              onChanged: (v) => draft.name = v,
-            ),
-            _dateField(
-              '申込開始',
-              draft.applyStartAt,
-              (v) => draft.applyStartAt = v,
-            ),
-            _dateField('申込期限', draft.applyEndAt, (v) => draft.applyEndAt = v),
-            _dateField('当落発表', draft.resultAt, (v) => draft.resultAt = v),
-            _dateField(
-              '入金期限',
-              draft.paymentDeadline,
-              (v) => draft.paymentDeadline = v,
-            ),
-            SwitchListTile(
+    return HakoBox(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DropdownButtonFormField<ReceptionType>(
+            initialValue: draft.type,
+            decoration: const InputDecoration(labelText: '種別'),
+            items: [
+              for (final e in _typeLabels.entries)
+                DropdownMenuItem(value: e.key, child: Text(e.value)),
+            ],
+            onChanged: (v) {
+              if (v == null) return;
+              draft.type = v;
+              onChanged();
+            },
+          ),
+          TextFormField(
+            initialValue: draft.name,
+            decoration: const InputDecoration(labelText: '表示名（例：FC1次先行）'),
+            onChanged: (v) => draft.name = v,
+          ),
+          _dateField('申込開始', draft.applyStartAt, (v) => draft.applyStartAt = v),
+          _dateField('申込期限', draft.applyEndAt, (v) => draft.applyEndAt = v),
+          _dateField('当落発表', draft.resultAt, (v) => draft.resultAt = v),
+          _dateField(
+            '入金期限',
+            draft.paymentDeadline,
+            (v) => draft.paymentDeadline = v,
+          ),
+          // HakoBox の白い背景に隠れないよう、ListTile を Material で包む
+          Material(
+            type: MaterialType.transparency,
+            child: SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('当選者のみが対象（アプグレなど）'),
               value: draft.winnersOnly,
@@ -518,60 +516,60 @@ class _ReceptionCard extends StatelessWidget {
                 onChanged();
               },
             ),
-            const SizedBox(height: 8),
-            Text('料金', style: Theme.of(context).textTheme.titleSmall),
-            for (final price in draft.prices)
-              Row(
-                key: ObjectKey(price),
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      initialValue: price.seat,
-                      decoration: const InputDecoration(labelText: '席種'),
-                      onChanged: (v) => price.seat = v,
+          ),
+          const SizedBox(height: 8),
+          Text('料金', style: HakoFonts.jp(size: 12, color: BrandColors.sub)),
+          for (final price in draft.prices)
+            Row(
+              key: ObjectKey(price),
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    initialValue: price.seat,
+                    decoration: const InputDecoration(labelText: '席種'),
+                    onChanged: (v) => price.seat = v,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    initialValue: price.amount?.toString() ?? '',
+                    decoration: const InputDecoration(
+                      labelText: '金額',
+                      suffixText: '円',
                     ),
+                    keyboardType: TextInputType.number,
+                    onChanged: (v) =>
+                        price.amount = int.tryParse(v.replaceAll(',', '')),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
-                      initialValue: price.amount?.toString() ?? '',
-                      decoration: const InputDecoration(
-                        labelText: '金額',
-                        suffixText: '円',
-                      ),
-                      keyboardType: TextInputType.number,
-                      onChanged: (v) =>
-                          price.amount = int.tryParse(v.replaceAll(',', '')),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    tooltip: '料金を削除',
-                    onPressed: () {
-                      draft.prices.remove(price);
-                      onChanged();
-                    },
-                  ),
-                ],
-              ),
-            TextButton.icon(
-              onPressed: () {
-                draft.prices.add(PriceDraft());
-                onChanged();
-              },
-              icon: const Icon(Icons.add),
-              label: const Text('料金を追加'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  tooltip: '料金を削除',
+                  onPressed: () {
+                    draft.prices.remove(price);
+                    onChanged();
+                  },
+                ),
+              ],
             ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: onRemove,
-                icon: const Icon(Icons.delete_outline),
-                label: const Text('この受付を削除'),
-              ),
+          TextButton.icon(
+            onPressed: () {
+              draft.prices.add(PriceDraft());
+              onChanged();
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('料金を追加'),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: onRemove,
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('この受付を削除'),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

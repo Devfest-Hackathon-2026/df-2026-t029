@@ -1,3 +1,5 @@
+import '../../theme/hako_app_widgets.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -126,12 +128,14 @@ class _GoodsFormPageState extends ConsumerState<GoodsFormPage> {
   }
 
   /// 読み込み中（[text] が null）やエラーのときの画面
-  Widget _message(String? text) => Scaffold(
-        appBar: AppBar(title: Text(_title)),
-        body: Center(
-          child: text == null ? const CircularProgressIndicator() : Text(text),
-        ),
-      );
+  Widget _message(String? text) => HakoPageScaffold(
+    title: _title,
+    showBack: true,
+    backFallback: '/trade',
+    body: Center(
+      child: text == null ? const CircularProgressIndicator() : Text(text),
+    ),
+  );
 
   Widget _form({
     required String heading,
@@ -139,8 +143,10 @@ class _GoodsFormPageState extends ConsumerState<GoodsFormPage> {
     required VoidCallback onSave,
   }) {
     final draft = _draft!;
-    return Scaffold(
-      appBar: AppBar(title: Text(_title)),
+    return HakoPageScaffold(
+      title: _title,
+      showBack: true,
+      backFallback: '/trade',
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -175,23 +181,23 @@ class _GoodsFormPageState extends ConsumerState<GoodsFormPage> {
           ),
           TextFormField(
             initialValue: draft.price,
-            decoration:
-                const InputDecoration(labelText: '定価', suffixText: '円'),
+            decoration: const InputDecoration(labelText: '定価', suffixText: '円'),
             keyboardType: TextInputType.number,
             onChanged: (v) => draft.price = v,
           ),
           TextFormField(
             initialValue: draft.officialUrl,
-            decoration:
-                const InputDecoration(labelText: '公式の販売ページ（https://〜）'),
+            decoration: const InputDecoration(labelText: '公式の販売ページ（https://〜）'),
             keyboardType: TextInputType.url,
             onChanged: (v) => draft.officialUrl = v,
           ),
           const SizedBox(height: 24),
           Text('種類', style: Theme.of(context).textTheme.titleMedium),
-          Text(_isEdit
-              ? '保存済みの種類は削除できません（名前とメンバーは変更できます）'
-              : 'メンバー別・絵柄別などの区別です。なければ「通常」として登録します'),
+          Text(
+            _isEdit
+                ? '保存済みの種類は削除できません（名前とメンバーは変更できます）'
+                : 'メンバー別・絵柄別などの区別です。なければ「通常」として登録します',
+          ),
           for (final v in draft.variants)
             _VariantRow(
               key: ObjectKey(v),
@@ -214,8 +220,10 @@ class _GoodsFormPageState extends ConsumerState<GoodsFormPage> {
           ),
           const SizedBox(height: 16),
           for (final e in _errors)
-            Text(e,
-                style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            Text(
+              e,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           const SizedBox(height: 8),
           FilledButton(
             onPressed: _saving ? null : onSave,
@@ -229,11 +237,11 @@ class _GoodsFormPageState extends ConsumerState<GoodsFormPage> {
 
 /// グッズの対象の推しの名前（読み込めていないものは省く）
 String _namesOf(Goods g, List<OshiSummary> all) => [
-      for (final o in all)
-        if ((o.kind == OshiKind.group && g.groupIds.contains(o.id)) ||
-            (o.kind == OshiKind.person && g.oshiIds.contains(o.id)))
-          o.name,
-    ].join('、');
+  for (final o in all)
+    if ((o.kind == OshiKind.group && g.groupIds.contains(o.id)) ||
+        (o.kind == OshiKind.person && g.oshiIds.contains(o.id)))
+      o.name,
+].join('、');
 
 /// 種類に紐づけられるメンバー（承認済みの個人）。
 /// [groupIds] のグループのメンバーと、[oshiIds] の本人・その所属グループのメンバー

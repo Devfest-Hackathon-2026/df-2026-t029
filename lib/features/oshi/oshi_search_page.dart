@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../theme/hako_app_widgets.dart';
 import '../../models/oshi.dart';
 import '../../utils/oshi_search.dart';
 import '../../providers/oshi_providers.dart';
@@ -68,8 +69,10 @@ class _OshiSearchPageState extends ConsumerState<OshiSearchPage> {
     final followAsync = ref.watch(followStateProvider);
     final following = followAsync.value ?? FollowState.empty;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('推しを探す')),
+    return HakoPageScaffold(
+      title: '推しを探す',
+      showBack: true,
+      backFallback: '/oshi',
       body: SafeArea(
         child: Column(
           children: [

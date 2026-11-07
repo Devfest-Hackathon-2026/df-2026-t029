@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../models/oshi.dart';
+import '../../theme/brand_colors.dart';
+import '../../theme/hako_app_widgets.dart';
+import '../../theme/hako_fonts.dart';
 
 /// グループの ID → グループ名（個人の行に「所属：◯◯」を出すのに使う）
 Map<String, String> groupNamesById(List<OshiSummary> all) => {
@@ -51,40 +54,75 @@ class OshiListTile extends StatelessWidget {
     final isPending = !oshi.isApproved;
     final isGroup = oshi.kind == OshiKind.group;
 
-    return ListTile(
+    return InkWell(
       key: ValueKey('oshi_tile_$_keySuffix'),
       onTap: onTap,
-      leading: Icon(isGroup ? Icons.groups : Icons.person),
-      title: Text(oshi.name, maxLines: 2, overflow: TextOverflow.ellipsis),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Wrap(
-          spacing: 6,
-          runSpacing: 4,
+      overlayColor: WidgetStatePropertyAll(
+        BrandColors.ink.withValues(alpha: 0.10),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: const BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: BrandColors.rowLine, width: 1.5),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _Label(text: oshi.kind.label),
-            _Label(text: oshi.genre.label),
-            if (groupNames.isNotEmpty)
-              _Label(
-                key: ValueKey('oshi_affiliation_$_keySuffix'),
-                text: '所属：${groupNames.join('・')}',
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(
+                isGroup ? Icons.group_outlined : Icons.person_outline,
+                size: 28,
+                color: BrandColors.ink,
               ),
-            if (isPending)
-              _Label(
-                key: ValueKey('oshi_pending_badge_$_keySuffix'),
-                text: '申請中',
-                highlight: true,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    oshi.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: HakoFonts.jp(size: 16, height: 1.5),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      HakoTagChip(oshi.kind.label),
+                      HakoTagChip(oshi.genre.label),
+                      if (groupNames.isNotEmpty)
+                        HakoTagChip(
+                          '所属：${groupNames.join('・')}',
+                          key: ValueKey('oshi_affiliation_$_keySuffix'),
+                        ),
+                      if (isPending)
+                        HakoTagChip(
+                          '申請中',
+                          key: ValueKey('oshi_pending_badge_$_keySuffix'),
+                          link: true,
+                        ),
+                      if (onTap != null)
+                        HakoTagChip(
+                          'メンバーを見る ›',
+                          key: ValueKey('oshi_members_label_$_keySuffix'),
+                          link: true,
+                        ),
+                    ],
+                  ),
+                ],
               ),
-            if (onTap != null)
-              _Label(
-                key: ValueKey('oshi_members_label_$_keySuffix'),
-                text: 'メンバーを見る ›',
-                highlight: true,
-              ),
+            ),
+            const SizedBox(width: 14),
+            _buildButton(isPending),
           ],
         ),
       ),
-      trailing: _buildButton(isPending),
     );
   }
 
@@ -108,31 +146,6 @@ class OshiListTile extends StatelessWidget {
       key: ValueKey('oshi_follow_button_$_keySuffix'),
       onPressed: isBusy ? null : onFollow,
       child: const Text('フォロー'),
-    );
-  }
-}
-
-class _Label extends StatelessWidget {
-  const _Label({super.key, required this.text, this.highlight = false});
-
-  final String text;
-  final bool highlight;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    // 強調はテーマの色を薄く透かした背景（Da-4 の締切の印と同じ）
-    final bg = highlight
-        ? scheme.primary.withValues(alpha: 0.12)
-        : scheme.surfaceContainer;
-    final fg = highlight ? scheme.primary : scheme.onSurfaceVariant;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(text, style: TextStyle(fontSize: 12, color: fg)),
     );
   }
 }

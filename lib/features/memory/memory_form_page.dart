@@ -6,6 +6,9 @@ import '../../models/live_memory.dart';
 import '../../providers/live_providers.dart';
 import '../../providers/memory_providers.dart';
 import '../../providers/oshi_providers.dart';
+import '../../theme/brand_colors.dart';
+import '../../theme/hako_app_widgets.dart';
+import '../../theme/hako_fonts.dart';
 import '../live_form/date_time_field.dart';
 
 /// セトリの曲数の上限
@@ -75,8 +78,11 @@ class MemoryFormPage extends ConsumerWidget {
         key: Key('memory_form_not_found'),
         text: 'この公演は見つかりませんでした',
       ),
-      _ => const Scaffold(
+      _ => const HakoPageScaffold(
         key: Key('memory_form_loading'),
+        title: '記録',
+        showBack: true,
+        backFallback: '/lives',
         body: Center(child: CircularProgressIndicator()),
       ),
     };
@@ -90,9 +96,11 @@ class _MessagePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('記録')),
-      body: Center(child: Text(text, textAlign: TextAlign.center)),
+    return HakoPageScaffold(
+      title: '記録',
+      showBack: true,
+      backFallback: '/lives',
+      body: HakoEmpty(text),
     );
   }
 }
@@ -234,32 +242,44 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final m = widget.memory;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isNew ? '記録する' : '記録を編集'),
-        actions: [
-          if (!widget.isNew)
-            IconButton(
-              key: const Key('memory_form_delete_button'),
-              tooltip: '削除',
-              onPressed: _busy ? null : _delete,
-              icon: const Icon(Icons.delete_outline),
-            ),
-        ],
-      ),
+    final subStyle = HakoFonts.jp(
+      size: 13,
+      color: BrandColors.sub,
+      height: 1.5,
+    );
+    return HakoPageScaffold(
+      title: widget.isNew ? '記録する' : '記録を編集',
+      showBack: true,
+      backFallback: widget.isNew ? '/lives' : '/memories',
       body: SafeArea(
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: HakoPageScaffold.padding(context),
             children: [
-              Text(m.liveTitle, style: theme.textTheme.titleLarge),
+              if (!widget.isNew)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    key: const Key('memory_form_delete_button'),
+                    tooltip: '削除',
+                    onPressed: _busy ? null : _delete,
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ),
+              Text(
+                m.liveTitle,
+                style: HakoFonts.jp(
+                  size: 20,
+                  weight: FontWeight.w700,
+                  height: 1.4,
+                ),
+              ),
               const SizedBox(height: 4),
-              Text('${formatDateTime(m.startAt)} 開演'),
-              Text(m.venue),
-              const SizedBox(height: 24),
+              Text('${formatDateTime(m.startAt)} 開演', style: subStyle),
+              Text(m.venue, style: subStyle),
+              const SizedBox(height: 18),
               TextFormField(
                 key: const Key('memory_form_seat'),
                 controller: _seat,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/oshi_providers.dart';
+import '../../theme/hako_app_widgets.dart';
 import '../live_form/date_time_field.dart';
 import '../../utils/deadline.dart';
 import 'live_list_entries.dart' show PerformerNames;
@@ -33,16 +34,13 @@ final liveListRowsProvider = Provider<AsyncValue<List<LiveListRow>>>((ref) {
 /// 自分のライブ一覧（/lives）
 class LiveListPage extends ConsumerWidget {
   const LiveListPage({super.key});
-  
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rows = ref.watch(liveListRowsProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('ライブ一覧'),
-        automaticallyImplyLeading: false,
-      ),
+    return HakoPageScaffold(
+      title: 'ライブ一覧',
       // 読み込めたら、件数によらず右下に「ライブを追加する」を出す
       floatingActionButton: rows.hasValue && !rows.hasError
           ? FloatingActionButton.extended(
@@ -135,18 +133,15 @@ class _ListView extends StatelessWidget {
   Widget build(BuildContext context) {
     final upcoming = rows.where((r) => !r.entry.isEnded);
     final ended = rows.where((r) => r.entry.isEnded).toList();
+    final pad = HakoPageScaffold.padding(context);
     return ListView(
       key: const Key('live_list'),
       // 下は、右下のボタンで最後の行が隠れないようにあける
-      padding: const EdgeInsets.fromLTRB(0, 8, 0, 88),
+      padding: EdgeInsets.fromLTRB(pad.left, pad.top, pad.right, 88),
       children: [
         for (final r in upcoming) _LiveTile(row: r),
         if (ended.isNotEmpty) ...[
-          Padding(
-            key: const Key('live_list_finished_header'),
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-            child: Text('終了', style: Theme.of(context).textTheme.titleMedium),
-          ),
+          const HakoSectionHeader('終了', key: Key('live_list_finished_header')),
           for (final r in ended) _LiveTile(row: r),
         ],
       ],
@@ -175,15 +170,13 @@ class _LiveTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final live = row.entry.live;
     final performers = row.performerNames.join('、');
-    return ListTile(
+    return HakoRow(
       key: Key('live_list_tile_${live.id}'),
-      leading: Icon(row.entry.isEnded ? Icons.event_available : Icons.event),
-      title: Text(live.title),
-      subtitle: Text(
-        [if (performers.isNotEmpty) performers, _dateLine()].join('\n'),
-      ),
-      isThreeLine: performers.isNotEmpty,
-      trailing: const Icon(Icons.chevron_right),
+      icon: row.entry.isEnded
+          ? Icons.event_available_outlined
+          : Icons.calendar_today_outlined,
+      title: live.title,
+      subs: [if (performers.isNotEmpty) performers, _dateLine()],
       onTap: () => context.push('/lives/${live.id}'),
     );
   }

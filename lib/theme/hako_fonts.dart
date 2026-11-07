@@ -53,6 +53,20 @@ abstract final class HakoFonts {
     );
   }
 
+  /// 日付の札の数字（Archivo 800・幅は標準）。ネットワークが無いときは日本語の書体に落ちる。
+  static TextStyle num({
+    required double size,
+    Color color = BrandColors.ink,
+    double height = 1.15,
+  }) {
+    return GoogleFonts.archivo(
+      fontSize: size,
+      fontWeight: FontWeight.w800,
+      color: color,
+      height: height,
+    ).copyWith(leadingDistribution: TextLeadingDistribution.even);
+  }
+
   /// Google ボタンの文字（Roboto 500・14）。日本語は jp の書体に落とす。
   static TextStyle googleButton() {
     final fallback = jp(size: 14, weight: FontWeight.w400, height: 1.2);

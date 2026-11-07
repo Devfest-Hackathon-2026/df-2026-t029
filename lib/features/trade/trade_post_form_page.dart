@@ -1,3 +1,5 @@
+import '../../theme/hako_app_widgets.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -133,8 +135,10 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
   }
 
   /// 読み込み中（[text] が null）やエラーのときの画面
-  Widget _message(String? text) => Scaffold(
-    appBar: AppBar(title: Text(_title)),
+  Widget _message(String? text) => HakoPageScaffold(
+    title: _title,
+    showBack: true,
+    backFallback: '/trade',
     body: Center(
       child: text == null
           ? const CircularProgressIndicator()
@@ -153,8 +157,10 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
       child: Text(text, style: theme.textTheme.titleMedium),
     );
 
-    return Scaffold(
-      appBar: AppBar(title: Text(_title)),
+    return HakoPageScaffold(
+      title: _title,
+      showBack: true,
+      backFallback: '/trade',
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -359,9 +365,7 @@ class _PerformanceChips extends ConsumerWidget {
               Row(
                 key: const Key('trade_performance_missing'),
                 children: [
-                  Expanded(
-                    child: Text('ライブ一覧に無い公演が${missing.length}件選ばれています'),
-                  ),
+                  Expanded(child: Text('ライブ一覧に無い公演が${missing.length}件選ばれています')),
                   TextButton(
                     key: const Key('trade_performance_missing_remove'),
                     onPressed: () {

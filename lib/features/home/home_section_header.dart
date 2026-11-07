@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// ホームの区画の見出し。onSeeAll を渡すと、右に「すべて見る」を出す
+import '../../theme/hako_app_widgets.dart';
+import '../../theme/hako_fonts.dart';
+import '../../theme/brand_colors.dart';
+
+/// ホームの区画の見出し（蛍光ペン付き）。onSeeAll を渡すと、右に「すべて見る」を出す
 class HomeSectionHeader extends StatelessWidget {
   const HomeSectionHeader({super.key, required this.title, this.onSeeAll});
 
@@ -9,20 +13,10 @@ class HomeSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        if (onSeeAll != null)
-          TextButton(onPressed: onSeeAll, child: const Text('すべて見る')),
-      ],
+    return HakoSectionHeader(
+      title,
+      trailingLabel: onSeeAll == null ? null : 'すべて見る',
+      onTrailing: onSeeAll,
     );
   }
 }
@@ -37,7 +31,10 @@ class HomeSectionMessage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Text(text, style: Theme.of(context).textTheme.bodyMedium),
+      child: Text(
+        text,
+        style: HakoFonts.jp(size: 13, color: BrandColors.sub, height: 1.6),
+      ),
     );
   }
 }

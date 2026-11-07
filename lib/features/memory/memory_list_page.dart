@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../models/live_memory.dart';
 import '../../providers/memory_providers.dart';
+import '../../theme/brand_colors.dart';
+import '../../theme/hako_app_widgets.dart';
+import '../../theme/hako_fonts.dart';
 import '../../utils/memory_album.dart';
 import '../live_form/date_time_field.dart';
 import '../common/empty_state.dart';
@@ -17,11 +20,8 @@ class MemoryListPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final album = ref.watch(memoryAlbumProvider);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('メモリー'),
-        automaticallyImplyLeading: false,
-      ),
+    return HakoPageScaffold(
+      title: 'メモリー',
       body: SafeArea(
         child: switch (album) {
           AsyncError() => _Message(
@@ -39,7 +39,7 @@ class MemoryListPage extends ConsumerWidget {
               icon: Icons.photo_album_outlined,
               title: '参戦したライブを記録すると、ここに並びます',
               message: 'ライブの詳細の公演から「記録する」で残せます',
-          ),
+            ),
           AsyncData(:final value) => _AlbumView(album: value),
           _ => const Center(
             key: Key('memory_list_loading'),
@@ -65,7 +65,15 @@ class _Message extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(text, textAlign: TextAlign.center),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: HakoFonts.jp(
+                size: 13,
+                color: BrandColors.sub,
+                height: 1.6,
+              ),
+            ),
             if (action != null) ...[const SizedBox(height: 8), action!],
           ],
         ),
@@ -81,29 +89,38 @@ class _AlbumView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final pad = HakoPageScaffold.padding(context);
     Widget header(String text) => SliverPadding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      sliver: SliverToBoxAdapter(
-        child: Text(text, style: theme.textTheme.titleMedium),
-      ),
+      padding: EdgeInsets.symmetric(horizontal: pad.left),
+      sliver: SliverToBoxAdapter(child: HakoSectionHeader(text)),
     );
     Widget none(String text) => SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      sliver: SliverToBoxAdapter(child: Text(text)),
+      padding: EdgeInsets.symmetric(horizontal: pad.left, vertical: 8),
+      sliver: SliverToBoxAdapter(
+        child: Text(
+          text,
+          style: HakoFonts.jp(size: 13, color: BrandColors.sub, height: 1.6),
+        ),
+      ),
     );
 
     return CustomScrollView(
       key: const Key('memory_list'),
       slivers: [
+        SliverPadding(
+          padding: EdgeInsets.only(top: pad.top - 22 < 0 ? 0 : pad.top - 22),
+        ),
         header('参戦予定'),
         if (album.upcoming.isEmpty)
           none('参戦予定の記録はありません')
         else
-          SliverList.list(
-            children: [
-              for (final m in album.upcoming) _UpcomingTile(memory: m),
-            ],
+          SliverPadding(
+            padding: EdgeInsets.symmetric(horizontal: pad.left),
+            sliver: SliverList.list(
+              children: [
+                for (final m in album.upcoming) _UpcomingTile(memory: m),
+              ],
+            ),
           ),
         header('参戦済み'),
         if (album.attended.isEmpty)
@@ -116,11 +133,13 @@ class _AlbumView extends StatelessWidget {
           )
         else
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: EdgeInsets.fromLTRB(pad.left, 8, pad.right, pad.bottom),
             sliver: SliverGrid.builder(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 220,
-                mainAxisExtent: 240,
+              gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 190,
+                // 文字を大きくしても下にはみ出さないよう、文字の分だけ高さを伸ばす
+                mainAxisExtent:
+                    150 + MediaQuery.textScalerOf(context).scale(80),
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
               ),
@@ -149,79 +168,16 @@ class _UpcomingTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final seat = memory.seat;
-    return ListTile(
+    return HakoRow(
       key: Key('memory_list_upcoming_${memory.performanceId}'),
-      leading: const Icon(Icons.event),
-      title: Text(memory.liveTitle),
-      subtitle: Text(
-        [
-          '${formatDateTime(memory.startAt)} 開演',
-          memory.venue,
-          if (seat != null) '座席：$seat',
-        ].join('\n'),
-      ),
+      icon: Icons.calendar_today_outlined,
+      title: memory.liveTitle,
+      subs: [
+        '${formatDateTime(memory.startAt)} 開演',
+        memory.venue,
+        if (seat != null) '座席：$seat',
+      ],
       onTap: () => context.go('/memories/${memory.performanceId}'),
     );
   }
 }
-
-/// 参戦済みのカード（表紙・ライブ名・日付・会場）
-// class _AlbumCard extends StatelessWidget {
-//   const _AlbumCard({required this.memory});
-
-//   final LiveMemory memory;
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final theme = Theme.of(context);
-//     return Card(
-//       key: Key('memory_list_attended_${memory.performanceId}'),
-//       margin: EdgeInsets.zero,
-//       clipBehavior: Clip.antiAlias,
-//       child: InkWell(
-//         onTap: () => context.go('/memories/${memory.performanceId}'),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.stretch,
-//           children: [
-//             // TODO(M-5): images があれば1枚目を表紙にする
-//             Expanded(
-//               child: ColoredBox(
-//                 color: theme.colorScheme.secondaryContainer,
-//                 child: Icon(
-//                   Icons.music_note,
-//                   size: 48,
-//                   color: theme.colorScheme.onSecondaryContainer,
-//                 ),
-//               ),
-//             ),
-//             Padding(
-//               padding: const EdgeInsets.all(8),
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   Text(
-//                     memory.liveTitle,
-//                     style: theme.textTheme.titleSmall,
-//                     maxLines: 2,
-//                     overflow: TextOverflow.ellipsis,
-//                   ),
-//                   const SizedBox(height: 2),
-//                   Text(
-//                     formatDateTime(memory.startAt),
-//                     style: theme.textTheme.bodySmall,
-//                   ),
-//                   Text(
-//                     memory.venue,
-//                     style: theme.textTheme.bodySmall,
-//                     maxLines: 1,
-//                     overflow: TextOverflow.ellipsis,
-//                   ),
-//                 ],
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }

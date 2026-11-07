@@ -108,4 +108,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('route:new'), findsOneWidget);
   });
+
+  for (final w in layoutWidths) {
+    testWidgets('幅 ${w.toInt()} ではみ出さない', (tester) async {
+      phoneWidthOverride = w;
+      addTearDown(() => phoneWidthOverride = null);
+      await pumpTop(tester, FakeTradePostRepository());
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

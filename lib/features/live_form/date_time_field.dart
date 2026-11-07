@@ -29,7 +29,8 @@ class DateTimeField extends StatelessWidget {
     );
     if (time == null) return;
     onChanged(
-        DateTime(date.year, date.month, date.day, time.hour, time.minute));
+      DateTime(date.year, date.month, date.day, time.hour, time.minute),
+    );
   }
 
   @override
@@ -41,9 +42,9 @@ class DateTimeField extends StatelessWidget {
         decoration: InputDecoration(
           labelText: label,
           suffixIcon: v == null
-              ? const Icon(Icons.calendar_today)
+              ? const Icon(Icons.calendar_today_outlined)
               : IconButton(
-                  icon: const Icon(Icons.clear),
+                  icon: const Icon(Icons.close),
                   onPressed: () => onChanged(null),
                 ),
         ),

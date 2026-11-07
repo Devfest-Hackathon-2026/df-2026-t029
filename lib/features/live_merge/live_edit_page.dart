@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/live_providers.dart';
 import '../../providers/oshi_providers.dart';
 import '../../repositories/live_repository.dart';
+import '../../theme/hako_app_widgets.dart';
 import '../live_form/live_draft_to_models.dart';
 import '../live_form/live_form_page.dart';
 
@@ -68,8 +69,10 @@ class _LiveEditPageState extends ConsumerState<LiveEditPage> {
         text: 'このライブは見つかりませんでした',
       );
     }
-    return Scaffold(
-      appBar: AppBar(title: const Text('ライブ情報の編集')),
+    return HakoPageScaffold(
+      title: 'ライブ情報の編集',
+      showBack: true,
+      backFallback: '/lives',
       body: SafeArea(child: body),
     );
   }

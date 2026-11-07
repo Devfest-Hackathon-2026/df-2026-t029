@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../theme/hako_app_widgets.dart';
 import '../../models/oshi.dart';
 import '../../utils/oshi_search.dart';
 import '../../utils/text_normalizer.dart';
@@ -229,8 +230,10 @@ class _OshiRequestPageState extends ConsumerState<OshiRequestPage> {
 
     final canSubmit = !_submitting && allAsync.hasValue && exact.isEmpty;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('推しの追加申請')),
+    return HakoPageScaffold(
+      title: '推しの追加申請',
+      showBack: true,
+      backFallback: '/oshi',
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -393,7 +396,7 @@ class _OshiRequestPageState extends ConsumerState<OshiRequestPage> {
               ),
               onChanged: (_) => _rebuild(),
             ),
-                        if (_kind == OshiKind.person) ...[
+            if (_kind == OshiKind.person) ...[
               const SizedBox(height: 16),
               _SectionLabel('所属グループ（${OshiRequest.maxGroupIds}個まで）'),
               _SelectedGroups(
@@ -463,8 +466,7 @@ class _OshiRequestPageState extends ConsumerState<OshiRequestPage> {
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
                   key: const Key('oshi_request_add_member_button'),
-                  onPressed:
-                      _submitting || _members.length >= maxRequestMembers
+                  onPressed: _submitting || _members.length >= maxRequestMembers
                       ? null
                       : _addMember,
                   icon: const Icon(Icons.person_add),

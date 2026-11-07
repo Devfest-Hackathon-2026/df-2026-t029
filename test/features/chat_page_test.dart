@@ -208,4 +208,17 @@ void main() {
     await pumpChat(tester);
     expect(find.text('チャットが見つかりません'), findsOneWidget);
   });
+
+  for (final w in layoutWidths) {
+    testWidgets('幅 ${w.toInt()} ではみ出さない', (tester) async {
+      phoneWidthOverride = w;
+      addTearDown(() => phoneWidthOverride = null);
+      await pumpChat(
+        tester,
+        c: chat(),
+        messages: [msg('m1', 'other', 'はじめまして', 11)],
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

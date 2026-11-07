@@ -7,6 +7,8 @@ import '../../models/oshi.dart';
 import '../../models/trade_post.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/trade_post_providers.dart';
+import '../../theme/brand_colors.dart';
+import '../../theme/hako_app_widgets.dart';
 import '../../utils/trade_board.dart';
 import 'board_filter_sheet.dart';
 import 'trade_post_summary.dart';
@@ -58,11 +60,12 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
     final following = ref.watch(followingOshisProvider);
     final target = ref.watch(boardTargetProvider);
 
+    final pad = HakoPageScaffold.padding(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          padding: EdgeInsets.fromLTRB(pad.left, 16, pad.right, 0),
           child: following.when(
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => Text('推しを読み込めませんでした: $e'),
@@ -127,7 +130,12 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
         ? goodsName
         : '$goodsName（${filter.side.label}）';
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: EdgeInsets.fromLTRB(
+        HakoPageScaffold.padding(context).left,
+        8,
+        HakoPageScaffold.padding(context).right,
+        0,
+      ),
       child: Wrap(
         spacing: 6,
         runSpacing: 4,
@@ -186,7 +194,7 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
           ),
         );
       }
-      return const Center(child: Text('推しを選んでください'));
+      return const HakoEmpty('推しを選んでください');
     }
     final board = ref.watch(
       tradeBoardProvider((kind: target.kind, id: target.id, limit: _limit)),
@@ -200,17 +208,22 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
     final value = board.hasValue ? board.value : (loading ? _last : null);
     if (value == null) {
       return board.hasError
-          ? Center(child: Text('投稿を読み込めませんでした: ${board.error}'))
+          ? HakoEmpty('投稿を読み込めませんでした: ${board.error}')
           : const Center(child: CircularProgressIndicator());
     }
     if (value.posts.isEmpty) {
-      return const Center(child: Text('募集中の投稿はまだありません'));
+      return const HakoEmpty('募集中の投稿はまだありません');
     }
     final filter = ref.watch(boardFilterProvider);
     final posts = value.posts.where(filter.matches).toList();
     return ListView(
       // 右下のボタンで最後の投稿が隠れないようにする
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+      padding: EdgeInsets.fromLTRB(
+        HakoPageScaffold.padding(context).left,
+        16,
+        HakoPageScaffold.padding(context).right,
+        88,
+      ),
       children: [
         if (!filter.isEmpty)
           Padding(
@@ -223,11 +236,7 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
-        if (posts.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
-            child: Center(child: Text('条件に合う投稿はありません')),
-          ),
+        if (posts.isEmpty) const HakoEmpty('条件に合う投稿はありません'),
         for (final p in posts)
           _BoardCard(post: p, all: all, isMine: p.uid == uid),
         if (value.hasMore)
@@ -260,23 +269,31 @@ class _OshiSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (oshis.isEmpty) return const SizedBox.shrink();
-    
+
     // 承認などで中身が変わっても同じ推しとして扱えるよう、key で選ぶ
     final byKey = {for (final o in oshis) o.key: o};
     final selectedKey = byKey.containsKey(selected?.key) ? selected!.key : null;
-    return DropdownButton<String>(
-      key: const Key('trade_board_oshi'),
-      isExpanded: true,
-      value: selectedKey,
-      hint: const Text('推しを選ぶ'),
-      items: [
-        for (final o in oshis)
-          DropdownMenuItem(
-            value: o.key,
-            child: Text('${o.name}（${o.kind.label}）'),
-          ),
-      ],
-      onChanged: (key) => onChanged(byKey[key]),
+    return Container(
+      constraints: const BoxConstraints(minHeight: 52),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: BrandColors.ink, width: 2)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          key: const Key('trade_board_oshi'),
+          isExpanded: true,
+          value: selectedKey,
+          hint: const Text('推しを選ぶ'),
+          items: [
+            for (final o in oshis)
+              DropdownMenuItem(
+                value: o.key,
+                child: Text('${o.name}（${o.kind.label}）'),
+              ),
+          ],
+          onChanged: (key) => onChanged(byKey[key]),
+        ),
+      ),
     );
   }
 }
