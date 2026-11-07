@@ -317,4 +317,19 @@ void main() {
       await _close(tester);
     });
   });
+
+  group('案6の見た目', () {
+    testWidgets('幅 320 でもはみ出さない。戻るボタンは無い', (tester) async {
+      await pumpVerify(tester, size: const Size(320, 640));
+      expect(tester.takeException(), isNull);
+      expect(_key('login_back_button'), findsNothing);
+      expect(_key('hako_column'), findsOneWidget);
+      for (final k in ['verify_check_button']) {
+        final rect = tester.getRect(_key(k));
+        expect(rect.left, greaterThanOrEqualTo(0));
+        expect(rect.right, lessThanOrEqualTo(320));
+      }
+      await _close(tester);
+    });
+  });
 }
