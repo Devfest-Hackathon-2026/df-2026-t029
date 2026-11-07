@@ -10,6 +10,6 @@ void main() {
       const ProviderScope(child: MaterialApp(home: LoginPage())),
     );
 
-    expect(find.text('Google でログイン'), findsOneWidget);
+    expect(find.text('Google で続ける'), findsOneWidget);
   });
 }

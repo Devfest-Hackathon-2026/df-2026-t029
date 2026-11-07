@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'features/auth/login_page.dart';
+import 'features/auth/verify_email_page.dart';
 import 'features/home/home_page.dart';
 import 'features/live/live_detail_page.dart';
 import 'features/live/live_list_page.dart';
@@ -34,6 +35,8 @@ import 'repositories/auth_repository.dart';
 
 import 'providers/profile_providers.dart';
 
+import 'utils/auth_redirect.dart';
+
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authRepositoryProvider);
   final refresh = _AuthRefresh(auth.authStateChanges());
@@ -48,20 +51,17 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     refreshListenable: Listenable.merge([refresh, profileRefresh]),
     redirect: (context, state) {
-      final loggedIn = auth.currentUser != null;
-      // ログインしていなくても見られるページ（紹介ページとログイン画面）
-      final location = state.matchedLocation;
-      final isPublic = location == '/welcome' || location == '/login';
-      if (!loggedIn) return isPublic ? null : '/welcome';
-
-      // プロフィール未作成なら作成画面へ。読み込み中・エラーのときは判定しない
+      final user = auth.currentUser;
+      // プロフィール未作成かどうか。読み込み中・エラーのときは判定しない
       final profile = ref.read(myProfileProvider);
       final needsProfile = profile is AsyncData && profile.value == null;
-      if (needsProfile) {
-        return location == '/profile' ? null : '/profile';
-      }
-      if (isPublic) return '/';
-      return null;
+      return decideRedirect(
+        location: state.matchedLocation,
+        loggedIn: user != null,
+        needsEmailVerification:
+            user != null && auth.currentUserNeedsEmailVerification,
+        needsProfile: needsProfile,
+      );
     },
     routes: [
       GoRoute(
@@ -138,7 +138,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(path: '/welcome', builder: (context, state) => const WelcomePage()),
-      GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => LoginPage(
+          initialMode: state.uri.queryParameters['mode'] == 'signup'
+              ? LoginMode.signUp
+              : LoginMode.signIn,
+        ),
+      ),
+      GoRoute(
+        path: '/verify-email',
+        builder: (context, state) => const VerifyEmailPage(),
+      ),
       GoRoute(path: '/register', builder: (context, state) => const ScanPage()),
       GoRoute(
         path: '/live-form',
@@ -191,7 +202,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           initialAttachId: state.uri.queryParameters['attach'],
         ),
       ),
-      GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
       GoRoute(path: '/profile', builder: (context, state) => const ProfilePage()),
     ],
   );

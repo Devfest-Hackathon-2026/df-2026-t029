@@ -6,9 +6,9 @@
 //   ③ いちばん下: 夜の色に戻して、締めのひとことと「始める」ボタン
 //
 // ログイン:
-//   「始める」と右上の「ログイン」は、ログイン画面（/login）を挟まずに、その場で Google のログイン
-//   （ポップアップ）を開く。ログインできたら、ルーターがホーム（初回はプロフィールの作成）へ移す。
-//   /login のルートとログイン画面は、URL を直接開いた場合のために残している。
+//   「始める」は、ログイン画面（/login?mode=signup）の「新規登録」へ移す。
+//   右上の「ログイン」は、ログイン画面（/login）の「ログイン」へ移す。
+//   Google・メールアドレスでのログインと reCAPTCHA の文言は、ログイン画面にある。
 //
 // 書体:
 //   - アプリ名・見出し・本文: 既定の書体（日本語の書体は1つが数MBあり、初回の読み込みが遅くなるため）
@@ -23,14 +23,11 @@
 //   4. 写真の色に合わせて _Palette の色を選び直す
 //   5. 著作物利用シートに、写真の出典とライセンスを書く
 
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../repositories/auth_repository.dart';
-import '../live/official_url_link.dart' show urlLauncherProvider;
+import '../../theme/brand_colors.dart';
 
 /// 最初の画面の写真。空のあいだは、仮の背景（照明のようなグラデーション）を出す。
 /// 例: 'assets/images/welcome_hero.jpg'
@@ -49,29 +46,13 @@ abstract final class _Copy {
   static const featuresLead = '推し活の「忘れてた！」を、なくすための6つの機能';
   static const closing = '推し活の予定を、\nもう逃さない。';
   static const start = '始める';
-  static const startNote =
-      '押すと Google のログインの画面が開きます。\n'
-      'カレンダーへの追加は、使うときに改めて許可を求めます。';
-  static const loginFailed = 'ログインに失敗しました';
+  static const startNote = 'メールアドレスか Google アカウントで始められます。';
   static const photoPlaceholder = 'ここに写真が入ります（いまは仮の背景）';
 }
 
-/// 色（夜のライブ会場とペンライトのイメージ。写真が決まったら写真の色から選び直す）
-abstract final class _Palette {
-  // 暗い区画（最初の画面・締め）
-  static const night = Color(0xFF0E0A1F);
-  static const violet = Color(0xFF2E1A5C);
-  static const text = Colors.white;
-  static const subText = Color(0xBFFFFFFF); // 白の 75%
-  // 明るい区画（機能）
-  static const paper = Color(0xFFFAF8FD); // ほんのり紫がかった白
-  static const ink = Color(0xFF1A1033); // 濃い紫紺の文字
-  static const inkSub = Color(0xFF5E5A72);
-  static const line = Color(0xFFE6E0F0);
-  // 差し色（ペンライト）
-  static const pink = Color(0xFFFF4FA3);
-  static const purple = Color(0xFF8B5CF6);
-}
+/// 色（夜のライブ会場とペンライトのイメージ。写真が決まったら写真の色から選び直す）。
+/// 値は lib/theme/brand_colors.dart にある（ログイン画面と共通）
+typedef _Palette = BrandColors;
 
 /// 書体
 abstract final class _Fonts {
@@ -215,24 +196,21 @@ class _Hero extends StatelessWidget {
                   alignment: Alignment.topRight,
                   child: Padding(
                     padding: const EdgeInsets.all(12),
-                    child: _SignInAction(
+                    child: OutlinedButton(
                       key: const Key('welcome_login_button'),
-                      builder: (context, onPressed) => OutlinedButton(
-                        onPressed: onPressed,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: _Palette.text,
-                          disabledForegroundColor: _Palette.subText,
-                          backgroundColor: const Color(0x40000000),
-                          side: const BorderSide(color: Color(0x66FFFFFF)),
-                          shape: const StadiumBorder(),
-                          textStyle: _Fonts.body(
-                            size: 14,
-                            weight: FontWeight.w500,
-                            height: 1,
-                          ),
+                      onPressed: () => context.go('/login'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _Palette.text,
+                        backgroundColor: const Color(0x40000000),
+                        side: const BorderSide(color: Color(0x66FFFFFF)),
+                        shape: const StadiumBorder(),
+                        textStyle: _Fonts.body(
+                          size: 14,
+                          weight: FontWeight.w500,
+                          height: 1,
                         ),
-                        child: const Text(_Copy.login),
                       ),
+                      child: const Text(_Copy.login),
                     ),
                   ),
                 ),
@@ -463,7 +441,11 @@ class _Features extends StatelessWidget {
                       _Copy.featuresTitle,
                       textAlign: TextAlign.center,
                       style: _Fonts.display(
-                        size: _clamp(MediaQuery.sizeOf(context).width * 0.054, 26, 42),
+                        size: _clamp(
+                          MediaQuery.sizeOf(context).width * 0.054,
+                          26,
+                          42,
+                        ),
                         color: _Palette.ink,
                       ),
                     ),
@@ -477,7 +459,9 @@ class _Features extends StatelessWidget {
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final width = constraints.maxWidth;
-                        final columns = width >= 960 ? 3 : (width >= 640 ? 2 : 1);
+                        final columns = width >= 960
+                            ? 3
+                            : (width >= 640 ? 2 : 1);
                         final itemWidth =
                             (width - _columnGap * (columns - 1)) / columns;
                         return Wrap(
@@ -533,9 +517,9 @@ class _FeatureItem extends StatelessWidget {
             // 番号をピンク → 紫のグラデーションで塗る
             ShaderMask(
               blendMode: BlendMode.srcIn,
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [_Palette.pink, _Palette.purple],
-              ).createShader(bounds),
+              shaderCallback: (bounds) =>
+                  const LinearGradient(colors: [_Palette.pink, _Palette.purple])
+                      .createShader(bounds),
               child: Text(
                 number,
                 style: _Fonts.latin(
@@ -558,7 +542,11 @@ class _FeatureItem extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               body,
-              style: _Fonts.body(size: 14, color: _Palette.inkSub, height: 1.85),
+              style: _Fonts.body(
+                size: 14,
+                color: _Palette.inkSub,
+                height: 1.85,
+              ),
             ),
           ],
         ),
@@ -603,7 +591,11 @@ class _Closing extends StatelessWidget {
                   _Copy.closing,
                   textAlign: TextAlign.center,
                   style: _Fonts.display(
-                    size: _clamp(MediaQuery.sizeOf(context).width * 0.05, 24, 34),
+                    size: _clamp(
+                      MediaQuery.sizeOf(context).width * 0.05,
+                      24,
+                      34,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -614,8 +606,6 @@ class _Closing extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: _Fonts.body(size: 12, color: _Palette.subText),
                 ),
-                const SizedBox(height: 10),
-                const _RecaptchaNotice(),
               ],
             ),
           ),
@@ -625,139 +615,33 @@ class _Closing extends StatelessWidget {
   }
 }
 
-/// 「始める」ボタン（ピンク → 紫のグラデーションで光らせる）。押すと Google のログインを開く
+/// 「始める」ボタン（ピンク → 紫のグラデーションで光らせる）。押すと、ログイン画面の「新規登録」へ移る
 class _StartButton extends StatelessWidget {
   const _StartButton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return _SignInAction(
-      builder: (context, onPressed) => DecoratedBox(
-        decoration: const BoxDecoration(
-          borderRadius: BorderRadius.all(Radius.circular(999)),
-          gradient: LinearGradient(colors: [_Palette.pink, _Palette.purple]),
-          boxShadow: [BoxShadow(color: Color(0x8CFF4FA3), blurRadius: 28)],
-        ),
-        child: FilledButton(
-          onPressed: onPressed,
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            disabledBackgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            foregroundColor: _Palette.text,
-            disabledForegroundColor: _Palette.subText,
-            minimumSize: const Size(260, 58),
-            shape: const StadiumBorder(),
-            textStyle: _Fonts.body(
-              size: 18,
-              weight: FontWeight.w700,
-              height: 1,
-            ).copyWith(letterSpacing: 3.6),
-          ),
-          child: onPressed == null
-              // ログインの画面が開いている間は、くるくるを出して押せなくする
-              ? const SizedBox.square(
-                  dimension: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: _Palette.text,
-                  ),
-                )
-              : const Text(_Copy.start),
-        ),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        borderRadius: BorderRadius.all(Radius.circular(999)),
+        gradient: LinearGradient(colors: [_Palette.pink, _Palette.purple]),
+        boxShadow: [BoxShadow(color: Color(0x8CFF4FA3), blurRadius: 28)],
       ),
-    );
-  }
-}
-
-/// Google でログインする（ポップアップ）。ログインできたら、ルーターが自動で
-/// ホーム（初回はプロフィールの作成）へ移すので、ここでは画面を移さない。
-/// 処理中は [builder] に null を渡し、ボタンを押せなくする（二重に開かない）。
-class _SignInAction extends ConsumerStatefulWidget {
-  const _SignInAction({super.key, required this.builder});
-
-  final Widget Function(BuildContext context, VoidCallback? onPressed) builder;
-
-  @override
-  ConsumerState<_SignInAction> createState() => _SignInActionState();
-}
-
-class _SignInActionState extends ConsumerState<_SignInAction> {
-  bool _busy = false;
-
-  /// ユーザーが自分でポップアップを閉じたときのエラー（知らせない）
-  static const _cancelCodes = {'popup-closed-by-user', 'cancelled-popup-request'};
-
-  Future<void> _signIn() async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      await ref.read(authRepositoryProvider).signInWithGoogle();
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-      if (!_cancelCodes.contains(e.code)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${_Copy.loginFailed}（${e.code}）')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) =>
-      widget.builder(context, _busy ? null : _signIn);
-}
-
-/// reCAPTCHA のバッジを隠す代わりに出す、Google の規約で求められる文言
-/// （ログイン画面から移した。暗い背景用の色）
-class _RecaptchaNotice extends ConsumerStatefulWidget {
-  const _RecaptchaNotice();
-
-  @override
-  ConsumerState<_RecaptchaNotice> createState() => _RecaptchaNoticeState();
-}
-
-class _RecaptchaNoticeState extends ConsumerState<_RecaptchaNotice> {
-  late final TapGestureRecognizer _privacy = TapGestureRecognizer()
-    ..onTap = () => _open('https://policies.google.com/privacy');
-  late final TapGestureRecognizer _terms = TapGestureRecognizer()
-    ..onTap = () => _open('https://policies.google.com/terms');
-
-  Future<void> _open(String url) =>
-      ref.read(urlLauncherProvider)(Uri.parse(url));
-
-  @override
-  void dispose() {
-    _privacy.dispose();
-    _terms.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final base = _Fonts.body(size: 11, color: const Color(0x8CFFFFFF), height: 1.7);
-    final link = base.copyWith(
-      color: const Color(0xCCFFFFFF),
-      decoration: TextDecoration.underline,
-      decorationColor: const Color(0xCCFFFFFF),
-    );
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 360),
-      child: Text.rich(
-        key: const Key('welcome_recaptcha_notice'),
-        textAlign: TextAlign.center,
-        TextSpan(
-          style: base,
-          children: [
-            const TextSpan(text: 'このサイトは reCAPTCHA で保護されており、Google の'),
-            TextSpan(text: 'プライバシーポリシー', style: link, recognizer: _privacy),
-            const TextSpan(text: 'と'),
-            TextSpan(text: '利用規約', style: link, recognizer: _terms),
-            const TextSpan(text: 'が適用されます。'),
-          ],
+      child: FilledButton(
+        onPressed: () => context.go('/login?mode=signup'),
+        style: FilledButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          foregroundColor: _Palette.text,
+          minimumSize: const Size(260, 58),
+          shape: const StadiumBorder(),
+          textStyle: _Fonts.body(
+            size: 18,
+            weight: FontWeight.w700,
+            height: 1,
+          ).copyWith(letterSpacing: 3.6),
         ),
+        child: const Text(_Copy.start),
       ),
     );
   }

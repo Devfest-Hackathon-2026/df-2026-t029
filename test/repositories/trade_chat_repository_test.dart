@@ -34,6 +34,11 @@ void main() {
   setUp(() async {
     db = FakeFirebaseFirestore();
     repo = FirestoreTradeChatRepository(db);
+    // 承認すると投稿も更新する（募集終了）ので、投稿本体を用意しておく
+    await db.collection('tradePosts').doc('p1').set({
+      'uid': 'owner',
+      'status': 'open',
+    });
     await db
         .collection('tradePosts')
         .doc('p1')
@@ -125,6 +130,11 @@ void main() {
         .doc('r1')
         .get();
     expect(r.data()!['approved'], isTrue);
+
+    // 承認と同時に、投稿は募集終了になる
+    final p = await db.collection('tradePosts').doc('p1').get();
+    expect(p.data()!['status'], 'closed');
+    expect(p.data()!['updatedAt'], isA<Timestamp>());
 
     final chat = (await db.collection('chats').doc(id).get()).data()!;
     expect(chat['postId'], 'p1');
