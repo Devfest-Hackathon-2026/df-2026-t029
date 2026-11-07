@@ -18,6 +18,10 @@ abstract class ProfileRepository {
     required String displayName,
     String? xAccount,
   });
+
+  /// テーマカラーだけを保存する（D-6）。[color] が null なら項目を消して初期の色に戻す。
+  /// プロフィールの保存日時（profileUpdatedAt）は変えない
+  Future<void> saveThemeColor(String uid, int? color);
 }
 
 /// Firestore 版の [ProfileRepository]
@@ -68,4 +72,9 @@ class FirestoreProfileRepository implements ProfileRepository {
       }
     });
   }
+
+  @override
+  Future<void> saveThemeColor(String uid, int? color) => _user(uid).update({
+        'themeColor': color ?? FieldValue.delete(),
+      });
 }

@@ -523,7 +523,11 @@ service cloud.firestore {
       return isValidOptionalString(data, 'displayName', 1, 100) &&
         (!('createdAt' in data) || data.createdAt is timestamp) &&
         isValidOptionalList(data, 'followingGroupIds', 200) &&
-        isValidOptionalList(data, 'followingOshiIds', 200);
+        isValidOptionalList(data, 'followingOshiIds', 200) &&
+        // テーマカラー（D-6）。色の ARGB の32ビット値
+        (!('themeColor' in data) ||
+          (data.themeColor is int && data.themeColor >= 0 &&
+           data.themeColor <= 4294967295));
     }
 
     // users/{userId}/myLives/{liveId}（自分のライブ一覧。Step4.5）
