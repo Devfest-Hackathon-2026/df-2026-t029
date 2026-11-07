@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../models/trade_post.dart';
 import '../../providers/trade_post_providers.dart';
 import '../trade/trade_post_summary_lines.dart';
+import '../../theme/hako_app_widgets.dart';
+import '../../theme/hako_fonts.dart';
 import 'home_section_header.dart';
 
 /// ④ 新しい交換（フォロー中の推しの、ほかの人の募集中の投稿）
@@ -17,24 +19,15 @@ class HomeNewTrades extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        HomeSectionHeader(
-          title: '新しい交換',
-          onSeeAll: () => context.go('/trade'),
-        ),
-        const SizedBox(height: 8),
+        HomeSectionHeader(title: '新しい交換', onSeeAll: () => context.go('/trade')),
         switch (posts) {
           AsyncValue(value: final list?) when list.isEmpty =>
             const HomeSectionMessage('フォロー中の推しの交換の投稿は、まだありません'),
           AsyncValue(value: final list?) => Column(
-              key: const Key('home_new_trades'),
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final (i, p) in list.indexed) ...[
-                  if (i > 0) const SizedBox(height: 8),
-                  _TradeTile(post: p),
-                ],
-              ],
-            ),
+            key: const Key('home_new_trades'),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [for (final p in list) _TradeTile(post: p)],
+          ),
           AsyncError() => const HomeSectionMessage('読み込めませんでした'),
           _ => const HomeSectionLoading(),
         },
@@ -51,28 +44,26 @@ class _TradeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
+    return InkWell(
       key: Key('home_new_trade_${post.id}'),
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => context.push('/trade/${post.id}'),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                post.displayName,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => context.push('/trade/${post.id}'),
+      child: HakoBox(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              post.displayName,
+              style: HakoFonts.jp(
+                size: 15,
+                weight: FontWeight.w700,
+                height: 1.5,
               ),
-              const SizedBox(height: 4),
-              TradePostSummaryLines(post: post),
-            ],
-          ),
+            ),
+            const SizedBox(height: 4),
+            TradePostSummaryLines(post: post),
+          ],
         ),
       ),
     );

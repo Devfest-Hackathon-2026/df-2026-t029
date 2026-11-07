@@ -239,4 +239,31 @@ void main() {
     expect(_key('live_add_tile_a'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final w in [320.0, 390.0, 720.0, 1000.0]) {
+    testWidgets('幅 ${w.toInt()} ではみ出さず、右下のボタンが出る', (tester) async {
+      tester.view.physicalSize = Size(w, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpAdd(
+        tester,
+        live: FakeLiveRepository(
+          lives: [
+            Live(id: 'a', title: 'ラ' * 100, groupIds: const ['g1']),
+          ],
+          performances: [perfOf('pa', 'a', h(24))],
+        ),
+      );
+      expect(_key('live_add_tile_a'), findsOneWidget);
+      expect(_key('live_add_register_fab'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('戻るボタンが出る', (tester) async {
+    await pumpAdd(tester);
+    // pumpAdd のルートに /lives は無いので、戻る先が見つからない例外を避け、
+    // 戻るボタンがあることだけ確かめる
+    expect(find.byKey(const Key('hako_back')), findsOneWidget);
+  });
 }

@@ -23,6 +23,13 @@ class _ControlledOshiRepository implements OshiRepository {
   @override
   Future<String> request(OshiRequest request, {required String uid}) =>
       throw UnimplementedError();
+
+  @override
+  Future<String> requestGroupWithMembers(
+    OshiRequest group,
+    List<String> memberNames, {
+    required String uid,
+  }) => throw UnimplementedError();
 }
 
 class _ControlledFollowRepository implements FollowRepository {
@@ -124,7 +131,7 @@ void main() {
       'createdAt': Timestamp.now(),
     });
 
-    test('フォロー中で承認済みの推しだけを名前順に返す（削除済み・申請中・未フォローは出さない）', () async {
+    test('フォロー中で承認済みの推しだけを個人から、名前順に返す（削除済み・申請中・未フォローは出さない）', () async {
       await seed(OshiKind.group, 'g1', 'B');
       await seed(OshiKind.group, 'g2', 'A');
       await seed(OshiKind.group, 'g3', 'C（未フォロー）');
@@ -148,9 +155,9 @@ void main() {
 
       final value = c.read(followingOshisProvider);
       expect(value.value!.map((o) => o.key).toList(), [
+        'person/p2',
         'group/g2',
         'group/g1',
-        'person/p2',
       ]);
     });
 

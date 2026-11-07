@@ -15,6 +15,12 @@ abstract final class BrandColors {
   static const hall5 = Color(0xFF4A9BEF); // 青
   static const hall6 = Color(0xFFF07BAE); // 桃
   static const halls = [hall1, hall2, hall3, hall4, hall5, hall6];
+  // ログイン後の画面（統合案 v4）
+  static const surface = Colors.white; // カード・入力の箱・チップ
+  static const sub = Color(0xFF55524B); // 補足の文字
+  static const tonal = Color(0xFFEDE6D3); // 軽いチップ・スイッチの切
+  static const tonal2 = Color(0xFFE4DBC3); // リンクのチップ
+  static const rowLine = Color(0x40121212); // 一覧の行の下線（ink の 25%）
   // 黒い区画の中
   static const onInkSub = Color(0xFFDDDDDD); // 補足の文字
   static const boardRule = Color(0xFF555555); // 掲示板の見出しの下線
@@ -24,4 +30,13 @@ abstract final class BrandColors {
   // Google ボタン（Google のブランドのガイドライン）
   static const googleBorder = Color(0xFF747775);
   static const googleText = Color(0xFF1F1F1F);
+}
+
+/// テーマカラーの上に置く文字・アイコンの色（墨か白の、コントラストが高いほう）
+Color onThemeColor(Color bg) {
+  final l = bg.computeLuminance();
+  final inkL = BrandColors.ink.computeLuminance();
+  final withInk = (l + 0.05) / (inkL + 0.05);
+  final withWhite = 1.05 / (l + 0.05);
+  return withInk >= withWhite ? BrandColors.ink : Colors.white;
 }

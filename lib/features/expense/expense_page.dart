@@ -1,3 +1,5 @@
+import '../../theme/hako_app_widgets.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -85,8 +87,10 @@ class _ExpensePageState extends ConsumerState<ExpensePage> {
     final items = ref.watch(expenseItemsProvider);
     final budget = ref.watch(myBudgetProvider).value;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('推し活費')),
+    return HakoPageScaffold(
+      title: '推し活費',
+      showBack: true,
+      backFallback: '/',
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('expense_add_fab'),
         onPressed: () => showManualExpenseSheet(context),

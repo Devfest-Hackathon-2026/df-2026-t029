@@ -552,4 +552,16 @@ void main() {
       expect(_key('trade_reply_chat_r1'), findsNothing);
     });
   });
+
+  for (final w in layoutWidths) {
+    testWidgets('幅 ${w.toInt()} ではみ出さない', (tester) async {
+      phoneWidthOverride = w;
+      addTearDown(() => phoneWidthOverride = null);
+      await pumpDetail(
+        tester,
+        FakeTradePostRepository()..posts['p1'] = fullPost(),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

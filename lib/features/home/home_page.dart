@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/profile_providers.dart';
-import '../../repositories/auth_repository.dart';
+import '../../theme/hako_app_widgets.dart';
+import '../../theme/hako_fonts.dart';
 import '../live/upcoming_deadlines_section.dart';
-import '../shell/app_shell.dart' show kShellWideBreakpoint;
 
 import 'home_section_header.dart';
 import 'home_recent_memories.dart';
@@ -19,57 +19,31 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(myProfileProvider).value;
-    // PC の幅では、アプリ名とアカウントのボタンが左のタブにある
-    final wide = MediaQuery.sizeOf(context).width >= kShellWideBreakpoint;
 
-    return Scaffold(
-      // PC の幅では、アプリ名とアカウントのボタンが左のタブにあるので AppBar を出さない
-      appBar: wide
-          ? null
-          : AppBar(
-              title: const Text('おしあし'),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.account_circle),
-                  tooltip: 'プロフィール',
-                  onPressed: () => context.push('/profile'),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.logout),
-                  tooltip: 'ログアウト',
-                  onPressed: () => ref.read(authRepositoryProvider).signOut(),
-                ),
-              ],
-            ),
+    return HakoPageScaffold(
+      title: 'おしあし',
+      showDesktopTitle: false,
       body: SafeArea(
         child: ListView(
           key: const Key('home_page'),
-          // PC では AppBar がない分、上を広めにあける
-          padding: EdgeInsets.fromLTRB(16, wide ? 24 : 16, 16, 16),
+          padding: HakoPageScaffold.padding(context),
           children: [
             _Greeting(name: profile?.displayName ?? 'ゲスト'),
-            const SizedBox(height: 24),
             const HomeSectionHeader(title: '次の締切'),
-            const SizedBox(height: 8),
             const UpcomingDeadlinesSection(),
-            const SizedBox(height: 24),
             const HomeUpcomingLives(),
-            const SizedBox(height: 24),
+            const HomeNewTrades(),
             // 今月の推し活費（H-3）
             const HomeExpenseSummary(),
-            const SizedBox(height: 24),
-            const HomeNewTrades(),
-            const SizedBox(height: 24),
             const HomeRecentMemories(),
           ],
         ),
       ),
     );
-
   }
 }
 
-/// ① あいさつと「行きたいライブを追加」（幅が狭いときはボタンを下に回す）
+/// ① あいさつと「行きたいライブを追加」
 class _Greeting extends StatelessWidget {
   const _Greeting({required this.name});
 
@@ -77,20 +51,15 @@ class _Greeting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Wrap(
-      alignment: WrapAlignment.spaceBetween,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 16,
-      runSpacing: 12,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'こんにちは、$nameさん',
           key: const Key('home_greeting'),
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: HakoFonts.jp(size: 24, weight: FontWeight.w700, height: 1.35),
         ),
+        const SizedBox(height: 12),
         FilledButton.icon(
           key: const Key('home_add_live_button'),
           onPressed: () => context.push('/lives/add'),

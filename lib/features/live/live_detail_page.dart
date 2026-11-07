@@ -11,6 +11,9 @@ import '../../models/performance.dart';
 import '../../models/reception.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/trip_providers.dart';
+import '../../theme/brand_colors.dart';
+import '../../theme/hako_app_widgets.dart';
+import '../../theme/hako_fonts.dart';
 import '../../utils/deadline.dart';
 import '../../utils/travel_links.dart';
 import '../live_form/date_time_field.dart';
@@ -207,8 +210,10 @@ class _LiveDetailPageState extends ConsumerState<LiveDetailPage> {
     // 自分のライブ一覧に入っているか（読み込み中は null）
     final inMine = ref.watch(isInMyLivesProvider(liveId)).value;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('ライブ詳細')),
+    return HakoPageScaffold(
+      title: 'ライブ詳細',
+      showBack: true,
+      backFallback: '/lives',
       body: SafeArea(
         child: switch (detail) {
           AsyncError() => _Message(
@@ -266,7 +271,15 @@ class _Message extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(text, textAlign: TextAlign.center),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: HakoFonts.jp(
+                size: 13,
+                color: BrandColors.sub,
+                height: 1.6,
+              ),
+            ),
             if (action != null) ...[const SizedBox(height: 8), action!],
           ],
         ),
@@ -296,6 +309,7 @@ class _DetailView extends StatelessWidget {
   final bool? inMine;
   final bool togglingMine;
   final VoidCallback onToggleMine;
+
   /// Google カレンダーに追加する（F-4）
   final VoidCallback onAddToCalendar;
 
@@ -349,17 +363,21 @@ class _DetailView extends StatelessWidget {
 
     return ListView(
       key: const Key('live_detail'),
-      padding: const EdgeInsets.all(16),
+      padding: HakoPageScaffold.padding(context),
       children: [
         Text(
           live.title,
           key: const Key('live_detail_title'),
-          style: theme.textTheme.titleLarge,
+          style: HakoFonts.jp(size: 20, weight: FontWeight.w700, height: 1.4),
         ),
         ?_markOf(HistoryCollection.lives, live.id),
         if (performers.isNotEmpty) ...[
           const SizedBox(height: 4),
-          Text(performers.join('、'), key: const Key('live_detail_performers')),
+          Text(
+            performers.join('、'),
+            key: const Key('live_detail_performers'),
+            style: HakoFonts.jp(size: 13, color: BrandColors.sub, height: 1.5),
+          ),
         ],
         if (url != null && url.isNotEmpty) ...[
           const SizedBox(height: 4),
@@ -388,19 +406,18 @@ class _DetailView extends StatelessWidget {
             OutlinedButton.icon(
               key: const Key('live_detail_edit_button'),
               onPressed: () => context.go('/lives/${live.id}/edit'),
-              icon: const Icon(Icons.edit),
+              icon: const Icon(Icons.edit_outlined),
               label: const Text('このライブを編集'),
             ),
             OutlinedButton.icon(
               key: const Key('live_detail_calendar_button'),
               onPressed: onAddToCalendar,
-              icon: const Icon(Icons.event),
+              icon: const Icon(Icons.calendar_today_outlined),
               label: const Text('Google カレンダーに追加'),
             ),
           ],
         ),
-        const SizedBox(height: 24),
-        Text('公演', style: theme.textTheme.titleMedium),
+        const HakoSectionHeader('公演'),
         if (detail.performances.isEmpty)
           const Padding(
             key: Key('live_detail_performances_empty'),
@@ -417,8 +434,7 @@ class _DetailView extends StatelessWidget {
           ),
           ?_markOf(HistoryCollection.performances, p.id),
         ],
-        const SizedBox(height: 24),
-        Text('受付', style: theme.textTheme.titleMedium),
+        const HakoSectionHeader('受付'),
         if (detail.receptions.isEmpty && detail.hiddenReceptionCount == 0)
           const Padding(
             key: Key('live_detail_receptions_empty'),
@@ -444,7 +460,6 @@ class _DetailView extends StatelessWidget {
               style: theme.textTheme.bodyMedium,
             ),
           ),
-        const SizedBox(height: 24),
         LiveHistorySection(liveId: live.id!, titleOf: _titleOf),
       ],
     );
@@ -495,80 +510,111 @@ class _PerformanceTile extends ConsumerWidget {
     final canTrip = id != null && !isOnlineVenue(p);
     final trip = id == null ? null : ref.watch(myTripsProvider).value?[id];
 
-    return ListTile(
-      key: Key('live_detail_performance_${p.id}'),
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(finished ? Icons.event_available : Icons.event),
-      title: Text('${formatDateTime(p.startAt)} 開演$dayLabel'),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            [
-              if (openAt != null) '${formatDateTime(openAt)} 開場',
-              place,
-            ].join('\n'),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: BrandColors.rowLine, width: 1.5),
+        ),
+      ),
+      child: ListTile(
+        key: Key('live_detail_performance_${p.id}'),
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.calendar_today_outlined, size: 28),
+        title: Text(
+          '${formatDateTime(p.startAt)} 開演$dayLabel',
+          style: HakoFonts.jp(
+            size: 15,
+            color: finished ? BrandColors.sub : BrandColors.ink,
+            height: 1.5,
           ),
-          if (trip != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                tripSummary(trip),
-                key: Key('live_detail_trip_summary_$id'),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              [
+                if (openAt != null) '${formatDateTime(openAt)} 開場',
+                place,
+              ].join('\n'),
+              style: HakoFonts.jp(
+                size: 13,
+                color: BrandColors.sub,
+                height: 1.5,
               ),
             ),
-          if (directions != null || hotels != null || canTrip)
-            Wrap(
-              spacing: 4,
-              children: [
-                if (directions != null)
-                  TextButton.icon(
-                    key: Key('live_detail_directions_button_${p.id}'),
-                    onPressed: () => launchUrl(
-                      directions,
-                      mode: LaunchMode.externalApplication,
-                    ),
-                    icon: const Icon(Icons.directions, size: 18),
-                    label: const Text('行き方'),
+            if (trip != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  tripSummary(trip),
+                  key: Key('live_detail_trip_summary_$id'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.bold,
                   ),
-                if (hotels != null)
-                  TextButton.icon(
-                    key: Key('live_detail_hotels_button_${p.id}'),
-                    onPressed: () => launchUrl(
-                      hotels,
-                      mode: LaunchMode.externalApplication,
+                ),
+              ),
+            if (directions != null || hotels != null || canTrip)
+              Wrap(
+                spacing: 4,
+                children: [
+                  if (directions != null)
+                    TextButton.icon(
+                      key: Key('live_detail_directions_button_${p.id}'),
+                      onPressed: () => launchUrl(
+                        directions,
+                        mode: LaunchMode.externalApplication,
+                      ),
+                      icon: const Icon(Icons.directions, size: 18),
+                      label: const Text('行き方'),
                     ),
-                    icon: const Icon(Icons.hotel, size: 18),
-                    label: const Text('周辺の宿'),
-                  ),
-                if (canTrip)
-                  TextButton.icon(
-                    key: Key('live_detail_trip_button_${p.id}'),
-                    onPressed: () => showTripSheet(
-                      context,
-                      performance: p,
-                      liveTitle: liveTitle,
+                  if (hotels != null)
+                    TextButton.icon(
+                      key: Key('live_detail_hotels_button_${p.id}'),
+                      onPressed: () => launchUrl(
+                        hotels,
+                        mode: LaunchMode.externalApplication,
+                      ),
+                      icon: const Icon(Icons.hotel, size: 18),
+                      label: const Text('周辺の宿'),
                     ),
-                    icon: const Icon(Icons.luggage, size: 18),
-                    label: const Text('遠征メモ'),
-                  ),
-              ],
-            ),
-        ],
+                  if (canTrip)
+                    TextButton.icon(
+                      key: Key('live_detail_trip_button_${p.id}'),
+                      onPressed: () => showTripSheet(
+                        context,
+                        performance: p,
+                        liveTitle: liveTitle,
+                      ),
+                      icon: const Icon(Icons.luggage, size: 18),
+                      label: const Text('遠征メモ'),
+                    ),
+                ],
+              ),
+          ],
+        ),
+        trailing: id == null || has == null
+            ? null
+            : TextButton(
+                key: Key('live_detail_memory_button_$id'),
+                onPressed: () => has
+                    ? context.push('/memories/$id')
+                    : context.go('/lives/$liveId/memory/$id'),
+                child: Text(
+                  has ? '記録を見る' : '記録する',
+                  style:
+                      HakoFonts.jp(
+                        size: 13,
+                        weight: FontWeight.w700,
+                        height: 1.3,
+                      ).copyWith(
+                        decoration: TextDecoration.underline,
+                        decorationColor: HakoHue.of(context),
+                        decorationThickness: 2,
+                      ),
+                ),
+              ),
       ),
-      trailing: id == null || has == null
-          ? null
-          : TextButton(
-              key: Key('live_detail_memory_button_$id'),
-              onPressed: () => has
-                  ? context.push('/memories/$id')
-                  : context.go('/lives/$liveId/memory/$id'),
-              child: Text(has ? '記録を見る' : '記録する'),
-            ),
     );
   }
 }
@@ -602,115 +648,97 @@ class _ReceptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final applyStartAt = r.applyStartAt;
     final resultAt = r.resultAt;
     final paymentDeadline = r.paymentDeadline;
     final next = nextDeadlineOf(r, status, now)?.kind;
 
-    return Card(
+    return HakoBox(
       key: Key('live_detail_reception_${r.id}'),
-      margin: const EdgeInsets.only(top: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(r.name, style: theme.textTheme.titleSmall),
-                _Label(receptionTypeLabels[r.type] ?? 'その他'),
-                if (r.winnersOnly)
-                  _Label(
-                    '当選者のみ',
-                    key: Key('live_detail_winners_only_${r.id}'),
-                    color: theme.colorScheme.tertiaryContainer,
-                  ),
-              ],
-            ),
-            ?mark,
-            const SizedBox(height: 8),
-            if (applyStartAt != null)
-              _DateRow(
-                label: '申込開始',
-                at: applyStartAt,
-                note: applyStartAt.isAfter(now) ? '受付開始前' : null,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                r.name,
+                style: HakoFonts.jp(
+                  size: 14,
+                  weight: FontWeight.w700,
+                  height: 1.4,
+                ),
               ),
-            _DateRow(
-              label: '申込期限',
-              at: r.applyEndAt,
-              // 残り時間は、いまの「次にやること」の期限にだけ出す
-              remaining: next == DeadlineKind.apply
-                  ? remainingLabel(r.applyEndAt, now)
-                  : null,
-            ),
-            if (resultAt != null)
-              _DateRow(
-                label: '当落発表',
-                at: resultAt,
-                note: resultAt.isBefore(now) ? '発表済み' : null,
-              ),
-            paymentDeadline == null
-                ? const _TextRow(label: '入金期限', value: '未発表')
-                : _DateRow(
-                    label: '入金期限',
-                    at: paymentDeadline,
-                    remaining: next == DeadlineKind.payment
-                        ? remainingLabel(paymentDeadline, now)
-                        : null,
-                  ),
-            if (r.prices.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              for (final price in r.prices)
-                _TextRow(
-                  label: price.seat,
-                  value: '${formatYen(price.amount)}円',
+              HakoTagChip(receptionTypeLabels[r.type] ?? 'その他'),
+              if (r.winnersOnly)
+                HakoTagChip(
+                  '当選者のみ',
+                  key: Key('live_detail_winners_only_${r.id}'),
                 ),
             ],
-            const Divider(height: 24),
-            _NextAction(r: r, status: status, now: now),
-            const SizedBox(height: 8),
-            if (inMine == true)
-              _StatusSelector(
-                receptionId: r.id ?? '',
-                status: status,
-                busy: busy,
-                onChanged: onChangeStatus,
-              )
-            else if (inMine == false)
-              Text(
-                'ライブ一覧に追加すると、申込状況を記録できます',
-                key: Key('live_detail_add_hint_${r.id}'),
-              ),
+          ),
+          ?mark,
+          const SizedBox(height: 8),
+          if (applyStartAt != null)
+            _DateRow(
+              label: '申込開始',
+              at: applyStartAt,
+              note: applyStartAt.isAfter(now) ? '受付開始前' : null,
+            ),
+          _DateRow(
+            label: '申込期限',
+            at: r.applyEndAt,
+            // 残り時間は、いまの「次にやること」の期限にだけ出す
+            remaining: next == DeadlineKind.apply
+                ? remainingLabel(r.applyEndAt, now)
+                : null,
+          ),
+          if (resultAt != null)
+            _DateRow(
+              label: '当落発表',
+              at: resultAt,
+              note: resultAt.isBefore(now) ? '発表済み' : null,
+            ),
+          paymentDeadline == null
+              ? const _TextRow(label: '入金期限', value: '未発表')
+              : _DateRow(
+                  label: '入金期限',
+                  at: paymentDeadline,
+                  remaining: next == DeadlineKind.payment
+                      ? remainingLabel(paymentDeadline, now)
+                      : null,
+                ),
+          if (r.prices.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            for (final price in r.prices)
+              _TextRow(label: price.seat, value: '${formatYen(price.amount)}円'),
           ],
-        ),
+          const Divider(height: 24),
+          _NextAction(r: r, status: status, now: now),
+          const SizedBox(height: 8),
+          if (inMine == true)
+            _StatusSelector(
+              receptionId: r.id ?? '',
+              status: status,
+              busy: busy,
+              onChanged: onChangeStatus,
+            )
+          else if (inMine == false)
+            Text(
+              'ライブ一覧に追加すると、申込状況を記録できます',
+              key: Key('live_detail_add_hint_${r.id}'),
+            ),
+        ],
       ),
     );
   }
 }
 
-class _Label extends StatelessWidget {
-  const _Label(this.text, {super.key, this.color});
-
-  final String text;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color ?? scheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(text, style: Theme.of(context).textTheme.labelSmall),
-    );
-  }
-}
+final _subStyle = HakoFonts.jp(size: 13, color: BrandColors.sub, height: 1.5);
+final _bodyStyle = HakoFonts.jp(size: 13, height: 1.5);
 
 class _TextRow extends StatelessWidget {
   const _TextRow({required this.label, required this.value});
@@ -725,8 +753,8 @@ class _TextRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 72, child: Text(label)),
-          Expanded(child: Text(value)),
+          SizedBox(width: 88, child: Text(label, style: _subStyle)),
+          Expanded(child: Text(value, style: _bodyStyle)),
         ],
       ),
     );
@@ -758,16 +786,18 @@ class _DateRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 72, child: Text(label)),
+          SizedBox(width: 88, child: Text(label, style: _subStyle)),
           Expanded(
             child: Text.rich(
               TextSpan(
                 children: [
                   TextSpan(
                     text: formatDateTime(at),
-                    style: past
-                        ? TextStyle(color: scheme.onSurfaceVariant)
-                        : null,
+                    style: HakoFonts.jp(
+                      size: 13,
+                      color: past ? BrandColors.sub : BrandColors.ink,
+                      height: 1.5,
+                    ),
                   ),
                   if (extra != null) ...[
                     const TextSpan(text: '  '),
@@ -780,14 +810,32 @@ class _DateRow extends StatelessWidget {
                           color: scheme.error,
                         ),
                       ),
-                    TextSpan(
-                      text: extra,
-                      style: urgent
-                          ? TextStyle(
-                              color: scheme.error,
-                              fontWeight: FontWeight.bold,
-                            )
-                          : TextStyle(color: scheme.onSurfaceVariant),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          // 過ぎた・発表済みは tonal、残り時間は黄
+                          color: rem != null && !past
+                              ? BrandColors.hall3
+                              : BrandColors.tonal,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: BrandColors.ink,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                            extra,
+                            style: HakoFonts.jp(
+                              size: 11,
+                              weight: FontWeight.w700,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ],
@@ -836,21 +884,29 @@ class _NextAction extends StatelessWidget {
         Row(
           children: [
             Icon(
-              urgent ? Icons.warning_amber_rounded : Icons.flag_outlined,
+              urgent
+                  ? Icons.warning_amber_rounded
+                  : status == ApplicationStatus.paid
+                  ? Icons.check
+                  : Icons.flag_outlined,
               size: 18,
               color: urgent ? scheme.error : scheme.onSurfaceVariant,
             ),
             const SizedBox(width: 4),
             Expanded(
-              child: Text(
-                text,
-                style: urgent
-                    ? TextStyle(
-                        color: scheme.error,
-                        fontWeight: FontWeight.bold,
-                      )
-                    : null,
-              ),
+              child: deadline == null
+                  ? Text(text, style: _bodyStyle)
+                  : Align(
+                      alignment: Alignment.centerLeft,
+                      child: HakoStatusChip(
+                        text,
+                        kind: switch (deadline.kind) {
+                          DeadlineKind.apply => HakoChipKind.apply,
+                          DeadlineKind.result => HakoChipKind.draw,
+                          DeadlineKind.payment => HakoChipKind.pay,
+                        },
+                      ),
+                    ),
             ),
           ],
         ),
@@ -885,7 +941,7 @@ class _StatusSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Text('申込状況'),
+        Text('申込状況', style: _subStyle),
         const SizedBox(width: 12),
         Expanded(
           child: DropdownButton<ApplicationStatus?>(

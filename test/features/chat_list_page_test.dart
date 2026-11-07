@@ -153,4 +153,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('チャット'), findsOneWidget);
   });
+
+  for (final w in layoutWidths) {
+    testWidgets('幅 ${w.toInt()} ではみ出さない', (tester) async {
+      phoneWidthOverride = w;
+      addTearDown(() => phoneWidthOverride = null);
+      await pump(tester, FakeTradeChatRepository()..chatsInitial = [chat('a')]);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

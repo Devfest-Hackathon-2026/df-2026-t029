@@ -139,4 +139,24 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(_key('home_following_list'), findsOneWidget);
   });
+
+  for (final w in layoutWidths) {
+    testWidgets('幅 ${w.toInt()}・長い名前でもはみ出さない', (tester) async {
+      tester.view.physicalSize = Size(w, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpPage(
+        tester,
+        const OshiPage(),
+        oshiRepo: FakeOshiRepository([
+          oshi('g1', 'とても長いグループの名前' * 5),
+          oshi('g2', 'B'),
+        ]),
+        followRepo: FakeFollowRepository(
+          const FollowState(groupIds: {'g1', 'g2'}),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

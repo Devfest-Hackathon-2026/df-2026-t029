@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/trade_post_providers.dart';
+import '../../theme/hako_app_widgets.dart';
 
 import 'my_trade_posts_view.dart';
 import 'trade_board_view.dart';
@@ -34,26 +35,40 @@ class TradeTopPage extends StatelessWidget {
     return DefaultTabController(
       length: TradeTab.values.length,
       initialIndex: initialTab.index,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('グッズ交換'),
-          actions: const [_ChatButton()],
-          bottom: TabBar(
-            tabs: [
-              for (final t in TradeTab.values)
-                Tab(key: Key('trade_tab_${t.name}'), text: t.label),
-            ],
-          ),
-        ),
+      child: HakoPageScaffold(
+        title: 'グッズ交換',
         floatingActionButton: FloatingActionButton.extended(
           key: const Key('trade_new_button'),
           onPressed: () => context.push('/trade/new'),
           icon: const Icon(Icons.add),
           label: const Text('投稿を作る'),
         ),
-        body: const SafeArea(
-          child: TabBarView(
-            children: [TradeBoardView(), TradeMatchView(), MyTradePostsView()],
+        body: SafeArea(
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TabBar(
+                      tabs: [
+                        for (final t in TradeTab.values)
+                          Tab(key: Key('trade_tab_${t.name}'), text: t.label),
+                      ],
+                    ),
+                  ),
+                  const _ChatButton(),
+                ],
+              ),
+              const Expanded(
+                child: TabBarView(
+                  children: [
+                    TradeBoardView(),
+                    TradeMatchView(),
+                    MyTradePostsView(),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),

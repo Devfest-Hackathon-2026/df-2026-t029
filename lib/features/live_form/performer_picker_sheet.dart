@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/oshi.dart';
 import '../../providers/oshi_providers.dart';
+import '../../theme/brand_colors.dart';
+import '../../theme/hako_app_widgets.dart';
+import '../../theme/hako_fonts.dart';
 import '../../utils/oshi_search.dart';
 
 /// 出演者（承認済みの推し・グループ）を検索して1件選ぶ。選ばなければ null
@@ -13,9 +16,15 @@ Future<OshiSummary?> showPerformerPicker(
   return showModalBottomSheet<OshiSummary>(
     context: context,
     isScrollControlled: true,
+    constraints: const BoxConstraints(maxWidth: 560),
     builder: (context) => _PerformerPickerSheet(initialQuery: initialQuery),
   );
 }
+
+OutlineInputBorder _searchBorder(double width) => OutlineInputBorder(
+  borderRadius: BorderRadius.circular(10),
+  borderSide: BorderSide(color: BrandColors.ink, width: width),
+);
 
 class _PerformerPickerSheet extends ConsumerStatefulWidget {
   const _PerformerPickerSheet({required this.initialQuery});
@@ -37,17 +46,28 @@ class _PerformerPickerSheetState extends ConsumerState<_PerformerPickerSheet> {
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(
-            16, 16, 16, MediaQuery.viewInsetsOf(context).bottom + 16),
+          16,
+          16,
+          16,
+          MediaQuery.viewInsetsOf(context).bottom + 16,
+        ),
         child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.7,
+          height: MediaQuery.sizeOf(context).height * 0.82,
           child: Column(
             children: [
               TextFormField(
                 initialValue: _query,
                 autofocus: true,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: '推し・グループを検索',
-                  prefixIcon: Icon(Icons.search),
+                  floatingLabelBehavior: FloatingLabelBehavior.never,
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  border: _searchBorder(2),
+                  enabledBorder: _searchBorder(2),
+                  focusedBorder: _searchBorder(3),
                 ),
                 onChanged: (v) => setState(() => _query = v),
               ),
@@ -55,8 +75,7 @@ class _PerformerPickerSheetState extends ConsumerState<_PerformerPickerSheet> {
               Expanded(
                 child: switch (all) {
                   AsyncData(:final value) => _buildList(value),
-                  AsyncError(:final error) =>
-                    Center(child: Text('読み込みに失敗しました：$error')),
+                  AsyncError(:final error) => HakoEmpty('読み込みに失敗しました：$error'),
                   _ => const Center(child: CircularProgressIndicator()),
                 },
               ),
@@ -68,21 +87,29 @@ class _PerformerPickerSheetState extends ConsumerState<_PerformerPickerSheet> {
   }
 
   Widget _buildList(List<OshiSummary> all) {
-    final results =
-        searchOshis(all, _query).where((o) => o.isApproved).toList();
+    final results = searchOshis(
+      all,
+      _query,
+    ).where((o) => o.isApproved).toList();
     if (results.isEmpty) {
-      return const Center(
-        child: Text('見つかりません。未登録の場合は、推しの追加申請をしてください'),
-      );
+      return const HakoEmpty('見つかりません。未登録の場合は、推しの追加申請をしてください');
     }
     return ListView(
       children: [
         for (final o in results)
           ListTile(
-            leading:
-                Icon(o.kind == OshiKind.group ? Icons.groups : Icons.person),
+            minTileHeight: 52,
+            leading: Icon(
+              o.kind == OshiKind.group
+                  ? Icons.group_outlined
+                  : Icons.person_outline,
+              size: 28,
+            ),
             title: Text(o.name),
-            subtitle: Text(o.kind.label),
+            subtitle: Text(
+              o.kind.label,
+              style: HakoFonts.jp(size: 12, color: BrandColors.sub),
+            ),
             onTap: () => Navigator.of(context).pop(o),
           ),
       ],

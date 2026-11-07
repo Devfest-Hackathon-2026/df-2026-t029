@@ -24,23 +24,22 @@ class HomeRecentMemories extends ConsumerWidget {
           title: '最近の思い出',
           onSeeAll: () => context.go('/memories'),
         ),
-        const SizedBox(height: 8),
         switch (album) {
           AsyncValue(value: final a?) when a.attended.isEmpty =>
             const HomeSectionMessage('参戦したライブを記録すると、ここに出ます'),
           AsyncValue(value: final a?) => HomeHorizontalList(
-              key: const Key('home_recent_memories'),
-              height: 220,
-              itemWidth: 180,
-              children: [
-                for (final m in a.attended.take(_maxMemories))
-                  MemoryAlbumCard(
-                    key: Key('home_recent_memory_${m.performanceId}'),
-                    memory: m,
-                    onTap: () => context.push('/memories/${m.performanceId}'),
-                  ),
-              ],
-            ),
+            key: const Key('home_recent_memories'),
+            height: 220,
+            itemWidth: 180,
+            children: [
+              for (final m in a.attended.take(_maxMemories))
+                MemoryAlbumCard(
+                  key: Key('home_recent_memory_${m.performanceId}'),
+                  memory: m,
+                  onTap: () => context.push('/memories/${m.performanceId}'),
+                ),
+            ],
+          ),
           AsyncError() => const HomeSectionMessage('読み込めませんでした'),
           _ => const HomeSectionLoading(),
         },

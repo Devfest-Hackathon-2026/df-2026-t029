@@ -47,11 +47,12 @@ describe('デモ用データ', () => {
   });
 
 
-  test('件数: groups1・oshis4・lives3・performances5・receptions5', () => {
+  test('件数: groups7・oshis24・lives15・performances29・receptions23', () => {
     const n = Object.fromEntries(
       collectionsOf(data).map(([k, v]) => [k, Object.keys(v).length]),
     );
-    if (JSON.stringify(n) !== JSON.stringify({ groups: 1, oshis: 4, lives: 3, performances: 5, receptions: 5 })) {
+    const expected = { groups: 7, oshis: 24, lives: 15, performances: 29, receptions: 23 };
+    if (JSON.stringify(n) !== JSON.stringify(expected)) {
       throw new Error(JSON.stringify(n));
     }
   });

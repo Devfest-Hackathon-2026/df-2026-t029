@@ -98,8 +98,9 @@ class _ReplyTile extends ConsumerWidget {
       builder: (context) => AlertDialog(
         title: const Text('この人と個人チャットを開きますか？'),
         content: const Text(
-            '返信を承認すると、2人だけのチャットができ、この投稿の募集も終了します'
-            '（自分の投稿のタブから再開できます）。承認は取り消せません'),
+          '返信を承認すると、2人だけのチャットができ、この投稿の募集も終了します'
+          '（自分の投稿のタブから再開できます）。承認は取り消せません',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),

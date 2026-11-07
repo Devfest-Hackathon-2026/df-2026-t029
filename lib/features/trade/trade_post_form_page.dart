@@ -14,6 +14,7 @@ import '../../providers/oshi_providers.dart';
 import '../../providers/photo_providers.dart';
 import '../../providers/trade_post_providers.dart';
 import '../../providers/profile_providers.dart';
+import '../../theme/hako_app_widgets.dart';
 import '../common/photo_items.dart';
 import '../live_form/date_time_field.dart';
 import 'trade_post_draft.dart';
@@ -184,8 +185,10 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
   }
 
   /// 読み込み中（[text] が null）やエラーのときの画面
-  Widget _message(String? text) => Scaffold(
-    appBar: AppBar(title: Text(_title)),
+  Widget _message(String? text) => HakoPageScaffold(
+    title: _title,
+    showBack: true,
+    backFallback: '/trade',
     body: Center(
       child: text == null
           ? const CircularProgressIndicator()
@@ -208,8 +211,10 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
     final canAddPhoto =
         photosEnabled && draft.photoCount < TradePost.maxImages;
 
-    return Scaffold(
-      appBar: AppBar(title: Text(_title)),
+    return HakoPageScaffold(
+      title: _title,
+      showBack: true,
+      backFallback: '/trade',
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -434,9 +439,7 @@ class _PerformanceChips extends ConsumerWidget {
               Row(
                 key: const Key('trade_performance_missing'),
                 children: [
-                  Expanded(
-                    child: Text('ライブ一覧に無い公演が${missing.length}件選ばれています'),
-                  ),
+                  Expanded(child: Text('ライブ一覧に無い公演が${missing.length}件選ばれています')),
                   TextButton(
                     key: const Key('trade_performance_missing_remove'),
                     onPressed: () {

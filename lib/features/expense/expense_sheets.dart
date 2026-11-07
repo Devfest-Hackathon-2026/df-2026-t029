@@ -41,8 +41,10 @@ final _digitsOnly = [FilteringTextInputFormatter.digitsOnly];
 // ---------------------------------------------------------------
 
 /// 手入力の出費のシート。[existing] があれば編集（削除もできる）
-Future<void> showManualExpenseSheet(BuildContext context, {Expense? existing}) =>
-    _showSheet(context, _ManualExpenseForm(existing: existing));
+Future<void> showManualExpenseSheet(
+  BuildContext context, {
+  Expense? existing,
+}) => _showSheet(context, _ManualExpenseForm(existing: existing));
 
 class _ManualExpenseForm extends ConsumerStatefulWidget {
   const _ManualExpenseForm({this.existing});
@@ -92,9 +94,7 @@ class _ManualExpenseFormState extends ConsumerState<_ManualExpenseForm> {
       return;
     }
     if (amount == null || amount < 1 || amount > Expense.maxAmount) {
-      setState(
-        () => _error = '金額は1〜${formatYen(Expense.maxAmount)}円で入力してください',
-      );
+      setState(() => _error = '金額は1〜${formatYen(Expense.maxAmount)}円で入力してください');
       return;
     }
     final live = lives.where((l) => l.id == _liveId).firstOrNull;

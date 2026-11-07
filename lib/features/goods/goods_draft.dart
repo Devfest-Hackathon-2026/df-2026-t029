@@ -26,16 +26,16 @@ class GoodsDraft {
 
   /// 保存済みのグッズから、編集用に作る
   factory GoodsDraft.fromGoods(Goods g) => GoodsDraft(
-        name: g.name,
-        aliases: g.aliases.join('、'),
-        category: g.category,
-        price: g.price?.toString() ?? '',
-        officialUrl: g.officialUrl ?? '',
-        variants: [
-          for (final v in g.variants)
-            VariantDraft(id: v.id, name: v.name, oshiId: v.oshiId),
-        ],
-      );
+    name: g.name,
+    aliases: g.aliases.join('、'),
+    category: g.category,
+    price: g.price?.toString() ?? '',
+    officialUrl: g.officialUrl ?? '',
+    variants: [
+      for (final v in g.variants)
+        VariantDraft(id: v.id, name: v.name, oshiId: v.oshiId),
+    ],
+  );
 
   // 上限はセキュリティルールと同じ
   static const int maxNameLength = 100;
@@ -120,9 +120,11 @@ class GoodsDraft {
     if (normalizeName(n).isNotEmpty) {
       final dup = findExactGoodsDuplicates(existing, name: n, aliases: as);
       if (dup.isNotEmpty) {
-        errors.add('同じ名前のグッズが既にあります'
-            '（${dup.map((g) => g.name).join('、')}）。'
-            '検索画面から既存のグッズを使ってください');
+        errors.add(
+          '同じ名前のグッズが既にあります'
+          '（${dup.map((g) => g.name).join('、')}）。'
+          '検索画面から既存のグッズを使ってください',
+        );
       }
     }
     return errors;

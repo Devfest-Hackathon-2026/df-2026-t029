@@ -5,6 +5,9 @@ import '../../models/history_entry.dart';
 import '../../providers/live_providers.dart';
 import '../../providers/oshi_providers.dart';
 import '../../repositories/live_repository.dart';
+import '../../theme/brand_colors.dart';
+import '../../theme/hako_app_widgets.dart';
+import '../../theme/hako_fonts.dart';
 import '../../utils/live_diff.dart';
 import '../live_form/date_time_field.dart';
 import 'deadline_format.dart';
@@ -45,31 +48,24 @@ class ChangedMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Padding(
       key: Key('live_detail_changed_${change.target.docId}'),
       padding: const EdgeInsets.only(top: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(
-              color: scheme.errorContainer,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              // 後から追加された公演・受付は「追加」、項目の変更は「変更あり」
-              change is DocAdded ? '追加' : '変更あり',
-              style: TextStyle(color: scheme.onErrorContainer, fontSize: 12),
-            ),
-          ),
+          // 後から追加された公演・受付は「追加」、項目の変更は「変更あり」
+          HakoTagChip(change is DocAdded ? '追加' : '変更あり'),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               '${describeLiveChange(change, nameOf: nameOf)}'
               '（${_whenText(change.at, now)}）',
-              style: Theme.of(context).textTheme.bodySmall,
+              style: HakoFonts.jp(
+                size: 12,
+                color: BrandColors.sub,
+                height: 1.5,
+              ),
             ),
           ),
         ],
@@ -183,7 +179,7 @@ class _LiveHistorySectionState extends ConsumerState<LiveHistorySection> {
       key: const Key('live_detail_history'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('変更履歴', style: Theme.of(context).textTheme.titleMedium),
+        const HakoSectionHeader('変更履歴'),
         switch (changes) {
           AsyncError() => Padding(
             key: const Key('live_detail_history_error'),
@@ -276,31 +272,40 @@ class _HistoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final onRevert = this.onRevert;
-    return ListTile(
-      key: Key('live_detail_history_entry_$_id'),
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(change is DocAdded ? Icons.add_circle_outline : Icons.edit),
-      title: Text(title),
-      subtitle: Text(
-        [
-          description,
-          [?whoText, whenText].join('・'),
-        ].join('\n'),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: BrandColors.rowLine, width: 1.5),
+        ),
       ),
-      isThreeLine: true,
-      trailing: onRevert == null
-          ? null
-          : reverting
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : TextButton(
-              key: Key('live_detail_history_revert_$_id'),
-              onPressed: onRevert,
-              child: const Text('元に戻す'),
-            ),
+      child: ListTile(
+        key: Key('live_detail_history_entry_$_id'),
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(
+          change is DocAdded ? Icons.add_circle_outline : Icons.edit_outlined,
+        ),
+        title: Text(title),
+        subtitle: Text(
+          [
+            description,
+            [?whoText, whenText].join('・'),
+          ].join('\n'),
+        ),
+        isThreeLine: true,
+        trailing: onRevert == null
+            ? null
+            : reverting
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : TextButton(
+                key: Key('live_detail_history_revert_$_id'),
+                onPressed: onRevert,
+                child: const Text('元に戻す'),
+              ),
+      ),
     );
   }
 }

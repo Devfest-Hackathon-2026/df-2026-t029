@@ -708,3 +708,23 @@ export function buildDemoDocs(base) {
   addChangeHistory(docs, b);
   return docs;
 }
+
+/**
+ * 共通データのうち、トップレベルのコレクションのドキュメントだけを
+ * { コレクション名: { ID: 項目 } } の形で返す（履歴などのサブコレクションは含めない）。
+ * テストとフィクスチャ用。
+ */
+export function buildDemoData(base) {
+  const result = {};
+  for (const { path, data } of buildDemoDocs(base)) {
+    const parts = path.split('/');
+    if (parts.length !== 2) continue;
+    (result[parts[0]] ??= {})[parts[1]] = data;
+  }
+  return result;
+}
+
+/** buildDemoData の結果を [[コレクション名, { ID: 項目 }], ...] にする */
+export function collectionsOf(data) {
+  return Object.entries(data);
+}

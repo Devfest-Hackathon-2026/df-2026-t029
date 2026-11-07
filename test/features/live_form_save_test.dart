@@ -274,4 +274,15 @@ void main() {
     expect(dialogText(tester), contains('ライブ名を入力してください'));
     expect(repo.created, isEmpty);
   });
+
+  for (final w in [320.0, 360.0, 390.0, 720.0, 1000.0]) {
+    testWidgets('ライブ情報の入力: 幅 ${w.toInt()} ではみ出さない', (tester) async {
+      tester.view.physicalSize = Size(w, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpFromScan(tester, FakeLiveRepository());
+      expect(find.byKey(const Key('hako_save_bar')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
