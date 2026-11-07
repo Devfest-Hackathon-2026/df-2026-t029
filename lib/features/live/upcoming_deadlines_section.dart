@@ -166,7 +166,8 @@ class _DeadlineTile extends StatelessWidget {
           margin: const EdgeInsets.symmetric(vertical: 2),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: scheme.primaryContainer,
+            // テーマの色を薄く透かす（どのテーマの色でも文字が読めるように）
+            color: scheme.primary.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
