@@ -21,6 +21,7 @@ List<String> groupNamesOf(OshiSummary oshi, Map<String, String> names) => [
 /// 種別ラベル・申請中バッジ・フォロー／解除ボタンを出す。
 /// 申請中の推しはフォローボタンを押せない。
 /// [onTap] があれば行を押せる（グループの行で、メンバーの一覧を出すのに使う）。
+/// [onToggleFavorite] があれば、フォローのボタンの左に最推しの星を出す（Fc 3.2）。
 class OshiListTile extends StatelessWidget {
   const OshiListTile({
     super.key,
@@ -31,6 +32,8 @@ class OshiListTile extends StatelessWidget {
     required this.onUnfollow,
     this.onTap,
     this.groupNames = const [],
+    this.isFavorite = false,
+    this.onToggleFavorite,
   });
 
   final OshiSummary oshi;
@@ -46,6 +49,12 @@ class OshiListTile extends StatelessWidget {
 
   /// 所属グループの名前（個人の行だけ）。「所属：◯◯」のラベルで出す
   final List<String> groupNames;
+
+  /// 最推しか（[onToggleFavorite] があるときだけ使う）
+  final bool isFavorite;
+
+  /// 星を押したとき。null なら星を出さない（フォロー中の一覧だけで渡す）
+  final VoidCallback? onToggleFavorite;
 
   String get _keySuffix => '${oshi.kind.name}_${oshi.id}';
 
@@ -119,6 +128,18 @@ class OshiListTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 14),
+            if (onToggleFavorite != null) ...[
+              IconButton(
+                key: ValueKey('oshi_favorite_button_$_keySuffix'),
+                tooltip: isFavorite ? '最推しを外す' : '最推しにする',
+                onPressed: isBusy ? null : onToggleFavorite,
+                icon: Icon(
+                  isFavorite ? Icons.star : Icons.star_border,
+                  color: isFavorite ? BrandColors.hall2 : BrandColors.ink,
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
             _buildButton(isPending),
           ],
         ),
