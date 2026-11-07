@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,9 @@ import '../../models/live_memory.dart';
 import '../../providers/live_providers.dart';
 import '../../providers/memory_providers.dart';
 import '../../providers/oshi_providers.dart';
+import '../../providers/photo_providers.dart';
+import '../../utils/photo_picker.dart';
+import '../common/storage_image.dart';
 import '../live_form/date_time_field.dart';
 
 /// セトリの曲数の上限
@@ -109,6 +114,25 @@ String? _nullIfBlank(String text) {
   return t.isEmpty ? null : t;
 }
 
+/// 編集中の写真1枚（仕様書 6.2）
+sealed class _PhotoItem {
+  const _PhotoItem();
+}
+
+/// 保存済みの写真（Storage のパス）
+class _SavedPhoto extends _PhotoItem {
+  const _SavedPhoto(this.path);
+
+  final String path;
+}
+
+/// 新しく選んだ写真（保存するときにアップロードする）
+class _NewPhoto extends _PhotoItem {
+  const _NewPhoto(this.photo);
+
+  final PickedPhoto photo;
+}
+
 class _MemoryForm extends ConsumerStatefulWidget {
   const _MemoryForm({required this.memory, required this.isNew});
 
@@ -129,7 +153,12 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
     text: widget.memory.impression ?? '',
   );
 
-  /// 保存・削除の処理中（二重送信の防止）
+  /// 写真の並び（最初はもとの images）。1枚目が表紙
+  late final List<_PhotoItem> _photos = [
+    for (final path in widget.memory.images) _SavedPhoto(path),
+  ];
+
+  /// 保存・削除・写真の読み込みの処理中（二重送信の防止）
   bool _busy = false;
 
   @override
@@ -151,21 +180,80 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
     return null;
   }
 
+  void _showMessage(ScaffoldMessengerState messenger, String text) {
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  /// 写真を選んで並びの最後に足す（まだアップロードしない）
+  Future<void> _addPhotos() async {
+    if (_busy) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    PhotoPickResult result;
+    try {
+      result = await pickPhotos(remaining: maxPhotosPerItem - _photos.length);
+    } catch (e) {
+      debugPrint('写真の読み込みに失敗: $e');
+      if (mounted) setState(() => _busy = false);
+      _showMessage(messenger, '写真を読み込めませんでした');
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _photos.addAll(result.photos.map(_NewPhoto.new));
+      _busy = false;
+    });
+    if (photoPickMessage(result) case final message?) {
+      _showMessage(messenger, message);
+    }
+  }
+
+  /// 保存（仕様書 3.3）。新しい写真をアップロード → 記録を保存 → 外した写真を消す
   Future<void> _save() async {
     if (_busy || !(_formKey.currentState?.validate() ?? false)) return;
     final uid = ref.read(currentUidProvider);
     if (uid == null) return;
-    final memory = widget.memory.copyWithContent(
-      seat: _nullIfBlank(_seat.text),
-      setlist: parseSetlist(_setlist.text),
-      impression: _nullIfBlank(_impression.text),
-    );
+    final original = widget.memory;
     final isNew = widget.isNew;
     final repo = ref.read(memoryRepositoryProvider);
+    final photoRepo = ref.read(photoRepositoryProvider);
     // 保存すると記録の購読が変わり、この画面が作り直されることがあるため先に取っておく
     final router = GoRouter.of(context);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _busy = true);
+
+    // 1. 新しい写真をアップロードする。失敗したら、この保存で上げた分を消して止める
+    final dir = 'users/$uid/memories/${original.performanceId}';
+    final uploaded = <String>[];
+    final images = <String>[];
+    try {
+      for (final item in _photos) {
+        switch (item) {
+          case _SavedPhoto(:final path):
+            images.add(path);
+          case _NewPhoto(:final photo):
+            final path = await photoRepo.upload(dir, photo);
+            uploaded.add(path);
+            images.add(path);
+        }
+      }
+    } catch (e) {
+      debugPrint('写真のアップロードに失敗: $e');
+      await photoRepo.deleteAll(uploaded);
+      if (mounted) setState(() => _busy = false);
+      _showMessage(messenger, '写真を保存できませんでした。もう一度お試しください');
+      return;
+    }
+
+    // 2. 記録を保存する
+    final memory = original.copyWithContent(
+      seat: _nullIfBlank(_seat.text),
+      setlist: parseSetlist(_setlist.text),
+      impression: _nullIfBlank(_impression.text),
+      images: images,
+    );
     try {
       if (isNew) {
         await repo.create(uid, memory);
@@ -174,14 +262,17 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
       }
     } catch (e) {
       debugPrint('記録の保存に失敗: $e');
+      await photoRepo.deleteAll(uploaded);
       if (mounted) setState(() => _busy = false);
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('記録を保存できませんでした。もう一度お試しください')),
-        );
+      _showMessage(messenger, '記録を保存できませんでした。もう一度お試しください');
       return;
     }
+
+    // 3. 外した写真を消す（失敗しても無視。待たずに戻る）
+    unawaited(
+      photoRepo.deleteAll(original.images.where((p) => !images.contains(p))),
+    );
+
     // 作成はライブの詳細へ、編集は記録の詳細へ戻る
     router.go(
       isNew ? '/lives/${memory.liveId}' : '/memories/${memory.performanceId}',
@@ -194,7 +285,7 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('記録を削除しますか？'),
-        content: const Text('座席・セトリ・感想も消え、元には戻せません'),
+        content: const Text('座席・セトリ・感想・写真も消え、元には戻せません'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -213,6 +304,7 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
     if (uid == null) return;
     final memory = widget.memory;
     final repo = ref.read(memoryRepositoryProvider);
+    final photoRepo = ref.read(photoRepositoryProvider);
     // 削除すると記録が無くなり、この画面が「見つかりません」に替わるため先に取っておく
     final router = GoRouter.of(context);
     final messenger = ScaffoldMessenger.of(context);
@@ -222,13 +314,11 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
     } catch (e) {
       debugPrint('記録の削除に失敗: $e');
       if (mounted) setState(() => _busy = false);
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('記録を削除できませんでした。もう一度お試しください')),
-        );
+      _showMessage(messenger, '記録を削除できませんでした。もう一度お試しください');
       return;
     }
+    // 保存済みの写真を消す（失敗しても無視。待たずに戻る）
+    unawaited(photoRepo.deleteAll(memory.images));
     router.go('/memories');
   }
 
@@ -296,6 +386,13 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
                   alignLabelWithHint: true,
                 ),
               ),
+              const SizedBox(height: 16),
+              _PhotoSection(
+                photos: _photos,
+                enabled: !_busy,
+                onAdd: _addPhotos,
+                onRemove: (i) => setState(() => _photos.removeAt(i)),
+              ),
               const SizedBox(height: 24),
               FilledButton(
                 key: const Key('memory_form_save_button'),
@@ -311,6 +408,109 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 写真の欄：見出し・サムネイルの並び・「写真を追加」（仕様書 6.2）
+class _PhotoSection extends StatelessWidget {
+  const _PhotoSection({
+    required this.photos,
+    required this.enabled,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  final List<_PhotoItem> photos;
+  final bool enabled;
+  final VoidCallback onAdd;
+  final ValueChanged<int> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final canAdd = enabled && photos.length < maxPhotosPerItem;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '写真（${photos.length}/$maxPhotosPerItem）',
+          style: theme.textTheme.titleSmall,
+        ),
+        const SizedBox(height: 8),
+        if (photos.isNotEmpty) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final (i, item) in photos.indexed)
+                _PhotoThumb(
+                  key: ObjectKey(item),
+                  item: item,
+                  onRemove: enabled ? () => onRemove(i) : null,
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            key: const Key('memory_form_add_photo'),
+            onPressed: canAdd ? onAdd : null,
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            label: const Text('写真を追加'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// サムネイル1枚（96×96、角丸 8、右上に「×」）
+class _PhotoThumb extends StatelessWidget {
+  const _PhotoThumb({super.key, required this.item, required this.onRemove});
+
+  final _PhotoItem item;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 96,
+      height: 96,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: switch (item) {
+                _SavedPhoto(:final path) => StorageImage(path: path),
+                _NewPhoto(:final photo) => Image.memory(
+                  photo.bytes,
+                  fit: BoxFit.cover,
+                ),
+              },
+            ),
+          ),
+          Positioned(
+            top: 2,
+            right: 2,
+            child: IconButton(
+              tooltip: '外す',
+              iconSize: 16,
+              visualDensity: VisualDensity.compact,
+              style: IconButton.styleFrom(
+                backgroundColor: scheme.surface.withValues(alpha: 0.85),
+                foregroundColor: scheme.onSurface,
+              ),
+              onPressed: onRemove,
+              icon: const Icon(Icons.close),
+            ),
+          ),
+        ],
       ),
     );
   }

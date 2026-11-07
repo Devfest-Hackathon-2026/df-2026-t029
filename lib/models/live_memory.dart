@@ -64,7 +64,7 @@ class LiveMemory {
   final String? seat;
   final List<String> setlist;
   final String? impression;
-  final List<String> images; // M-5 までは空
+  final List<String> images; // Storage のパス（1枚目が表紙）
   final DateTime? createdAt; // 保存直後（サーバー時刻の確定前）は null
   final DateTime? updatedAt; // 同上
 
@@ -83,11 +83,12 @@ class LiveMemory {
         'images': images,
       };
 
-  /// 座席・セトリ・感想を差し替えた複製。null を渡すとその項目を空にする
+  /// 座席・セトリ・感想・写真を差し替えた複製。null を渡すとその項目を空にする
   LiveMemory copyWithContent({
     required String? seat,
     required List<String> setlist,
     required String? impression,
+    required List<String> images,
   }) =>
       LiveMemory(
         performanceId: performanceId,
