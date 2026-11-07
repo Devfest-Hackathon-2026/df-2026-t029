@@ -114,6 +114,77 @@ final tradeBoardProvider = Provider.autoDispose
       );
     });
 
+/// 掲示板の「フォロー中すべて」（Fc 5.1）。
+///
+/// フォロー中の推しと、フォロー中の個人の所属グループを重複なく対象にし、
+/// 推しごとに検索して [mergeBoardPosts] でまとめる（新しい順に limit 件）。
+/// どれかがエラーならエラー、どれかが読み込み中なら読み込み中
+final tradeFeedProvider = Provider.autoDispose
+    .family<AsyncValue<TradeBoard>, int>((ref, limit) {
+      final following = ref.watch(followingOshisProvider);
+      if (following case AsyncError(:final error, :final stackTrace)) {
+        return AsyncError(error, stackTrace);
+      }
+      final oshis = following.value;
+      if (oshis == null) return const AsyncLoading();
+      final targets = <String, (OshiKind, String)>{};
+      for (final o in oshis) {
+        targets[o.key] = (o.kind, o.id);
+        if (o.kind == OshiKind.person) {
+          for (final g in o.groupIds) {
+            targets['${OshiKind.group.name}/$g'] = (OshiKind.group, g);
+          }
+        }
+      }
+      if (targets.isEmpty) return const AsyncData(TradeBoard.empty);
+      final values = [
+        for (final (kind, id) in targets.values)
+          ref.watch(openTradePostsProvider((kind: kind, id: id, limit: limit))),
+      ];
+      for (final v in values) {
+        if (v case AsyncError(:final error, :final stackTrace)) {
+          return AsyncError(error, stackTrace);
+        }
+      }
+      if (values.any((v) => !v.hasValue)) return const AsyncLoading();
+      return AsyncData(
+        mergeBoardPosts([for (final v in values) v.requireValue], limit),
+      );
+    });
+
+/// 掲示板の対象の範囲のグッズの種別（グッズの ID → 種別。Fc 5.1）。
+///
+/// 推しを選んでいればその推し、「フォロー中すべて」ならフォロー中の推しが対象。
+/// 範囲は投稿の作成と同じ考え方（グループ、個人の所属グループ、個人の名義）。
+/// 読み込み中・エラーのときは空（種別の絞り込みでは、引けないグッズは合わない）
+final boardGoodsCategoriesProvider =
+    Provider.autoDispose<Map<String, GoodsCategory>>((ref) {
+      final target = ref.watch(boardTargetProvider);
+      final all = ref.watch(allOshisProvider).value ?? const <OshiSummary>[];
+      final oshis = target == null
+          ? (ref.watch(followingOshisProvider).value ?? const <OshiSummary>[])
+          : [target];
+      final byId = {for (final o in all) o.id: o};
+      final scope = GoodsScope(
+        groupIds: {
+          for (final o in oshis)
+            if (o.kind == OshiKind.group)
+              o.id
+            else
+              ...?byId[o.id]?.groupIds,
+        },
+        oshiIds: {
+          for (final o in oshis)
+            if (o.kind == OshiKind.person) o.id,
+        },
+      );
+      final goods = ref.watch(goodsInScopeProvider(scope)).value ?? const [];
+      return {
+        for (final g in goods)
+          if (g.id != null) g.id!: g.category,
+      };
+    });
+
 /// ホームの「新しい交換」：フォロー中の推し（最大10件）の募集中の投稿を、
 /// 推しごとに5件ずつ読んでまとめ、自分の投稿を除いて新しい順に6件
 final homeTradePostsProvider =
