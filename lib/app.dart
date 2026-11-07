@@ -30,6 +30,8 @@ import 'features/memory/memory_form_page.dart';
 import 'features/memory/memory_detail_page.dart';
 import 'features/memory/memory_list_page.dart';
 import 'features/welcome/welcome_page.dart';
+import 'features/oshi/oshi_page.dart';
+import 'features/shell/app_shell.dart';
 
 import 'repositories/auth_repository.dart';
 
@@ -66,135 +68,154 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(
-        path: '/',
-        builder: (context, state) => const HomePage(),
-        // ホームの下に置き、go で移動してもホームへ戻れるようにする
-        routes: [
-          GoRoute(
-            path: 'oshi/search',
-            builder: (context, state) => OshiSearchPage(
-              initialQuery: state.uri.queryParameters['q'] ?? '',
-            ),
-          ),
-          GoRoute(
-            path: 'oshi/request',
-            builder: (context, state) => OshiRequestPage(
-              initialName: state.uri.queryParameters['name'] ?? '',
-            ),
-          ),
-          GoRoute(
-            path: 'lives',
-            builder: (context, state) => const LiveListPage(),
-            routes: [
-              // :liveId より前に置く（後ろだと add がライブ ID になる）
-              GoRoute(
-                path: 'add',
-                builder: (context, state) => const LiveAddPage(),
-              ),
-              GoRoute(
-                path: ':liveId',
-                builder: (context, state) => LiveDetailPage(
-                  liveId: state.pathParameters['liveId']!,
-                ),
-                routes: [
-                  // ライブの編集（Step4・計画書 3.7）
-                  GoRoute(
-                    path: 'edit',
-                    builder: (context, state) => LiveEditPage(
-                      liveId: state.pathParameters['liveId']!,
-                    ),
-                  ),
-                  GoRoute(
-                    path: 'memory/:performanceId',
-                    builder: (context, state) => MemoryFormPage(
-                      performanceId: state.pathParameters['performanceId']!,
-                      liveId: state.pathParameters['liveId']!,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          // メモリー（M-4）: 一覧 → 記録の詳細 → 編集
-          GoRoute(
-            path: 'memories',
-            builder: (context, state) => const MemoryListPage(),
-            routes: [
-              GoRoute(
-                path: ':performanceId',
-                builder: (context, state) => MemoryDetailPage(
-                  performanceId: state.pathParameters['performanceId']!,
-                ),
-                routes: [
-                  GoRoute(
-                    path: 'edit',
-                    builder: (context, state) => MemoryFormPage(
-                      performanceId: state.pathParameters['performanceId']!,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
+      // タブを出さない画面（紹介・ログイン・プロフィール・接続テスト）
       GoRoute(path: '/welcome', builder: (context, state) => const WelcomePage()),
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
-      GoRoute(path: '/register', builder: (context, state) => const ScanPage()),
-      GoRoute(
-        path: '/live-form',
-        builder: (context, state) => LiveFormPage(initial: state.extra as LiveDraft?),
-      ),
+      GoRoute(path: '/profile', builder: (context, state) => const ProfilePage()),
       GoRoute(
         path: '/calendar-test',
         builder: (context, state) => const CalendarTestPage(),
       ),
-      GoRoute(path: '/goods', builder: (context, state) => const GoodsSearchPage()),
-      GoRoute(path: '/goods/new', builder: (context, state) => const GoodsFormPage()),
-      GoRoute(
-        path: '/goods/:id/edit',
-        builder: (context, state) => GoodsFormPage(goodsId: state.pathParameters['id']),
+      // ログイン後の画面は、タブの付いた外枠の中に出す（D-2）
+      ShellRoute(
+        builder: (context, state, child) =>
+            AppShell(location: state.uri.path, child: child),
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, state) => const HomePage(),
+            // ホームの下に置き、go で移動してもホームへ戻れるようにする
+            routes: [
+              // 推し（タブの「推し」）: 推しを探す・追加申請はこの下
+              GoRoute(
+                path: 'oshi',
+                builder: (context, state) => const OshiPage(),
+                routes: [
+                  GoRoute(
+                    path: 'search',
+                    builder: (context, state) => OshiSearchPage(
+                      initialQuery: state.uri.queryParameters['q'] ?? '',
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'request',
+                    builder: (context, state) => OshiRequestPage(
+                      initialName: state.uri.queryParameters['name'] ?? '',
+                    ),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'lives',
+                builder: (context, state) => const LiveListPage(),
+                routes: [
+                  // :liveId より前に置く（後ろだと add がライブ ID になる）
+                  GoRoute(
+                    path: 'add',
+                    builder: (context, state) => const LiveAddPage(),
+                  ),
+                  GoRoute(
+                    path: ':liveId',
+                    builder: (context, state) => LiveDetailPage(
+                      liveId: state.pathParameters['liveId']!,
+                    ),
+                    routes: [
+                      // ライブの編集（Step4・計画書 3.7）
+                      GoRoute(
+                        path: 'edit',
+                        builder: (context, state) => LiveEditPage(
+                          liveId: state.pathParameters['liveId']!,
+                        ),
+                      ),
+                      GoRoute(
+                        path: 'memory/:performanceId',
+                        builder: (context, state) => MemoryFormPage(
+                          performanceId: state.pathParameters['performanceId']!,
+                          liveId: state.pathParameters['liveId']!,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              // メモリー（M-4）: 一覧 → 記録の詳細 → 編集
+              GoRoute(
+                path: 'memories',
+                builder: (context, state) => const MemoryListPage(),
+                routes: [
+                  GoRoute(
+                    path: ':performanceId',
+                    builder: (context, state) => MemoryDetailPage(
+                      performanceId: state.pathParameters['performanceId']!,
+                    ),
+                    routes: [
+                      GoRoute(
+                        path: 'edit',
+                        builder: (context, state) => MemoryFormPage(
+                          performanceId: state.pathParameters['performanceId']!,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          GoRoute(path: '/register', builder: (context, state) => const ScanPage()),
+          GoRoute(
+            path: '/live-form',
+            builder: (context, state) =>
+                LiveFormPage(initial: state.extra as LiveDraft?),
+          ),
+          GoRoute(path: '/goods', builder: (context, state) => const GoodsSearchPage()),
+          GoRoute(
+            path: '/goods/new',
+            builder: (context, state) => const GoodsFormPage(),
+          ),
+          GoRoute(
+            path: '/goods/:id/edit',
+            builder: (context, state) =>
+                GoodsFormPage(goodsId: state.pathParameters['id']),
+          ),
+          // 交換トップ。?tab=board / match / mine で開くタブを指定する
+          GoRoute(
+            path: '/trade',
+            builder: (context, state) => TradeTopPage(
+              initialTab: TradeTab.fromQuery(state.uri.queryParameters['tab']),
+            ),
+          ),
+          // G-3-2・G-2-6 で作った掲示板・自分の投稿の URL は、交換トップのタブへ移す
+          GoRoute(path: '/trade/board', redirect: (_, _) => '/trade?tab=board'),
+          GoRoute(path: '/trade/mine', redirect: (_, _) => '/trade?tab=mine'),
+          GoRoute(
+            path: '/chats',
+            builder: (context, state) => const ChatListPage(),
+          ),
+          GoRoute(
+            path: '/chats/:id',
+            builder: (context, state) =>
+                ChatPage(chatId: state.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: '/trade/new',
+            builder: (context, state) => const TradePostFormPage(),
+          ),
+          GoRoute(
+            path: '/trade/:id/edit',
+            builder: (context, state) =>
+                TradePostFormPage(postId: state.pathParameters['id']),
+          ),
+          // /trade/new・/trade/board・/trade/mine より後に置く（先に書いたルートが優先される）
+          GoRoute(
+            path: '/trade/:id',
+            // ?attach= は、返信に最初から添付しておく自分の投稿（マッチから開いたとき）
+            builder: (context, state) => TradePostDetailPage(
+              postId: state.pathParameters['id']!,
+              initialAttachId: state.uri.queryParameters['attach'],
+            ),
+          ),
+        ],
       ),
-      // 交換トップ。?tab=board / match / mine で開くタブを指定する
-      GoRoute(
-        path: '/trade',
-        builder: (context, state) => TradeTopPage(
-          initialTab: TradeTab.fromQuery(state.uri.queryParameters['tab']),
-        ),
-      ),
-      // G-3-2・G-2-6 で作った掲示板・自分の投稿の URL は、交換トップのタブへ移す
-      GoRoute(path: '/trade/board', redirect: (_, _) => '/trade?tab=board'),
-      GoRoute(path: '/trade/mine', redirect: (_, _) => '/trade?tab=mine'),
-      GoRoute(
-        path: '/chats',
-        builder: (context, state) => const ChatListPage(),
-      ),
-      GoRoute(
-        path: '/chats/:id',
-        builder: (context, state) =>
-            ChatPage(chatId: state.pathParameters['id']!),
-      ),
-      GoRoute(
-        path: '/trade/new',
-        builder: (context, state) => const TradePostFormPage(),
-      ),
-      GoRoute(
-        path: '/trade/:id/edit',
-        builder: (context, state) =>
-            TradePostFormPage(postId: state.pathParameters['id']),
-      ),
-      // /trade/new・/trade/board・/trade/mine より後に置く（先に書いたルートが優先される）
-      GoRoute(
-        path: '/trade/:id',
-        // ?attach= は、返信に最初から添付しておく自分の投稿（マッチから開いたとき）
-        builder: (context, state) => TradePostDetailPage(
-          postId: state.pathParameters['id']!,
-          initialAttachId: state.uri.queryParameters['attach'],
-        ),
-      ),
-      GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
-      GoRoute(path: '/profile', builder: (context, state) => const ProfilePage()),
     ],
   );
 });
