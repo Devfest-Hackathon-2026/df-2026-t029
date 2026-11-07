@@ -7,6 +7,7 @@ import '../../utils/oshi_search.dart';
 import '../../providers/oshi_providers.dart';
 import 'follow_actions.dart';
 import 'oshi_list_tile.dart';
+import 'group_members_sheet.dart';
 
 /// 推しを探す画面（/oshi/search?q=...）
 ///
@@ -102,6 +103,7 @@ class _OshiSearchPageState extends ConsumerState<OshiSearchPage> {
                       onRequest: _openRequest,
                     );
                   }
+                  final names = groupNamesById(all);
                   return ListView.separated(
                     key: const Key('oshi_search_results'),
                     itemCount: results.length + 1,
@@ -119,6 +121,11 @@ class _OshiSearchPageState extends ConsumerState<OshiSearchPage> {
                             !followAsync.hasValue || _busy.contains(oshi.key),
                         onFollow: () => _toggleFollow(oshi, follow: true),
                         onUnfollow: () => _toggleFollow(oshi, follow: false),
+                        // グループの行を押すと、メンバーの一覧を出す
+                        onTap: oshi.kind == OshiKind.group
+                            ? () => showGroupMembersSheet(context, oshi)
+                            : null,
+                        groupNames: groupNamesOf(oshi, names),
                       );
                     },
                   );

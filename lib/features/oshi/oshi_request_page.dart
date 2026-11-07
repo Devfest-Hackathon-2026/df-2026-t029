@@ -8,15 +8,23 @@ import '../../utils/text_normalizer.dart';
 import '../../providers/oshi_providers.dart';
 import 'group_picker_sheet.dart';
 
-/// 推しの追加申請画面（/oshi/request?name=...）
+/// 推しの追加申請画面（/oshi/request?name=...&group=...）
 ///
 /// 入力中に既存の推しを候補として出す。同じ種別に正規化後の名前・別名が
 /// 完全に一致する推しがあれば、申請ボタンを押せなくする（計画書 3.2）。
 class OshiRequestPage extends ConsumerStatefulWidget {
-  const OshiRequestPage({super.key, this.initialName = ''});
+  const OshiRequestPage({
+    super.key,
+    this.initialName = '',
+    this.initialGroupId,
+  });
 
   /// 検索欄の文字列（名前の初期値）
   final String initialName;
+
+  /// グループのメンバーの一覧から開いたときの、そのグループの ID。
+  /// あれば、種別を個人にし、所属グループに入れておく
+  final String? initialGroupId;
 
   @override
   ConsumerState<OshiRequestPage> createState() => _OshiRequestPageState();
@@ -41,7 +49,10 @@ class _OshiRequestPageState extends ConsumerState<OshiRequestPage> {
   // ファンはふつう個人（推しメン）を申請するので、個人を初期値にする
   OshiKind _kind = OshiKind.person;
   OshiGenre? _genre;
-  List<String> _groupIds = [];
+  // メンバーの一覧から開いたときは、そのグループを所属に入れておく
+  late List<String> _groupIds = [
+    if (widget.initialGroupId case final id? when id.isNotEmpty) id,
+  ];
 
   /// 申請ボタンを一度押したら、各項目のエラーを出す
   bool _showErrors = false;

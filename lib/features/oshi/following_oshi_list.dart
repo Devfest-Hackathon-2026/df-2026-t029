@@ -5,6 +5,7 @@ import '../../models/oshi.dart';
 import '../../providers/oshi_providers.dart';
 import 'follow_actions.dart';
 import 'oshi_list_tile.dart';
+import 'group_members_sheet.dart';
 
 /// ホームに出す、フォロー中の推しの一覧
 ///
@@ -58,6 +59,9 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
   @override
   Widget build(BuildContext context) {
     final following = ref.watch(followingOshisProvider);
+    final names = groupNamesById(
+      ref.watch(allOshisProvider).value ?? const <OshiSummary>[],
+    );
 
     // 再読み込み中（前の値がある読み込み中）は、前の値を出したままにする
     return switch (following) {
@@ -80,6 +84,11 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
               isBusy: _busy.contains(oshi.key),
               onFollow: () {},
               onUnfollow: () => _unfollow(oshi),
+              // グループの行を押すと、メンバーの一覧を出す
+              onTap: oshi.kind == OshiKind.group
+                  ? () => showGroupMembersSheet(context, oshi)
+                  : null,
+              groupNames: groupNamesOf(oshi, names),
             ),
         ],
       ),
