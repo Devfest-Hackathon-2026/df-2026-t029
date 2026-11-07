@@ -119,10 +119,16 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
         },
       );
     }
-    // 新規作成では、プロフィールの X アカウントを初期値にする（G-8）
-    _draft ??= TradePostDraft(
-      xAccount: ref.read(myProfileProvider).value?.xAccount ?? '',
-    );
+    // 新規作成では、プロフィールの X アカウントを初期値にする（G-8）。
+    // 掲示板で推しを選んでいれば、その推しを対象の推しとして選んでおく（Fa-4）
+    if (_draft == null) {
+      final draft = TradePostDraft(
+        xAccount: ref.read(myProfileProvider).value?.xAccount ?? '',
+      );
+      final target = ref.read(boardTargetProvider);
+      if (target != null) draft.toggleTarget(target);
+      _draft = draft;
+    }
     return _form();
   }
 
