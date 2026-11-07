@@ -506,9 +506,18 @@ class _PerformanceTile extends ConsumerWidget {
     // 遠征サポート（E-1）：これから行く公演だけ、行き方と周辺の宿を出す
     final directions = finished ? null : directionsUri(p);
     final hotels = finished ? null : hotelsUri(p);
+    // 残りのリンクは「その他」にまとめる（add_E 4章）
+    final others = finished
+        ? const <TravelLink>[]
+        : [
+            for (final link in travelLinksOf(p))
+              if (link.label != '行き方' && link.label != '周辺の宿') link,
+          ];
     // 遠征メモ（E-2）：オンライン以外の公演に出す（終わった後に記録する人もいるので、終了後も出す）
     final canTrip = id != null && !isOnlineVenue(p);
     final trip = id == null ? null : ref.watch(myTripsProvider).value?[id];
+
+    void open(Uri uri) => launchUrl(uri, mode: LaunchMode.externalApplication);
 
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -566,27 +575,25 @@ class _PerformanceTile extends ConsumerWidget {
                   ),
                 ),
             ],
-            if (directions != null || hotels != null || canTrip)
+            if (directions != null ||
+                hotels != null ||
+                canTrip ||
+                others.isNotEmpty)
               Wrap(
                 spacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   if (directions != null)
                     TextButton.icon(
                       key: Key('live_detail_directions_button_${p.id}'),
-                      onPressed: () => launchUrl(
-                        directions,
-                        mode: LaunchMode.externalApplication,
-                      ),
+                      onPressed: () => open(directions),
                       icon: const Icon(Icons.directions, size: 18),
                       label: const Text('行き方'),
                     ),
                   if (hotels != null)
                     TextButton.icon(
                       key: Key('live_detail_hotels_button_${p.id}'),
-                      onPressed: () => launchUrl(
-                        hotels,
-                        mode: LaunchMode.externalApplication,
-                      ),
+                      onPressed: () => open(hotels),
                       icon: const Icon(Icons.hotel, size: 18),
                       label: const Text('周辺の宿'),
                     ),
@@ -600,6 +607,47 @@ class _PerformanceTile extends ConsumerWidget {
                       ),
                       icon: const Icon(Icons.luggage, size: 18),
                       label: const Text('遠征メモ'),
+                    ),
+                  if (others.isNotEmpty)
+                    PopupMenuButton<TravelLink>(
+                      key: Key('live_detail_travel_more_${p.id}'),
+                      tooltip: 'その他の遠征のリンク',
+                      onSelected: (link) => open(link.uri),
+                      itemBuilder: (context) => [
+                        for (final link in others)
+                          PopupMenuItem(
+                            value: link,
+                            child: ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(link.icon, size: 20),
+                              title: Text(link.label),
+                            ),
+                          ),
+                      ],
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.more_horiz,
+                              size: 18,
+                              color: theme.colorScheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'その他 ▼',
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                 ],
               ),
