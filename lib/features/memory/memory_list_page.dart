@@ -17,7 +17,10 @@ class MemoryListPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final album = ref.watch(memoryAlbumProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('メモリー')),
+      appBar: AppBar(
+        title: const Text('メモリー'),
+        automaticallyImplyLeading: false,
+      ),
       body: SafeArea(
         child: switch (album) {
           AsyncError() => _Message(
