@@ -7,16 +7,20 @@ class DateTimeField extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.initialDate,
   });
 
   final String label;
   final DateTime? value;
   final ValueChanged<DateTime?> onChanged;
 
+  /// 未設定のときに最初に開く日付（省略すると今日。add_E 3章）
+  final DateTime? initialDate;
+
   Future<void> _pick(BuildContext context) async {
     final date = await showDatePicker(
       context: context,
-      initialDate: value ?? DateTime.now(),
+      initialDate: value ?? initialDate ?? DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );

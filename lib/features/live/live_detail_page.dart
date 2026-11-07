@@ -542,7 +542,7 @@ class _PerformanceTile extends ConsumerWidget {
                 height: 1.5,
               ),
             ),
-            if (trip != null)
+            if (trip != null) ...[
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
@@ -554,6 +554,18 @@ class _PerformanceTile extends ConsumerWidget {
                   ),
                 ),
               ),
+              // 行き・帰り・チェックインの時刻（add_E 3章）
+              if (tripTimesLine(trip) case final times?)
+                Text(
+                  times,
+                  key: Key('live_detail_trip_times_$id'),
+                  style: HakoFonts.jp(
+                    size: 12,
+                    color: BrandColors.sub,
+                    height: 1.5,
+                  ),
+                ),
+            ],
             if (directions != null || hotels != null || canTrip)
               Wrap(
                 spacing: 4,
