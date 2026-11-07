@@ -135,6 +135,7 @@ users/{uid}                       ユーザー（個人データ）
 | followingGroupIds | array | | フォロー中のグループの ID（string の配列） |
 | followingOshiIds | array | | フォロー中の推し（個人）の ID（string の配列） |
 | createdAt | timestamp | ○ | 登録日時 |
+| themeColor | number | | テーマカラー（色の ARGB の32ビット値。例：`0xFFE91E63`）。未設定なら初期の色を使う。本人がプロフィールの編集画面で選ぶ（ホームのデザイン D-6） |
 
 ### 3.8 users/{uid}/applications/{receptionId}（申込状況）
 
