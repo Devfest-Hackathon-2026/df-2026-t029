@@ -26,3 +26,37 @@ class HomeSectionHeader extends StatelessWidget {
     );
   }
 }
+
+/// 区画の中に出す案内・エラーの文言
+class HomeSectionMessage extends StatelessWidget {
+  const HomeSectionMessage(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Text(text, style: Theme.of(context).textTheme.bodyMedium),
+    );
+  }
+}
+
+/// 区画の読み込み中
+class HomeSectionLoading extends StatelessWidget {
+  const HomeSectionLoading({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 12),
+      child: Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+  }
+}

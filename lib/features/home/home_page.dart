@@ -6,7 +6,10 @@ import '../../providers/profile_providers.dart';
 import '../../repositories/auth_repository.dart';
 import '../live/upcoming_deadlines_section.dart';
 import '../shell/app_shell.dart' show kShellWideBreakpoint;
+
 import 'home_section_header.dart';
+import 'home_recent_memories.dart';
+import 'home_upcoming_lives.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -45,7 +48,11 @@ class HomePage extends ConsumerWidget {
             const HomeSectionHeader(title: '次の締切'),
             const SizedBox(height: 8),
             const UpcomingDeadlinesSection(),
-            // D-4・D-5 で、今後のライブ・新しい交換・最近の思い出をここに足す
+            const SizedBox(height: 24),
+            const HomeUpcomingLives(),
+            // D-5 で、ここに新しい交換を足す
+            const SizedBox(height: 24),
+            const HomeRecentMemories(),
           ],
         ),
       ),
