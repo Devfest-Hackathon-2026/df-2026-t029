@@ -8,7 +8,7 @@ import '../../utils/oshi_search.dart';
 import '../../providers/oshi_providers.dart';
 import 'follow_actions.dart';
 import 'oshi_list_tile.dart';
-import 'group_members_sheet.dart';
+import 'group_members_panel.dart';
 
 /// 推しを探す画面（/oshi/search?q=...）
 ///
@@ -31,6 +31,11 @@ class _OshiSearchPageState extends ConsumerState<OshiSearchPage> {
 
   /// フォロー・解除の処理中の推し（OshiSummary.key。== は全項目比較なので使わない）
   final Set<String> _busy = {};
+
+  /// 開く・閉じるを押したグループ（キー → 開いているか）。
+  /// 押していないグループは、検索でヒットしたメンバーがいれば開いておく。
+  /// 検索語を変えたら戻す（Fc 4.3）
+  final Map<String, bool> _expanded = {};
 
   @override
   void dispose() {
@@ -63,11 +68,34 @@ class _OshiSearchPageState extends ConsumerState<OshiSearchPage> {
     if (error != null) _showSnackBar(error);
   }
 
+  /// 1行の推し（個人の行・グループの行の共通部分）
+  Widget _tile(
+    OshiSummary oshi, {
+    required FollowState following,
+    required bool followLoaded,
+    required Map<String, String> names,
+    VoidCallback? onTap,
+    bool? membersExpanded,
+  }) {
+    return OshiListTile(
+      oshi: oshi,
+      isFollowing: following.isFollowing(oshi),
+      // フォロー状態を読み込むまでは押せなくする
+      isBusy: !followLoaded || _busy.contains(oshi.key),
+      onFollow: () => _toggleFollow(oshi, follow: true),
+      onUnfollow: () => _toggleFollow(oshi, follow: false),
+      onTap: onTap,
+      membersExpanded: membersExpanded,
+      groupNames: groupNamesOf(oshi, names),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final allAsync = ref.watch(allOshisProvider);
     final followAsync = ref.watch(followStateProvider);
     final following = followAsync.value ?? FollowState.empty;
+    final hasQuery = _query.trim().isNotEmpty;
 
     return HakoPageScaffold(
       title: '推しを探す',
@@ -87,7 +115,10 @@ class _OshiSearchPageState extends ConsumerState<OshiSearchPage> {
                   border: OutlineInputBorder(),
                 ),
                 textInputAction: TextInputAction.search,
-                onChanged: (value) => setState(() => _query = value),
+                onChanged: (value) => setState(() {
+                  _query = value;
+                  _expanded.clear();
+                }),
               ),
             ),
             Expanded(
@@ -107,29 +138,50 @@ class _OshiSearchPageState extends ConsumerState<OshiSearchPage> {
                     );
                   }
                   final names = groupNamesById(all);
+                  // 所属グループのある個人は、グループの下に入れる（Fc 4.3）
+                  final entries = nestOshiResults(results, all);
                   return ListView.separated(
                     key: const Key('oshi_search_results'),
-                    itemCount: results.length + 1,
+                    itemCount: entries.length + 1,
                     separatorBuilder: (_, _) => const Divider(height: 1),
                     itemBuilder: (context, i) {
-                      if (i == results.length) {
+                      if (i == entries.length) {
                         return _RequestFooter(onRequest: _openRequest);
                       }
-                      final oshi = results[i];
-                      return OshiListTile(
-                        oshi: oshi,
-                        isFollowing: following.isFollowing(oshi),
-                        // フォロー状態を読み込むまでは押せなくする
-                        isBusy:
-                            !followAsync.hasValue || _busy.contains(oshi.key),
-                        onFollow: () => _toggleFollow(oshi, follow: true),
-                        onUnfollow: () => _toggleFollow(oshi, follow: false),
-                        // グループの行を押すと、メンバーの一覧を出す
-                        onTap: oshi.kind == OshiKind.group
-                            ? () => showGroupMembersSheet(context, oshi)
-                            : null,
-                        groupNames: groupNamesOf(oshi, names),
-                      );
+                      switch (entries[i]) {
+                        case PersonSearchEntry(:final person):
+                          return _tile(
+                            person,
+                            following: following,
+                            followLoaded: followAsync.hasValue,
+                            names: names,
+                          );
+                        case GroupSearchEntry(:final group, :final hitMemberKeys):
+                          // 検索語があり、ヒットしたメンバーがいれば最初から開く
+                          final expanded = _expanded[group.key] ??
+                              (hasQuery && hitMemberKeys.isNotEmpty);
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _tile(
+                                group,
+                                following: following,
+                                followLoaded: followAsync.hasValue,
+                                names: names,
+                                onTap: () => setState(
+                                  () => _expanded[group.key] = !expanded,
+                                ),
+                                membersExpanded: expanded,
+                              ),
+                              if (expanded)
+                                GroupMembersPanel(
+                                  group: group,
+                                  highlightKeys:
+                                      hasQuery ? hitMemberKeys : const {},
+                                ),
+                            ],
+                          );
+                      }
                     },
                   );
                 },

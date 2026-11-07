@@ -4,11 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../models/oshi.dart';
 import '../../providers/oshi_providers.dart';
-import '../../utils/oshi_search.dart';
 import 'follow_actions.dart';
+import 'group_members_panel.dart';
 import 'oshi_list_tile.dart';
 
 /// グループのメンバーの一覧を出すシート。メンバーをその場でフォローできる
+/// （最推しの箱から開く。フォロー中の一覧・推しを探すは、その場で開く形。Fc 4.1）
 Future<void> showGroupMembersSheet(BuildContext context, OshiSummary group) {
   return showModalBottomSheet<void>(
     context: context,
@@ -50,12 +51,7 @@ class _GroupMembersSheetState extends ConsumerState<_GroupMembersSheet> {
   void _openMemberRequest() {
     final router = GoRouter.of(context);
     Navigator.of(context).pop();
-    router.push(
-      Uri(
-        path: '/oshi/request',
-        queryParameters: {'group': widget.group.id},
-      ).toString(),
-    );
+    router.push(memberRequestPath(widget.group));
   }
 
   @override
@@ -66,18 +62,7 @@ class _GroupMembersSheetState extends ConsumerState<_GroupMembersSheet> {
     final followAsync = ref.watch(followStateProvider);
     final following = followAsync.value ?? FollowState.empty;
     final names = groupNamesById(all);
-    // メンバー：承認済みを先、申請中を後（それぞれ名前順）。
-    // 申請中のグループは、メンバーも申請中なので、申請中も含めて出す
-    final allMembers = [
-      for (final o in all)
-        if (o.kind == OshiKind.person && o.groupIds.contains(group.id)) o,
-    ];
-    // searchOshis は空の検索語だと承認済みだけを返すので、申請中は自分で並べる
-    final pending = [
-      for (final o in allMembers)
-        if (!o.isApproved) o,
-    ]..sort((a, b) => a.name.compareTo(b.name));
-    final members = [...searchOshis(allMembers, ''), ...pending];
+    final members = groupMembersOf(group, all);
 
     return Padding(
       key: Key('group_members_sheet_${group.id}'),
@@ -95,6 +80,14 @@ class _GroupMembersSheetState extends ConsumerState<_GroupMembersSheet> {
             child: Text(
               'メンバー ${members.length}人',
               style: theme.textTheme.bodySmall,
+            ),
+          ),
+          // メンバー全員をフォロー（Fc 4.2）
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FollowAllMembersButton(group: group),
             ),
           ),
           const Divider(height: 1),

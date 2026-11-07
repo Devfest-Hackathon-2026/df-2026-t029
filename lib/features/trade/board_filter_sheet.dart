@@ -15,9 +15,11 @@ import 'trade_post_draft.dart';
 
 /// 掲示板の絞り込みの条件を選ぶシート。
 /// 「適用」を押したら条件を返す。閉じただけなら null。
+/// [target] が null（フォロー中すべて）のときは、グッズと手渡しの公演を
+/// 選べない（推しを決めないと候補が出せないため。Fc 5.1）
 Future<BoardFilter?> showBoardFilterSheet(
   BuildContext context, {
-  required OshiSummary target,
+  required OshiSummary? target,
   required BoardFilter initial,
 }) {
   return showModalBottomSheet<BoardFilter>(
@@ -36,7 +38,7 @@ String performanceLabel(Performance p, Map<String?, String> liveTitles) =>
 class _BoardFilterSheet extends ConsumerStatefulWidget {
   const _BoardFilterSheet({required this.target, required this.initial});
 
-  final OshiSummary target;
+  final OshiSummary? target;
   final BoardFilter initial;
 
   @override
@@ -46,37 +48,41 @@ class _BoardFilterSheet extends ConsumerStatefulWidget {
 class _BoardFilterSheetState extends ConsumerState<_BoardFilterSheet> {
   late String? _goodsId = widget.initial.goodsId;
   late String? _goodsName = widget.initial.goodsName;
+  late final Set<GoodsCategory> _categories = {...widget.initial.categories};
   late BoardSide _side = widget.initial.side;
   late final Set<TradeTag> _tags = {...widget.initial.tags};
   late String? _performanceId = widget.initial.performanceId;
   late String? _performanceLabel = widget.initial.performanceLabel;
 
-  bool get _isGroup => widget.target.kind == OshiKind.group;
-  List<String> get _groupIds => _isGroup ? [widget.target.id] : const [];
-  List<String> get _oshiIds => _isGroup ? const [] : [widget.target.id];
+  bool get _isGroup => widget.target?.kind == OshiKind.group;
+  List<String> get _groupIds =>
+      _isGroup ? [widget.target!.id] : const [];
+  List<String> get _oshiIds =>
+      widget.target != null && !_isGroup ? [widget.target!.id] : const [];
 
-  BoardFilter get _result => BoardFilter(
-    goodsId: _goodsId,
-    goodsName: _goodsName,
-    side: _side,
-    tags: {..._tags},
-    performanceId: _performanceId,
-    performanceLabel: _performanceLabel,
-  );
+  BoardFilter get _result {
+    final filter = BoardFilter(
+      goodsId: _goodsId,
+      goodsName: _goodsName,
+      categories: {..._categories},
+      side: _side,
+      tags: {..._tags},
+      performanceId: _performanceId,
+      performanceLabel: _performanceLabel,
+    );
+    return widget.target == null ? filter.withoutTargetOnly() : filter;
+  }
 
   @override
   Widget build(BuildContext context) {
     final all = ref.watch(allOshisProvider).value ?? const <OshiSummary>[];
-    final goods = ref.watch(
-      goodsInScopeProvider(
-        goodsScopeFor(groupIds: _groupIds, oshiIds: _oshiIds, all: all),
-      ),
-    );
+    final hasTarget = widget.target != null;
     final theme = Theme.of(context);
     Widget heading(String text) => Padding(
       padding: const EdgeInsets.only(top: 16, bottom: 4),
       child: Text(text, style: theme.textTheme.titleSmall),
     );
+    final hasGoods = _goodsId != null || _categories.isNotEmpty;
 
     return SizedBox(
       height: MediaQuery.sizeOf(context).height * 0.85,
@@ -87,13 +93,41 @@ class _BoardFilterSheetState extends ConsumerState<_BoardFilterSheet> {
               padding: const EdgeInsets.all(16),
               children: [
                 Text('絞り込み', style: theme.textTheme.titleMedium),
-                heading('グッズ'),
-                goods.when(
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('グッズを読み込めませんでした: $e'),
-                  data: (list) => _goodsDropdown(list),
+                if (hasTarget) ...[
+                  heading('グッズ'),
+                  ref
+                      .watch(
+                        goodsInScopeProvider(
+                          goodsScopeFor(
+                            groupIds: _groupIds,
+                            oshiIds: _oshiIds,
+                            all: all,
+                          ),
+                        ),
+                      )
+                      .when(
+                        loading: () => const LinearProgressIndicator(),
+                        error: (e, _) => Text('グッズを読み込めませんでした: $e'),
+                        data: (list) => _goodsDropdown(list),
+                      ),
+                ],
+                heading('グッズの種別（選んだもののどれかを含む）'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final c in GoodsCategory.values)
+                      FilterChip(
+                        key: Key('board_filter_category_${c.name}'),
+                        label: Text(c.label),
+                        selected: _categories.contains(c),
+                        onSelected: (on) => setState(
+                          () => on ? _categories.add(c) : _categories.remove(c),
+                        ),
+                      ),
+                  ],
                 ),
-                heading(_goodsId == null ? '譲・求があるか' : 'そのグッズを含むのは'),
+                heading(hasGoods ? 'そのグッズを含むのは' : '譲・求があるか'),
                 SegmentedButton<BoardSide>(
                   key: const Key('board_filter_side'),
                   segments: [
@@ -117,8 +151,17 @@ class _BoardFilterSheetState extends ConsumerState<_BoardFilterSheet> {
                       ),
                   ],
                 ),
-                heading('手渡しの公演'),
-                _performanceDropdown(all),
+                if (hasTarget) ...[
+                  heading('手渡しの公演'),
+                  _performanceDropdown(all),
+                ] else
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Text(
+                      'グッズや手渡しの公演で絞り込むときは、推しを1つ選んでください',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
               ],
             ),
           ),

@@ -5,8 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../common/empty_state.dart';
 import '../../models/oshi.dart';
 import '../../models/trade_post.dart';
+import '../../models/goods.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/trade_post_providers.dart';
+import '../../providers/oshi_color_providers.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/hako_app_widgets.dart';
 import '../../utils/trade_board.dart';
@@ -30,25 +32,6 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
   @override
   bool get wantKeepAlive => true;
 
-  @override
-  void initState() {
-    super.initState();
-    // フォロー中の推しが読めたら、まだ選んでいなければ先頭の推しを選ぶ
-    ref.listenManual<AsyncValue<List<OshiSummary>>>(followingOshisProvider, (
-      _,
-      next,
-    ) {
-      final oshis = next.value;
-      if (oshis == null || oshis.isEmpty) return;
-      if (ref.read(boardTargetProvider) != null) return;
-      // 画面を作っている途中ではプロバイダを変えられないので、描き終わってから選ぶ
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || ref.read(boardTargetProvider) != null) return;
-        ref.read(boardTargetProvider.notifier).select(oshis.first);
-      });
-    }, fireImmediately: true);
-  }
-
   /// 読む件数（「もっと見る」で増やす）
   int _limit = boardPageSize;
 
@@ -58,8 +41,15 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final following = ref.watch(followingOshisProvider);
-    final target = ref.watch(boardTargetProvider);
+    
+      final following = ref.watch(followingOshisProvider);
+    // null は「フォロー中すべて」（最初はこれ。Fc 5.1）。
+    // 選んでいた推しのフォローを外したときも「フォロー中すべて」として扱う
+    final selected = ref.watch(boardTargetProvider);
+    final target =
+        (following.value?.any((o) => o.key == selected?.key) ?? false)
+        ? selected
+        : null;
 
     final pad = HakoPageScaffold.padding(context);
     return Column(
@@ -70,35 +60,37 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
           child: following.when(
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => Text('推しを読み込めませんでした: $e'),
-            data: (oshis) => Row(
-              children: [
-                Expanded(
-                  child: _OshiSelector(
-                    oshis: oshis,
-                    selected: target,
-                    onChanged: (oshi) {
-                      // 推しを変えたら、件数を最初に戻す
-                      // （絞り込みの条件はプロバイダ側で外れる）
-                      setState(() {
-                        _limit = boardPageSize;
-                        _last = null;
-                      });
-                      ref.read(boardTargetProvider.notifier).select(oshi);
-                    },
+            data: (oshis) => oshis.isEmpty
+                ? const SizedBox.shrink()
+                : Row(
+                    children: [
+                      Expanded(
+                        child: _OshiSelector(
+                          oshis: oshis,
+                          selected: target,
+                          onChanged: (oshi) {
+                            // 推しを変えたら、件数を最初に戻す
+                            // （絞り込みの条件はプロバイダ側で外れる）
+                            setState(() {
+                              _limit = boardPageSize;
+                              _last = null;
+                            });
+                            ref.read(boardTargetProvider.notifier).select(oshi);
+                          },
+                        ),
+                      ),
+                      _filterButton(target),
+                    ],
                   ),
-                ),
-                if (target != null) _filterButton(target),
-              ],
-            ),
           ),
         ),
-        if (target != null) _filterChips(),
+        _filterChips(),
         Expanded(child: _buildResults(target)),
       ],
     );
   }
 
-  Widget _filterButton(OshiSummary target) {
+  Widget _filterButton(OshiSummary? target) {
     final count = ref.watch(boardFilterProvider).count;
     return IconButton(
       key: const Key('trade_board_filter'),
@@ -148,6 +140,17 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
               label: Text(goods),
               onDeleted: () => notifier.set(filter.withoutGoods()),
             ),
+          if (filter.categories.isNotEmpty)
+            InputChip(
+              key: const Key('board_chip_categories'),
+              label: Text(
+                [
+                  for (final c in GoodsCategory.values)
+                    if (filter.categories.contains(c)) c.label,
+                ].join('・'),
+              ),
+              onDeleted: () => notifier.set(filter.withoutCategories()),
+            ),
           if (filter.tags.isNotEmpty)
             InputChip(
               key: const Key('board_chip_tags'),
@@ -179,27 +182,30 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
   }
 
   Widget _buildResults(OshiSummary? target) {
-    if (target == null) {
-      // フォロー中の推しが0件なら、推しを探す案内を出す
-      final noOshi = ref.watch(followingOshisProvider).value?.isEmpty ?? false;
-      if (noOshi) {
-        return EmptyState(
-          key: const Key('trade_board_no_oshi'),
-          icon: Icons.favorite_outline,
-          title: '推しをフォローすると、交換の投稿が見られます',
-          action: FilledButton.icon(
-            key: const Key('trade_board_find_oshi_button'),
-            onPressed: () => context.push('/oshi/search'),
-            icon: const Icon(Icons.search),
-            label: const Text('推しを探す'),
-          ),
-        );
-      }
-      return const HakoEmpty('推しを選んでください');
+    // フォロー中の推しが0件なら、推しを探す案内を出す
+    final noOshi = ref.watch(followingOshisProvider).value?.isEmpty ?? false;
+    if (target == null && noOshi) {
+      return EmptyState(
+        key: const Key('trade_board_no_oshi'),
+        icon: Icons.favorite_outline,
+        title: '推しをフォローすると、交換の投稿が見られます',
+        action: FilledButton.icon(
+          key: const Key('trade_board_find_oshi_button'),
+          onPressed: () => context.push('/oshi/search'),
+          icon: const Icon(Icons.search),
+          label: const Text('推しを探す'),
+        ),
+      );
     }
-    final board = ref.watch(
-      tradeBoardProvider((kind: target.kind, id: target.id, limit: _limit)),
-    );
+    final board = target == null
+        ? ref.watch(tradeFeedProvider(_limit))
+        : ref.watch(
+            tradeBoardProvider((
+              kind: target.kind,
+              id: target.id,
+              limit: _limit,
+            )),
+          );
     final all = ref.watch(allOshisProvider).value ?? const <OshiSummary>[];
     final uid = ref.watch(currentUidProvider);
 
@@ -216,7 +222,14 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
       return const HakoEmpty('募集中の投稿はまだありません');
     }
     final filter = ref.watch(boardFilterProvider);
-    final posts = value.posts.where(filter.matches).toList();
+    // 種別で絞り込むときだけ、グッズの種別を読む（Fc 5.1）
+    final categoryOf = filter.categories.isEmpty
+        ? const <String, GoodsCategory>{}
+        : ref.watch(boardGoodsCategoriesProvider);
+    final posts = [
+      for (final p in value.posts)
+        if (filter.matches(p, categoryOf: categoryOf)) p,
+    ];
     return ListView(
       // 右下のボタンで最後の投稿が隠れないようにする
       padding: EdgeInsets.fromLTRB(
@@ -255,7 +268,7 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
   }
 }
 
-/// フォロー中の推しから1つ選ぶ
+/// 推しの選択。先頭は「フォロー中すべて」（null。Fc 5.1）、その下にフォロー中の推し
 class _OshiSelector extends StatelessWidget {
   const _OshiSelector({
     required this.oshis,
@@ -263,17 +276,20 @@ class _OshiSelector extends StatelessWidget {
     required this.onChanged,
   });
 
+  /// 「フォロー中すべて」を表す値（推しのキーと重ならない）
+  static const String _allKey = '';
+
   final List<OshiSummary> oshis;
   final OshiSummary? selected;
   final ValueChanged<OshiSummary?> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    if (oshis.isEmpty) return const SizedBox.shrink();
-
     // 承認などで中身が変わっても同じ推しとして扱えるよう、key で選ぶ
     final byKey = {for (final o in oshis) o.key: o};
-    final selectedKey = byKey.containsKey(selected?.key) ? selected!.key : null;
+    final selectedKey = byKey.containsKey(selected?.key)
+        ? selected!.key
+        : _allKey;
     return Container(
       constraints: const BoxConstraints(minHeight: 52),
       decoration: const BoxDecoration(
@@ -284,8 +300,11 @@ class _OshiSelector extends StatelessWidget {
           key: const Key('trade_board_oshi'),
           isExpanded: true,
           value: selectedKey,
-          hint: const Text('推しを選ぶ'),
           items: [
+            const DropdownMenuItem(
+              value: _allKey,
+              child: Text('フォロー中すべて'),
+            ),
             for (final o in oshis)
               DropdownMenuItem(
                 value: o.key,
@@ -299,8 +318,8 @@ class _OshiSelector extends StatelessWidget {
   }
 }
 
-/// 掲示板の投稿1件（詳細画面は G-5-1 で作るため、まだタップできない）
-class _BoardCard extends StatelessWidget {
+/// 掲示板の投稿1件。対象の推しに色があれば、左端に 4px の帯を出す（Fc 5.3）
+class _BoardCard extends ConsumerWidget {
   const _BoardCard({
     required this.post,
     required this.all,
@@ -312,16 +331,26 @@ class _BoardCard extends StatelessWidget {
   final bool isMine;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final targets = targetNames(post, all);
+    final color = resolvePostColor(
+      post,
+      ref.watch(oshiColorsProvider).value ?? const {},
+      all,
+    );
     return Card(
       key: Key('trade_board_post_${post.id}'),
       margin: const EdgeInsets.symmetric(vertical: 6),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => context.push('/trade/${post.id}'),
-        child: Padding(
+        child: Container(
+          decoration: color == null
+              ? null
+              : BoxDecoration(
+                  border: Border(left: BorderSide(color: color, width: 4)),
+                ),
           padding: const EdgeInsets.all(12),
           // 写真があれば右に1枚目を出す（G-7）
           child: TradePostWithThumb(

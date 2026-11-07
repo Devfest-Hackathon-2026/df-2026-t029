@@ -3,9 +3,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../theme/brand_colors.dart';
 import '../../theme/hako_app_widgets.dart';
+import 'favorite_oshi_card.dart';
 import 'following_oshi_list.dart';
 
-/// 推しの画面（タブの「推し」）：推しを探す・フォロー中の推し
+/// 推しの画面（タブの「推し」）：推しを探す・最推し・フォロー中の推し
 class OshiPage extends StatelessWidget {
   const OshiPage({super.key});
 
@@ -32,6 +33,8 @@ class OshiPage extends StatelessWidget {
                 label: const Text('推しを探す'),
               ),
             ),
+            // 最推し（いないときは何も出ない。Fc 3.2）
+            const FavoriteOshiCard(),
             const HakoSectionHeader('フォロー中の推し'),
             const FollowingOshiList(),
           ],
