@@ -16,11 +16,39 @@ List<String> groupNamesOf(OshiSummary oshi, Map<String, String> names) => [
   for (final id in oshi.groupIds) ?names[id],
 ];
 
+/// 推しの種別の札（Fc 4.3）。グループは墨の丸に白、個人は白の丸に墨の枠
+class OshiKindBadge extends StatelessWidget {
+  const OshiKindBadge({super.key, required this.kind, this.size = 36});
+
+  final OshiKind kind;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final isGroup = kind == OshiKind.group;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isGroup ? BrandColors.ink : BrandColors.surface,
+        border: Border.all(color: BrandColors.ink, width: 2),
+      ),
+      child: Icon(
+        isGroup ? Icons.groups : Icons.person,
+        size: size * 0.56,
+        color: isGroup ? BrandColors.surface : BrandColors.ink,
+        semanticLabel: kind.label,
+      ),
+    );
+  }
+}
+
 /// 検索結果・フォロー一覧・メンバー一覧の1行
 ///
-/// 種別ラベル・申請中バッジ・フォロー／解除ボタンを出す。
+/// 種別の札・申請中バッジ・フォロー／解除ボタンを出す。
 /// 申請中の推しはフォローボタンを押せない。
-/// [onTap] があれば行を押せる（グループの行で、メンバーの一覧を出すのに使う）。
+/// [onTap] があれば行を押せる（グループの行で、メンバーを出すのに使う）。
 /// [onToggleFavorite] があれば、フォローのボタンの左に最推しの星を出す（Fc 3.2）。
 class OshiListTile extends StatelessWidget {
   const OshiListTile({
@@ -35,6 +63,7 @@ class OshiListTile extends StatelessWidget {
     this.isFavorite = false,
     this.onToggleFavorite,
     this.membersExpanded,
+    this.highlight = false,
   });
 
   final OshiSummary oshi;
@@ -61,12 +90,14 @@ class OshiListTile extends StatelessWidget {
   /// null なら今までどおり「メンバーを見る ›」（シートで開く）
   final bool? membersExpanded;
 
+  /// 名前を太字にする（推しを探すで、ヒットしたメンバー。Fc 4.3）
+  final bool highlight;
+
   String get _keySuffix => '${oshi.kind.name}_${oshi.id}';
 
   @override
   Widget build(BuildContext context) {
     final isPending = !oshi.isApproved;
-    final isGroup = oshi.kind == OshiKind.group;
 
     return InkWell(
       key: ValueKey('oshi_tile_$_keySuffix'),
@@ -84,15 +115,8 @@ class OshiListTile extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Icon(
-                isGroup ? Icons.group_outlined : Icons.person_outline,
-                size: 28,
-                color: BrandColors.ink,
-              ),
-            ),
-            const SizedBox(width: 14),
+            OshiKindBadge(kind: oshi.kind),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,7 +125,11 @@ class OshiListTile extends StatelessWidget {
                     oshi.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: HakoFonts.jp(size: 16, height: 1.5),
+                    style: HakoFonts.jp(
+                      size: 16,
+                      height: 1.5,
+                      weight: highlight ? FontWeight.w700 : FontWeight.w400,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Wrap(

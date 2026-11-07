@@ -122,9 +122,16 @@ class _FollowAllMembersButtonState
 /// 左に字下げし、左端に墨の縦線を引く。
 /// 上から：全員フォロー → メンバーの行 → 「メンバーを申請する」
 class GroupMembersPanel extends ConsumerStatefulWidget {
-  const GroupMembersPanel({super.key, required this.group});
+  const GroupMembersPanel({
+    super.key,
+    required this.group,
+    this.highlightKeys = const {},
+  });
 
   final OshiSummary group;
+
+  /// 名前を太字にするメンバー（推しを探すでヒットしたもの。Fc 4.3）
+  final Set<String> highlightKeys;
 
   @override
   ConsumerState<GroupMembersPanel> createState() => _GroupMembersPanelState();
@@ -187,6 +194,7 @@ class _GroupMembersPanelState extends ConsumerState<GroupMembersPanel> {
                     onFollow: () => _toggleFollow(m, follow: true),
                     onUnfollow: () => _toggleFollow(m, follow: false),
                     groupNames: groupNamesOf(m, names),
+                    highlight: widget.highlightKeys.contains(m.key),
                   ),
               Padding(
                 padding: const EdgeInsets.only(top: 4),
