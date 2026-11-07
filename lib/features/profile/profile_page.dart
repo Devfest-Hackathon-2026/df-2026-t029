@@ -122,52 +122,58 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               ),
               body: Form(
                 key: _formKey,
-                child: ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Text(
-                        isInitial
-                            ? 'グッズ交換の投稿・返信・チャットで表示される名前を決めてください。あとから変更できます。'
-                            : '変更した名前は、これから書く投稿・返信から反映されます。',
-                      ),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Text(
+                            isInitial
+                                ? 'グッズ交換の投稿・返信・チャットで表示される名前を決めてください。あとから変更できます。'
+                                : '変更した名前は、これから書く投稿・返信から反映されます。',
+                          ),
+                        ),
+                        TextFormField(
+                          controller: _name,
+                          enabled: !_saving,
+                          maxLength: maxNameLength,
+                          decoration: const InputDecoration(
+                            labelText: 'ハンドルネーム（必須）',
+                          ),
+                          validator: _validateName,
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _x,
+                          enabled: !_saving,
+                          decoration: const InputDecoration(
+                            labelText: 'X アカウント（任意）',
+                            prefixText: '@',
+                            helperText: '投稿の連絡先の初期値に使います',
+                          ),
+                          validator: _validateX,
+                        ),
+                        const SizedBox(height: 24),
+                        FilledButton(
+                          onPressed:
+                              _saving ? null : () => _save(isInitial: isInitial),
+                          child: Text(_saving ? '保存中…' : '保存'),
+                        ),
+                        // テーマカラーは編集のときだけ（初回の作成は短く保つ）
+                        if (!isInitial) ...[
+                          const SizedBox(height: 32),
+                          const Divider(),
+                          const SizedBox(height: 16),
+                          const ThemeColorPicker(),
+                        ],
+                      ],
                     ),
-                    TextFormField(
-                      controller: _name,
-                      enabled: !_saving,
-                      maxLength: maxNameLength,
-                      decoration: const InputDecoration(
-                        labelText: 'ハンドルネーム（必須）',
-                      ),
-                      validator: _validateName,
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _x,
-                      enabled: !_saving,
-                      decoration: const InputDecoration(
-                        labelText: 'X アカウント（任意）',
-                        prefixText: '@',
-                        helperText: '投稿の連絡先の初期値に使います',
-                      ),
-                      validator: _validateX,
-                    ),
-                    const SizedBox(height: 24),
-                    FilledButton(
-                      onPressed:
-                          _saving ? null : () => _save(isInitial: isInitial),
-                      child: Text(_saving ? '保存中…' : '保存'),
-                    ),
-                    // テーマカラーは編集のときだけ（初回の作成は短く保つ）
-                    if (!isInitial) ...[
-                      const SizedBox(height: 32),
-                      const Divider(),
-                      const SizedBox(height: 16),
-                      const ThemeColorPicker(),
-                    ],
-                  ],
-                ),
+                  )
+                ) 
               ),
             );
           },
