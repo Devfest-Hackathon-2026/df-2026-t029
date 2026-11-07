@@ -8,7 +8,7 @@ final photoRepositoryProvider = Provider<PhotoRepository>(
   (ref) => FirebasePhotoRepository(FirebaseStorage.instance),
 );
 
-/// Storage のパス → ダウンロード URL（仕様書 5.3）。
+/// Storage のパス → ダウンロード URL（M-5 仕様書 5.3）。
 /// autoDispose にせず、一度取った URL を覚えておく。
 /// 消えた写真などで失敗したときは、取り直しを繰り返さない
 final photoUrlProvider = FutureProvider.family<String, String>(

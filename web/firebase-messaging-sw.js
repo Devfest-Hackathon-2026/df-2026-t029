@@ -1,4 +1,4 @@
-// Firebase Cloud Messaging の Service Worker（リマインド通知。仕様書 5.2）
+// Firebase Cloud Messaging の Service Worker（リマインド通知。Step6 仕様書 5.2）
 // サイトのルートに置く。通知の表示と、押したときに開く URL は、
 // 送信側（Cloud Functions）の notification・webpush.fcmOptions.link で決まる。
 

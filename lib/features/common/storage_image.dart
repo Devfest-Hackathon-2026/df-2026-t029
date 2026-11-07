@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/photo_providers.dart';
 
-/// Storage の写真を表示する（仕様書 3.4・5.4）。
+/// Storage の写真を表示する（M-5 仕様書 3.4・5.4）。
 /// 親の大きさいっぱいに広がる。読み込み中は色付きの枠、失敗したらアイコン
 class StorageImage extends ConsumerWidget {
   const StorageImage({super.key, required this.path, this.fit = BoxFit.cover});

@@ -1,5 +1,5 @@
 /**
- * リマインド通知（Step6。仕様書 3章・6章）
+ * リマインド通知（Step6 仕様書 3章・6章）
  *
  * 15分おきに、FCM トークンを持つユーザーごとに、自分のライブ一覧の受付の
  * 「次の締切」を調べ、1日前・3時間前に Web プッシュを送る。
@@ -62,7 +62,7 @@ function nextDeadline(reception, status) {
   return at ? {kind, at} : null;
 }
 
-/** 残り時間から段階を決める（仕様書 3.2）。対象外は null */
+/** 残り時間から段階を決める（Step6 仕様書 3.2）。対象外は null */
 function stageOf(remainingMs) {
   if (remainingMs <= 0) return null;
   if (remainingMs <= 3 * HOUR) return "3h";

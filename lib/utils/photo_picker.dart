@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:image_picker/image_picker.dart';
 
-/// 写真1枚の大きさの上限（Storage のルールと同じ。仕様書 3.1）
+/// 写真1枚の大きさの上限（Storage のルールと同じ。M-5 仕様書 3.1）
 const maxPhotoBytes = 5 * 1024 * 1024;
 
 /// 縮小後の長辺（px）
@@ -74,7 +74,7 @@ String? _contentTypeOf(XFile file) {
 }
 
 /// 写真を選ぶ（複数可）。長辺 1600px に縮小し、形式と大きさで振り分け、
-/// 先頭から [remaining] 枚までを返す（仕様書 3.1・5.1）。
+/// 先頭から [remaining] 枚までを返す（M-5 仕様書 3.1・5.1）。
 /// 何も選ばなかったときは、すべて空・0 の結果になる。
 Future<PhotoPickResult> pickPhotos({required int remaining}) async {
   final files = await ImagePicker().pickMultiImage(

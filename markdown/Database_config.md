@@ -316,7 +316,7 @@ tradePosts/p1
 | seat | string | | 座席（100文字まで） |
 | setlist | array | | 曲名（string の配列。100曲まで、各100文字まで） |
 | impression | string | | 感想（2,000文字まで） |
-| images | array | ○ | 写真（Storage のパスの配列。8枚まで）。M-5 までは空 |
+| images | array | ○ | 写真（Storage のパス `users/{uid}/memories/{performanceId}/{ファイル名}` の配列。8枚まで。1枚目が表紙） |
 | createdAt | timestamp | ○ | 作成日時 |
 | updatedAt | timestamp | ○ | 更新日時 |
 
@@ -450,5 +450,5 @@ tradePosts/p1
 
 - **共通データを更新できる範囲**：当面はログイン済みユーザー全員とし、誤った更新は履歴から戻す。照合・更新機能の開発時に確定する。
 - **申込の席種・枚数・支払額**：費用管理（P3）の開発時に、`applications` に追加する。
-- **写真の保存先（Cloud Storage のパス構成）**：グッズ交換の G-0-6 で追記する。
+- **写真の保存先（Cloud Storage のパス構成）**：決定（11/7）。メモリーは `users/{uid}/memories/{performanceId}/{ファイル名}`（本人だけが読み書き）、グッズ交換は `tradePhotos/{uid}/{ファイル名}`（ログイン済みなら読める。作成・削除は本人だけ）。どちらも 5MB 未満の画像だけ。ルールは `storage.rules`。
 - **遠征・通知（FCM トークンなど）**：各機能の開発時に追加する。

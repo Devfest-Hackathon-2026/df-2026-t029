@@ -36,3 +36,12 @@ String wantSummary(TradePost post) => summarizeLabels([
   for (final s in post.wants)
     for (final t in s.targets) t.label,
 ]);
+
+/// 一覧に出す写真（1枚目。投稿全体 → 譲セットの順）。無ければ null（G-7）
+String? firstPhotoOf(TradePost post) {
+  if (post.images.isNotEmpty) return post.images.first;
+  for (final s in post.gives) {
+    if (s.images.isNotEmpty) return s.images.first;
+  }
+  return null;
+}

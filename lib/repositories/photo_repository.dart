@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../utils/photo_picker.dart';
 
-/// 写真の保存先（Cloud Storage。仕様書 5.2）
+/// 写真の保存先（Cloud Storage。M-5 仕様書 5.2）
 abstract class PhotoRepository {
   /// [dir] の下に写真をアップロードし、Storage のパスを返す
   Future<String> upload(String dir, PickedPhoto photo);
@@ -29,7 +29,7 @@ class FirebasePhotoRepository implements PhotoRepository {
   static final _random = Random.secure();
   static const _chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
-  /// `<日時のミリ秒>_<ランダム6文字>.<拡張子>`（仕様書 3.2）
+  /// `<日時のミリ秒>_<ランダム6文字>.<拡張子>`（M-5 仕様書 3.2）
   String _fileName(String extension) {
     final rand = List.generate(
       6,

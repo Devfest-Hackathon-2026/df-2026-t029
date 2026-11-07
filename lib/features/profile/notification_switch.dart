@@ -5,7 +5,7 @@ import '../../providers/messaging_providers.dart';
 import '../../providers/oshi_providers.dart';
 import '../../repositories/messaging_repository.dart';
 
-/// リマインド通知のオン・オフ（仕様書 3.5・5.5）
+/// リマインド通知のオン・オフ（Step6 仕様書 3.5・5.5）
 class NotificationSwitch extends ConsumerStatefulWidget {
   const NotificationSwitch({super.key});
 

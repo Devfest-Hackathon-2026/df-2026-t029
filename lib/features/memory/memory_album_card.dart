@@ -22,7 +22,7 @@ class MemoryAlbumCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 写真があれば1枚目を表紙にする。無ければ色付きの枠（仕様書 6.4）
+            // 写真があれば1枚目を表紙にする。無ければ色付きの枠（M-5 仕様書 6.4）
             Expanded(
               child: memory.images.isEmpty
                   ? ColoredBox(

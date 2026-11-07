@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app.dart';
 import '../../providers/messaging_providers.dart';
 
-/// アプリを開いているときに届いた通知を SnackBar で出す（仕様書 3.6・5.6）。
+/// アプリを開いているときに届いた通知を SnackBar で出す（Step6 仕様書 3.6・5.6）。
 ///
 /// 前面のときはブラウザの通知が出ないため。「開く」でそのライブの詳細へ移る。
 /// `MaterialApp.router` の `builder` で包む（ScaffoldMessenger より内側になる）。

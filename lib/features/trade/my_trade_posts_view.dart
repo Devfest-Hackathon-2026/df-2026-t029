@@ -8,6 +8,7 @@ import '../../providers/oshi_providers.dart';
 import '../../providers/trade_post_providers.dart';
 import 'trade_post_summary.dart';
 import 'trade_post_summary_lines.dart';
+import 'trade_post_thumb.dart';
 
 /// 自分の投稿の一覧（更新日時の新しい順。交換トップの「自分の投稿」タブ）。
 /// 編集・募集終了・再開ができる
@@ -164,7 +165,14 @@ class _PostCardState extends ConsumerState<_PostCard> {
                       ),
                   ],
                 ),
-                TradePostSummaryLines(post: post),
+                // 写真があれば右に1枚目を出す（G-7）
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: TradePostWithThumb(
+                    post: post,
+                    child: TradePostSummaryLines(post: post),
+                  ),
+                ),
                 if (isHidden)
                   Text(
                     '運営により非表示にされています。編集・再開はできません',
