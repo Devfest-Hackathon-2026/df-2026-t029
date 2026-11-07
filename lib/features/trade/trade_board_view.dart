@@ -40,9 +40,15 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    
     final following = ref.watch(followingOshisProvider);
-    // null は「フォロー中すべて」（最初はこれ。Fc 5.1）
-    final target = ref.watch(boardTargetProvider);
+    // null は「フォロー中すべて」（最初はこれ。Fc 5.1）。
+    // 選んでいた推しのフォローを外したときも「フォロー中すべて」として扱う
+    final selected = ref.watch(boardTargetProvider);
+    final target =
+        (following.value?.any((o) => o.key == selected?.key) ?? false)
+        ? selected
+        : null;
 
     final pad = HakoPageScaffold.padding(context);
     return Column(
