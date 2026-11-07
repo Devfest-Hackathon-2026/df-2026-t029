@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/oshi.dart';
 import '../../models/trade_post.dart';
 import '../../providers/oshi_providers.dart';
+import '../common/photo_items.dart';
 import 'trade_item_picker_sheet.dart';
 import 'trade_post_draft.dart';
 
@@ -13,10 +14,22 @@ class GiveSetsSection extends ConsumerWidget {
     super.key,
     required this.draft,
     required this.onChanged,
+    required this.canAddPhoto,
+    required this.photosEnabled,
+    required this.onAddPhotos,
   });
 
   final TradePostDraft draft;
   final VoidCallback onChanged;
+
+  /// 「写真を追加」を押せるか（合計の上限・処理中は呼び出し側で判定する）
+  final bool canAddPhoto;
+
+  /// 写真を外せるか（保存中は false）
+  final bool photosEnabled;
+
+  /// セットに写真を足す（写真を選ぶ処理は作成・編集画面が行う）
+  final ValueChanged<GiveSetDraft> onAddPhotos;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -72,6 +85,19 @@ class GiveSetsSection extends ConsumerWidget {
                 label: const Text('品目を選ぶ'),
               ),
             ],
+            // セットの写真（G-7）
+            footer: PhotoEditSection(
+              title: 'このセットの写真',
+              photos: set.photos,
+              canAdd: canAddPhoto,
+              enabled: photosEnabled,
+              onAdd: () => onAddPhotos(set),
+              onRemove: (k) {
+                set.photos.removeAt(k);
+                onChanged();
+              },
+              addButtonKey: Key('trade_give_${i}_add_photo'),
+            ),
           ),
         _AddSetButton(
           buttonKey: const Key('trade_give_add'),
@@ -234,6 +260,7 @@ class _SetCard extends StatelessWidget {
     required this.onNoteChanged,
     required this.onRemove,
     required this.actions,
+    this.footer,
   });
 
   final String keyPrefix;
@@ -247,8 +274,12 @@ class _SetCard extends StatelessWidget {
   final VoidCallback onRemove;
   final List<Widget> actions;
 
+  /// 備考の下に置くもの（譲セットの写真）
+  final Widget? footer;
+
   @override
   Widget build(BuildContext context) {
+    final footer = this.footer;
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6),
       child: Padding(
@@ -311,6 +342,11 @@ class _SetCard extends StatelessWidget {
                 ],
               ),
             ),
+            if (footer != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12, right: 8),
+                child: footer,
+              ),
           ],
         ),
       ),
