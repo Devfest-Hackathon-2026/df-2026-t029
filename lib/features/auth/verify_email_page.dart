@@ -6,7 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../repositories/auth_repository.dart';
-import '../../theme/brand_colors.dart';
+import '../../theme/hako_fonts.dart';
+import '../../theme/hako_widgets.dart';
 import '../../utils/auth_error_message.dart';
 import 'auth_widgets.dart';
 
@@ -141,25 +142,13 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
   Widget build(BuildContext context) {
     final email = ref.read(authRepositoryProvider).currentUser?.email;
     final busy = _manualChecking || _resending || _signingOut;
-    const bodyStyle = TextStyle(
-      color: BrandColors.inkSub,
-      fontSize: 14,
-      height: 1.7,
-    );
+    final bodyStyle = HakoFonts.jp(size: 15, height: 1.75);
     return AuthShell(
       key: const Key('verify_email_page'),
-      card: Column(
+      heading: '確認メールを送りました',
+      body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            '確認メールを送りました',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: BrandColors.ink,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
           const SizedBox(height: 14),
           Text(
             email == null
@@ -169,7 +158,7 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
             style: bodyStyle,
           ),
           const SizedBox(height: 6),
-          const Text('届かないときは、迷惑メールのフォルダも見てください。', style: bodyStyle),
+          Text('届かないときは、迷惑メールのフォルダも見てください。', style: bodyStyle),
           if (_message != null) ...[
             const SizedBox(height: 14),
             AuthMessageBanner(
@@ -178,27 +167,24 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
               isError: _messageIsError,
             ),
           ],
-          const SizedBox(height: 20),
-          GradientButton(
+          HakoPrimaryButton(
             key: const Key('verify_check_button'),
             label: '確認しました',
             busy: _manualChecking,
             onPressed: busy ? null : () => _check(manual: true),
           ),
           const SizedBox(height: 8),
-          TextButton(
+          authLinkButton(
             key: const Key('verify_resend_button'),
+            label: _cooldownLeft > 0
+                ? '確認メールを送り直す（あと$_cooldownLeft秒）'
+                : '確認メールを送り直す',
             onPressed: (busy || _cooldownLeft > 0) ? null : _resend,
-            child: Text(
-              _cooldownLeft > 0
-                  ? '確認メールを送り直す（あと$_cooldownLeft秒）'
-                  : '確認メールを送り直す',
-            ),
           ),
-          TextButton(
+          authLinkButton(
             key: const Key('verify_sign_out_button'),
+            label: '別のアカウントでログインする',
             onPressed: busy ? null : _signOut,
-            child: const Text('別のアカウントでログインする'),
           ),
         ],
       ),

@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../repositories/auth_repository.dart';
 import '../../theme/brand_colors.dart';
+import '../../theme/google_logo.dart';
+import '../../theme/hako_fonts.dart';
+import '../../theme/hako_widgets.dart';
 import '../../utils/auth_error_message.dart';
 import '../../utils/auth_validators.dart';
 import 'auth_widgets.dart';
@@ -121,35 +124,41 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final busy = _busy != null;
+    final smallStyle = HakoFonts.jp(size: 12, height: 1.7);
     return AuthShell(
       key: const Key('login_page'),
       showBack: true,
-      footer: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
-        child: const AuthRecaptchaNotice(),
-      ),
-      card: Form(
+      heading: _isSignUp ? 'はじめまして。\n入口はこちら。' : 'おかえりなさい。\n入口はこちら。',
+      body: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(
-              width: double.infinity,
-              child: SegmentedButton<LoginMode>(
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(
-                    value: LoginMode.signIn,
-                    label: Text('ログイン', key: Key('login_mode_signin')),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: HakoTab(
+                    key: const Key('login_mode_signin'),
+                    label: 'ログイン',
+                    selected: !_isSignUp,
+                    onPressed: busy
+                        ? null
+                        : () => _changeMode(LoginMode.signIn),
                   ),
-                  ButtonSegment(
-                    value: LoginMode.signUp,
-                    label: Text('新規登録', key: Key('login_mode_signup')),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: HakoTab(
+                    key: const Key('login_mode_signup'),
+                    label: '新規登録',
+                    selected: _isSignUp,
+                    onPressed: busy
+                        ? null
+                        : () => _changeMode(LoginMode.signUp),
                   ),
-                ],
-                selected: {_mode},
-                onSelectionChanged: busy ? null : (s) => _changeMode(s.first),
-              ),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
             OutlinedButton(
@@ -157,50 +166,82 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               onPressed: busy ? null : _google,
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(48),
-                foregroundColor: BrandColors.ink,
-                side: const BorderSide(color: BrandColors.line, width: 1.5),
-                shape: const StadiumBorder(),
+                backgroundColor: Colors.white,
+                foregroundColor: BrandColors.googleText,
+                side: const BorderSide(color: BrandColors.googleBorder),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
               ),
               child: _busy == _Busy.google
                   ? const SizedBox.square(
                       dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: BrandColors.googleText,
+                      ),
                     )
-                  : const Text('Google で続ける'),
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const GoogleLogo(size: 20),
+                        const SizedBox(width: 10),
+                        Flexible(
+                          child: Text(
+                            'Google で続ける',
+                            style: HakoFonts.googleButton(),
+                          ),
+                        ),
+                      ],
+                    ),
             ),
-            const SizedBox(height: 16),
-            const Row(
+            const SizedBox(height: 18),
+            Row(
               children: [
-                Expanded(child: Divider(color: BrandColors.line)),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10),
-                  child: Text(
-                    'または メールアドレスで',
-                    style: TextStyle(color: BrandColors.inkSub, fontSize: 12),
+                const Expanded(
+                  child: Divider(
+                    color: BrandColors.ink,
+                    thickness: 2,
+                    height: 2,
                   ),
                 ),
-                Expanded(child: Divider(color: BrandColors.line)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text(
+                    'またはメールで',
+                    style: HakoFonts.jp(size: 13, height: 1.4),
+                  ),
+                ),
+                const Expanded(
+                  child: Divider(
+                    color: BrandColors.ink,
+                    thickness: 2,
+                    height: 2,
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 6),
+            hakoFieldLabel('メールアドレス'),
             TextFormField(
               key: const Key('login_email_field'),
               controller: _email,
               enabled: !busy,
+              style: hakoInputTextStyle(),
+              cursorColor: BrandColors.ink,
               keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email],
               textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'メールアドレス',
-                border: OutlineInputBorder(),
-              ),
+              decoration: hakoInputDecoration(),
               validator: validateEmail,
             ),
-            const SizedBox(height: 14),
+            hakoFieldLabel('パスワード'),
             TextFormField(
               key: const Key('login_password_field'),
               controller: _password,
               enabled: !busy,
+              style: hakoInputTextStyle(),
+              cursorColor: BrandColors.ink,
               obscureText: _obscure,
               autofillHints: [
                 _isSignUp ? AutofillHints.newPassword : AutofillHints.password,
@@ -209,13 +250,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   ? TextInputAction.next
                   : TextInputAction.done,
               onFieldSubmitted: _isSignUp ? null : (_) => _submit(),
-              decoration: InputDecoration(
-                labelText: 'パスワード',
+              decoration: hakoInputDecoration(
                 helperText: _isSignUp ? '$minPasswordLength文字以上' : null,
-                border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   key: const Key('login_password_toggle'),
                   tooltip: _obscure ? 'パスワードを表示' : 'パスワードを隠す',
+                  color: BrandColors.ink,
                   icon: Icon(
                     _obscure ? Icons.visibility_outlined : Icons.visibility_off,
                   ),
@@ -225,19 +265,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               validator: (v) => validatePassword(v, isSignUp: _isSignUp),
             ),
             if (_isSignUp) ...[
-              const SizedBox(height: 14),
+              hakoFieldLabel('パスワード（確認）'),
               TextFormField(
                 key: const Key('login_password_confirm_field'),
                 controller: _confirm,
                 enabled: !busy,
+                style: hakoInputTextStyle(),
+                cursorColor: BrandColors.ink,
                 obscureText: _obscure,
                 autofillHints: const [AutofillHints.newPassword],
                 textInputAction: TextInputAction.done,
                 onFieldSubmitted: (_) => _submit(),
-                decoration: const InputDecoration(
-                  labelText: 'パスワード（確認）',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: hakoInputDecoration(),
                 validator: (v) => validatePasswordConfirm(v, _password.text),
               ),
             ],
@@ -248,40 +287,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 message: _error!,
               ),
             ],
-            const SizedBox(height: 20),
-            GradientButton(
+            HakoPrimaryButton(
               key: const Key('login_submit_button'),
               label: _isSignUp ? '登録して確認メールを送る' : 'ログイン',
               busy: _busy == _Busy.submit,
               onPressed: busy ? null : _submit,
             ),
-            if (!_isSignUp)
-              Align(
-                alignment: Alignment.center,
-                child: TextButton(
-                  key: const Key('login_forgot_password_button'),
-                  onPressed: busy ? null : _forgotPassword,
-                  child: const Text('パスワードを忘れた方'),
-                ),
+            if (!_isSignUp) ...[
+              const SizedBox(height: 16),
+              authLinkButton(
+                key: const Key('login_forgot_password_button'),
+                label: 'パスワードを忘れた方',
+                onPressed: busy ? null : _forgotPassword,
               ),
-            const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 22),
             if (_isSignUp)
-              const Text(
-                '登録すると確認メールが届きます。メールのリンクを開くと使えるようになります。',
-                style: TextStyle(
-                  color: BrandColors.inkSub,
-                  fontSize: 12,
-                  height: 1.6,
-                ),
-              ),
-            const Text(
+              Text('登録すると確認メールが届きます。メールのリンクを開くと使えるようになります。', style: smallStyle),
+            Text(
               'Google カレンダーへの追加は、使うときに Google アカウントの許可を求めます。',
-              style: TextStyle(
-                color: BrandColors.inkSub,
-                fontSize: 12,
-                height: 1.6,
-              ),
+              style: smallStyle,
             ),
+            const SizedBox(height: 8),
+            const AuthRecaptchaNotice(),
           ],
         ),
       ),
@@ -349,7 +377,16 @@ class _ResetPasswordDialogState extends ConsumerState<_ResetPasswordDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('パスワードの再設定'),
+      backgroundColor: BrandColors.paper,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(4),
+        side: const BorderSide(color: BrandColors.ink, width: 2),
+      ),
+      title: Text(
+        'パスワードの再設定',
+        style: HakoFonts.jp(size: 22, weight: FontWeight.w700, height: 1.4),
+      ),
       content: SizedBox(
         width: 360,
         child: SingleChildScrollView(
@@ -359,18 +396,18 @@ class _ResetPasswordDialogState extends ConsumerState<_ResetPasswordDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                hakoFieldLabel('メールアドレス'),
                 TextFormField(
                   key: const Key('reset_email_field'),
                   controller: _email,
+                  style: hakoInputTextStyle(),
+                  cursorColor: BrandColors.ink,
                   enabled: !_busy && !_sent,
                   keyboardType: TextInputType.emailAddress,
                   autofillHints: const [AutofillHints.email],
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _send(),
-                  decoration: const InputDecoration(
-                    labelText: 'メールアドレス',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: hakoInputDecoration(),
                   validator: validateEmail,
                 ),
                 if (_sent) ...[
@@ -397,18 +434,49 @@ class _ResetPasswordDialogState extends ConsumerState<_ResetPasswordDialog> {
         TextButton(
           key: const Key('reset_close_button'),
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('閉じる'),
+          style: TextButton.styleFrom(
+            minimumSize: const Size(0, 44),
+            foregroundColor: BrandColors.ink,
+          ),
+          child: Text(
+            '閉じる',
+            style: HakoFonts.jp(size: 14, height: 1.4).copyWith(
+              decoration: TextDecoration.underline,
+              decorationColor: BrandColors.ink,
+            ),
+          ),
         ),
         if (!_sent)
           FilledButton(
             key: const Key('reset_send_button'),
             onPressed: _busy ? null : _send,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 44),
+              backgroundColor: BrandColors.ink,
+              disabledBackgroundColor: BrandColors.ink,
+              foregroundColor: BrandColors.hall3,
+              disabledForegroundColor: BrandColors.hall3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
             child: _busy
                 ? const SizedBox.square(
                     dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: BrandColors.hall3,
+                    ),
                   )
-                : const Text('再設定のメールを送る'),
+                : Text(
+                    '再設定のメールを送る',
+                    style: HakoFonts.jp(
+                      size: 14,
+                      weight: FontWeight.w700,
+                      color: BrandColors.hall3,
+                      height: 1.4,
+                    ),
+                  ),
           ),
       ],
     );

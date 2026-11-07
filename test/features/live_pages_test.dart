@@ -279,8 +279,8 @@ void main() {
       await myRepo.add('u1', 'l1');
       await tester.pumpAndSettle();
       expect(_key('live_list_tile_l1'), findsOneWidget);
-      // 1件以上あるときは右下のボタンを出さない
-      expect(_key('live_list_register_fab'), findsNothing);
+      // Fa-3: 件数によらず「ライブを追加する」を出し続ける（1件以上でも消えない）
+      expect(_key('live_list_register_fab'), findsOneWidget);
     });
 
     testWidgets('スマホの幅（360px）で、長い名前でもはみ出さない', (tester) async {
