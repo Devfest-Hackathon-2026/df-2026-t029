@@ -133,7 +133,8 @@ List<ExpenseItem> buildExpenseItems({
         source: ExpenseSource.trip,
         sourceId: t.performanceId,
         category: ExpenseCategory.travel,
-        title: '遠征（${t.venue}）',
+        // 種類の「遠征」と重ならないように、会場名だけにする
+        title: t.venue,
         amount: t.totalCost,
         date: t.startAt,
         liveTitle: t.liveTitle,
