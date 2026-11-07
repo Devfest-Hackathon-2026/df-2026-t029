@@ -12,6 +12,7 @@ import '../../providers/oshi_providers.dart';
 import '../../utils/deadline.dart';
 import '../live_form/date_time_field.dart';
 import '../live_form/live_draft_to_models.dart' show formatYen;
+import '../calendar/calendar_add_sheet.dart';
 import 'deadline_format.dart';
 import 'live_changes.dart';
 import 'live_list_entries.dart';
@@ -235,6 +236,7 @@ class _LiveDetailPageState extends ConsumerState<LiveDetailPage> {
             inMine: inMine,
             togglingMine: _togglingMine,
             onToggleMine: () => _toggleMine(inMine ?? false),
+            onAddToCalendar: () => addLiveToCalendar(context, ref, liveId),
           ),
           _ => const Center(
             key: Key('live_detail_loading'),
@@ -280,6 +282,7 @@ class _DetailView extends StatelessWidget {
     required this.inMine,
     required this.togglingMine,
     required this.onToggleMine,
+    required this.onAddToCalendar,
   });
 
   /// 記録のある公演の ID。読み込み中なら null
@@ -289,6 +292,8 @@ class _DetailView extends StatelessWidget {
   final bool? inMine;
   final bool togglingMine;
   final VoidCallback onToggleMine;
+  /// Google カレンダーに追加する（F-4）
+  final VoidCallback onAddToCalendar;
 
   final LiveDetail detail;
   final DateTime now;
@@ -380,6 +385,15 @@ class _DetailView extends StatelessWidget {
             onPressed: () => context.go('/lives/${live.id}/edit'),
             icon: const Icon(Icons.edit),
             label: const Text('このライブを編集'),
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            key: const Key('live_detail_calendar_button'),
+            onPressed: onAddToCalendar,
+            icon: const Icon(Icons.event),
+            label: const Text('Google カレンダーに追加'),
           ),
         ),
         const SizedBox(height: 24),

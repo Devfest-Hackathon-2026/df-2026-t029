@@ -7,6 +7,7 @@ import '../../providers/live_providers.dart';
 import '../../repositories/live_repository.dart' show FollowTargets;
 import '../../providers/oshi_providers.dart';
 import '../../utils/deadline.dart';
+import '../calendar/calendar_add_sheet.dart';
 import '../live/live_list_entries.dart' show PerformerNames;
 import '../live_form/date_time_field.dart';
 import '../live_form/performer_picker_sheet.dart';
@@ -50,6 +51,7 @@ class _LiveAddPageState extends ConsumerState<LiveAddPage> {
   Future<void> _toggle(String liveId) async {
     if (_busy.contains(liveId)) return;
     setState(() => _busy.add(liveId));
+    var added = false;
     try {
       final uid = ref.read(currentUidProvider);
       if (uid == null) throw StateError('ログインしていません');
@@ -59,6 +61,7 @@ class _LiveAddPageState extends ConsumerState<LiveAddPage> {
         await repo.remove(uid, liveId);
       } else {
         await repo.add(uid, liveId);
+        added = true;
       }
     } catch (_) {
       if (mounted) {
@@ -71,6 +74,8 @@ class _LiveAddPageState extends ConsumerState<LiveAddPage> {
     }
     if (!mounted) return;
     setState(() => _busy.remove(liveId));
+    // 追加したら、続けて Google カレンダーにも入れられるようにする（F-4）
+    if (added) await addLiveToCalendar(context, ref, liveId);
   }
 
   @override
