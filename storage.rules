@@ -9,5 +9,14 @@ service firebase.storage {
         && request.resource.contentType.matches('image/(jpeg|png|webp|gif)');
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
+
+    // グッズ交換の写真（G-7）: ログイン済みなら読める。作成・削除は本人だけ
+    match /tradePhotos/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp|gif)');
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
   }
 }
