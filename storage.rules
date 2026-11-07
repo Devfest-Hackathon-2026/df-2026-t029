@@ -1,0 +1,13 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // メモリーの写真（M-5）: 本人だけ。作成は 5MB 未満の画像だけ。上書きはしない
+    match /users/{userId}/memories/{performanceId}/{fileName} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp|gif)');
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
