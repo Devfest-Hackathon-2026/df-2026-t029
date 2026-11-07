@@ -9,14 +9,15 @@
 
 import { fileURLToPath } from 'node:url';
 import {
+  DEMO_COLLECTIONS,
   DEMO_PREFIX,
-  buildDemoData,
-  collectionsOf,
+  buildDemoDocs,
   todayJst,
 } from './demo_data.mjs';
 
 const EMULATOR_HOST = '127.0.0.1:8085'; // firebase.json の Firestore エミュレータ
 const EMULATOR_PROJECT = 'demo-oshiashi';
+const BATCH_LIMIT = 450; // Firestore の1バッチの上限（500）より少なめ
 
 export function parseArgs(argv) {
   const opts = { emulator: false, project: null, base: null, delete: false };
@@ -46,25 +47,24 @@ function toFirestoreValue(value, Timestamp) {
   return value;
 }
 
-async function seed(db, Timestamp, base) {
-  const data = buildDemoData(base);
-  const batch = db.batch();
+/** [{ path, data }] を、バッチを分けて書く。set は上書きなので、何度実行しても重複しない */
+async function seed(db, Timestamp, docs) {
   let count = 0;
-  for (const [name, docs] of collectionsOf(data)) {
-    for (const [id, fields] of Object.entries(docs)) {
-      // set は同じ ID を上書きするので、何度実行しても重複しない
-      batch.set(db.collection(name).doc(id), toFirestoreValue(fields, Timestamp));
+  for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
+    const batch = db.batch();
+    for (const { path, data } of docs.slice(i, i + BATCH_LIMIT)) {
+      batch.set(db.doc(path), toFirestoreValue(data, Timestamp));
       count++;
     }
+    await batch.commit();
   }
-  await batch.commit();
   return count;
 }
 
-/** demo- で始まる ID のドキュメントを、サブコレクション（履歴）ごと消す */
+/** demo- で始まる ID のドキュメントを、サブコレクション（履歴・返信・メッセージ）ごと消す */
 async function remove(db, FieldPath) {
   let count = 0;
-  for (const [name] of collectionsOf(buildDemoData(todayJst()))) {
+  for (const name of DEMO_COLLECTIONS) {
     const snap = await db
       .collection(name)
       .where(FieldPath.documentId(), '>=', DEMO_PREFIX)
@@ -92,11 +92,11 @@ async function main() {
 
   if (opts.delete) {
     const n = await remove(db, FieldPath);
-    console.log(`デモ用データを ${n} 件（履歴を含む）消しました: ${projectId}`);
+    console.log(`デモ用データを ${n} 件（サブコレクションを含む）消しました: ${projectId}`);
     return;
   }
   const base = opts.base ?? todayJst();
-  const n = await seed(db, Timestamp, base);
+  const n = await seed(db, Timestamp, buildDemoDocs(base));
   console.log(`デモ用データを ${n} 件入れました（基準日 ${base}）: ${projectId}`);
 }
 
