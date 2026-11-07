@@ -414,3 +414,30 @@ class FollowState {
   static String fieldOf(OshiKind kind) =>
       kind == OshiKind.group ? 'followingGroupIds' : 'followingOshiIds';
 }
+
+/// グループの申請と一緒に入れるメンバーの数の上限（Fb-3）
+const int maxRequestMembers = 20;
+
+/// メンバーの名前の前後の空白を除き、空のものを除く
+List<String> cleanMemberNames(List<String> names) =>
+    names.map((n) => n.trim()).where((n) => n.isNotEmpty).toList();
+
+/// グループの申請と一緒に入れるメンバーの名前を検査する（Fb-3）。
+/// [cleaned] は [cleanMemberNames] を通した名前。問題がなければ null、あれば日本語のエラー文。
+/// 既存の推しとの重複は見ない（同じ名前の別人がいるため）
+String? validateMemberNames(List<String> cleaned) {
+  if (cleaned.isEmpty) return 'メンバーを1人以上入力してください';
+  if (cleaned.length > maxRequestMembers) {
+    return 'メンバーは$maxRequestMembers人までです';
+  }
+  for (final n in cleaned) {
+    if (_len(n) > OshiRequest.maxNameLength) {
+      return 'メンバーの名前は${OshiRequest.maxNameLength}文字以内で入力してください';
+    }
+  }
+  final normalized = cleaned.map(normalizeName).toList();
+  if (normalized.toSet().length != normalized.length) {
+    return '同じ名前のメンバーが2回入っています';
+  }
+  return null;
+}

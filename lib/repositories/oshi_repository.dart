@@ -20,6 +20,20 @@ abstract class OshiRepository {
   /// - 所属グループに、存在しない・承認されていないグループがあれば
   ///   [OshiRequestException]
   Future<String> request(OshiRequest request, {required String uid});
+
+  /// グループと、そのメンバー（個人）を、1回のバッチで `status: pending` で作成し、
+  /// グループの ID を返す（Fb-3。メンバーのいないグループを作らせないため）。
+  ///
+  /// - [group] がグループでない、または [OshiRequest.validate] に通らなければ
+  ///   [OshiRequestException]
+  /// - メンバーの名前が [validateMemberNames] に通らなければ [OshiRequestException]
+  /// - 同じ名前のグループ（申請中を含む）があれば [OshiDuplicateException]
+  /// - メンバーは、ジャンルをグループと同じにし、所属を新しいグループだけにする
+  Future<String> requestGroupWithMembers(
+    OshiRequest group,
+    List<String> memberNames, {
+    required String uid,
+  });
 }
 
 /// Firestore 版の [OshiRepository]
@@ -133,5 +147,48 @@ class FirestoreOshiRepository implements OshiRepository {
     final ref = _col(request.kind).doc();
     await ref.set(request.toFirestore(uid));
     return ref.id;
+  }
+
+  @override
+  Future<String> requestGroupWithMembers(
+    OshiRequest group,
+    List<String> memberNames, {
+    required String uid,
+  }) async {
+    if (group.kind != OshiKind.group) {
+      throw const OshiRequestException(['グループの申請ではありません']);
+    }
+    final errors = group.validate();
+    if (errors.isNotEmpty) {
+      throw OshiRequestException(errors.values.toList());
+    }
+    final names = cleanMemberNames(memberNames);
+    final memberError = validateMemberNames(names);
+    if (memberError != null) throw OshiRequestException([memberError]);
+
+    final groups = _parse(OshiKind.group, await _col(OshiKind.group).get());
+    final duplicates = findExactDuplicates(
+      groups,
+      kind: OshiKind.group,
+      name: group.trimmedName,
+      aliases: group.cleanedAliases,
+    );
+    if (duplicates.isNotEmpty) throw OshiDuplicateException(duplicates);
+
+    // グループとメンバーを1回で書く（途中で失敗しても、メンバーのいないグループが残らない）
+    final batch = _db.batch();
+    final groupRef = _col(OshiKind.group).doc();
+    batch.set(groupRef, group.toFirestore(uid));
+    for (final name in names) {
+      final member = OshiRequest(
+        kind: OshiKind.person,
+        name: name,
+        genre: group.genre,
+        groupIds: [groupRef.id],
+      );
+      batch.set(_col(OshiKind.person).doc(), member.toFirestore(uid));
+    }
+    await batch.commit();
+    return groupRef.id;
   }
 }
