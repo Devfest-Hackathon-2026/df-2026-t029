@@ -336,6 +336,103 @@ function buildKenTrade(b, uid, name) {
 }
 
 // ---------------------------------------------------------------
+// けんの遠征メモ・出費・予算（遠征サポート・費用管理）
+// 撮影の11月の合計が ¥89,700（予算 ¥100,000 の90%）になるようにしている。
+//   チケット（自動）：FC先行 S席×2 ¥24,000・フェス ¥7,500・ワンマン ¥7,000・
+//                     ライブハウスツアー ¥4,500・アコースティック ¥5,000
+//   遠征：金沢 ¥35,500 ／ 手入力：ペンライト ¥3,800・ランダムアクスタ ¥2,400
+// ---------------------------------------------------------------
+
+function buildKenMoney(b, uid) {
+  const u = `users/${uid}`;
+  const docs = [];
+
+  // 遠征メモ（users/{uid}/trips/{performanceId}）
+  const trips = [
+    {
+      perf: ['stella-tour', 1],
+      transport: 'shinkansen',
+      transportCost: 14000,
+      hotelName: 'ホテル ドリームステイ東京',
+      hotelCost: 9800,
+      note: '物販は開場の3時間前から並ぶ。るなまるさんと開演前に交換',
+      written: [-1, 22],
+    },
+    {
+      perf: ['hoshizora-fest', 1],
+      transport: 'shinkansen',
+      transportCost: 8000,
+      written: [-2, 21],
+    },
+    {
+      perf: ['kanata-acoustic', 1],
+      transport: 'shinkansen',
+      transportCost: 28000,
+      hotelName: '金沢ことのはイン',
+      hotelCost: 7500,
+      written: [-5, 20],
+    },
+  ];
+  for (const t of trips) {
+    const p = perfInfo(b, ...t.perf);
+    const writtenAt = at(b, t.written[0], t.written[1]);
+    docs.push({
+      path: `${u}/trips/${p.id}`,
+      data: {
+        liveId: p.liveId,
+        liveTitle: p.title,
+        startAt: p.startAt,
+        venue: p.venue,
+        transport: t.transport,
+        transportCost: t.transportCost,
+        ...(t.hotelName ? { hotelName: t.hotelName } : {}),
+        ...(t.hotelCost ? { hotelCost: t.hotelCost } : {}),
+        ...(t.note ? { note: t.note } : {}),
+        createdAt: writtenAt,
+        updatedAt: writtenAt,
+      },
+    });
+  }
+
+  // チケット代の設定（FC先行は S席を2枚）
+  docs.push({
+    path: `${u}/ticketCosts/${recId('stella-tour', 'fc')}`,
+    data: { seat: 'S席', unitPrice: 12000, count: 2, updatedAt: at(b, -2, 19) },
+  });
+
+  // 手入力の出費（[ID, 種類, 内容, 金額, 日, ライブのキー]）
+  const expenses = [
+    ['1', 'goods', 'ペンライト（ステラノート公式）', 3800, -3, 'stella-tour'],
+    ['2', 'goods', 'TOUR ランダムアクスタ 3個', 2400, -6, 'stella-tour'],
+    ['3', 'goods', '1st ライブ グッズ（タオル・Tシャツ）', 4500, -20, 'stella-1st'],
+    ['4', 'other', 'ステラノート ファンクラブ 年会費', 4800, -25, null],
+  ];
+  for (const [id, category, title, amount, day, liveKey] of expenses) {
+    const live = liveKey ? liveByKey.get(liveKey) : null;
+    const date = at(b, day);
+    docs.push({
+      path: `${u}/expenses/demo-exp-${id}`,
+      data: {
+        category,
+        title,
+        amount,
+        date,
+        ...(live ? { liveId: liveId(live.key), liveTitle: live.title } : {}),
+        createdAt: at(b, day, 21),
+        updatedAt: at(b, day, 21),
+      },
+    });
+  }
+
+  // 1か月の予算
+  docs.push({
+    path: `${u}/settings/budget`,
+    data: { monthly: 100000, updatedAt: at(b, -30, 12) },
+  });
+  return docs;
+}
+
+// ---------------------------------------------------------------
 // 相手役（--partner-uid を指定したときだけ）
 // ---------------------------------------------------------------
 
@@ -402,6 +499,7 @@ export function buildPersonalDocs(baseMs, opts) {
   const docs = [
     ...buildKenProfile(baseMs, opts.uid, opts.name),
     ...buildKenTrade(baseMs, opts.uid, opts.name),
+    ...buildKenMoney(baseMs, opts.uid),
   ];
   if (opts.partnerUid) {
     docs.push(...buildPartner(baseMs, opts.partnerUid, opts.partnerName));
