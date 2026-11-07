@@ -1,7 +1,13 @@
 // デモ用データ（架空）を Firestore に入れる・消すスクリプト。
 //
-//   node seed_demo.mjs --emulator [--base YYYY-MM-DD] [--delete]
-//   node seed_demo.mjs --project <プロジェクト ID> [--base YYYY-MM-DD] [--delete]
+//   node seed_demo.mjs --project <プロジェクト ID> [--base YYYY-MM-DD]
+//     [--uid <デモ用アカウントの uid> --name <表示名>]
+//     [--partner-uid <相手役の uid> --partner-name <表示名>]
+//   node seed_demo.mjs --project <プロジェクト ID> --delete
+//   （--project の代わりに --emulator でエミュレータに入れる）
+//
+// --uid を指定したときだけ、個人データ（プロフィール・ライブ一覧・申込状況・メモリー・
+// けんの投稿・返信・チャット）を入れる。--partner-uid は --uid と一緒に使う。
 //
 // 認証情報はリポジトリに入れない。本番に入れるときは、サービスアカウントの鍵を
 // リポジトリの外に置いて GOOGLE_APPLICATION_CREDENTIALS で渡す
@@ -16,23 +22,44 @@ import {
   todayJst,
 } from './demo_data.mjs';
 import { buildTradeDocs } from './demo_trade.mjs';
+import { buildPersonalDocs } from './demo_personal.mjs';
 
 const EMULATOR_HOST = '127.0.0.1:8085'; // firebase.json の Firestore エミュレータ
 const EMULATOR_PROJECT = 'demo-oshiashi';
 const BATCH_LIMIT = 450; // Firestore の1バッチの上限（500）より少なめ
 
 export function parseArgs(argv) {
-  const opts = { emulator: false, project: null, base: null, delete: false };
+  const opts = {
+    emulator: false,
+    project: null,
+    base: null,
+    delete: false,
+    uid: null,
+    name: null,
+    partnerUid: null,
+    partnerName: null,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--emulator') opts.emulator = true;
     else if (a === '--delete') opts.delete = true;
     else if (a === '--project') opts.project = argv[++i] ?? null;
     else if (a === '--base') opts.base = argv[++i] ?? null;
+    else if (a === '--uid') opts.uid = argv[++i] ?? null;
+    else if (a === '--name') opts.name = argv[++i] ?? null;
+    else if (a === '--partner-uid') opts.partnerUid = argv[++i] ?? null;
+    else if (a === '--partner-name') opts.partnerName = argv[++i] ?? null;
     else throw new Error(`知らない引数です: ${a}`);
   }
   if (opts.emulator === !!opts.project) {
     throw new Error('--emulator か --project <ID> のどちらか1つを指定してください');
+  }
+  if (opts.uid && !opts.name) throw new Error('--uid には --name も指定してください');
+  if (opts.partnerUid && !opts.uid) {
+    throw new Error('--partner-uid は --uid と一緒に指定してください');
+  }
+  if (opts.partnerUid && !opts.partnerName) {
+    throw new Error('--partner-uid には --partner-name も指定してください');
   }
   return opts;
 }
@@ -63,7 +90,10 @@ async function seed(db, Timestamp, docs) {
   return count;
 }
 
-/** demo- で始まる ID のドキュメントを、サブコレクション（履歴・返信・メッセージ）ごと消す */
+/**
+ * demo- で始まる ID のドキュメントを、サブコレクション（履歴・返信・メッセージ）ごと消す。
+ * users/{uid} 以下の個人データは消さない（全部消すときは firebase firestore:delete を使う）
+ */
 async function remove(db, FieldPath) {
   let count = 0;
   for (const name of DEMO_COLLECTIONS) {
@@ -100,8 +130,13 @@ async function main() {
   const base = opts.base ?? todayJst();
   const b = baseMillis(base);
   const docs = [...buildDemoDocs(base), ...buildTradeDocs(base, b)];
+  if (opts.uid) docs.push(...buildPersonalDocs(b, opts));
   const n = await seed(db, Timestamp, docs);
-  console.log(`デモ用データを ${n} 件入れました（基準日 ${base}）: ${projectId}`);
+  console.log(
+    `デモ用データを ${n} 件入れました（基準日 ${base}` +
+      `${opts.uid ? `、個人データ: ${opts.name}` : ''}` +
+      `${opts.partnerUid ? `、相手役: ${opts.partnerName}` : ''}）: ${projectId}`,
+  );
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

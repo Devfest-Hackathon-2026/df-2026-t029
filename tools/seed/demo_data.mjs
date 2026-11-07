@@ -194,7 +194,7 @@ function buildOshiDocs(created) {
 // 受付の日時は [日, 時, 分]（基準日からの相対）
 // ---------------------------------------------------------------
 
-const LIVES = [
+export const LIVES = [
   {
     key: 'stella-tour',
     title: 'ステラノート 全国ツアー 2026「ひかりの旋律」',
