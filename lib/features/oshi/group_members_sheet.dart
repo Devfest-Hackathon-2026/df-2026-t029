@@ -14,6 +14,8 @@ Future<void> showGroupMembersSheet(BuildContext context, OshiSummary group) {
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
+    // 外枠（左のタブ）ごと暗くする
+    useRootNavigator: true,
     builder: (_) => _GroupMembersSheet(group: group),
   );
 }
@@ -64,11 +66,19 @@ class _GroupMembersSheetState extends ConsumerState<_GroupMembersSheet> {
     final followAsync = ref.watch(followStateProvider);
     final following = followAsync.value ?? FollowState.empty;
     final names = groupNamesById(all);
-    // 承認済みのメンバー（名前順）
-    final members = searchOshis([
+    // メンバー：承認済みを先、申請中を後（それぞれ名前順）。
+    // 申請中のグループは、メンバーも申請中なので、申請中も含めて出す
+    final allMembers = [
       for (final o in all)
         if (o.kind == OshiKind.person && o.groupIds.contains(group.id)) o,
-    ], '');
+    ];
+    final members = [
+      ...searchOshis(allMembers, ''),
+      ...searchOshis([
+        for (final o in allMembers)
+          if (!o.isApproved) o,
+      ], '').where((o) => !o.isApproved),
+    ];
 
     return Padding(
       key: Key('group_members_sheet_${group.id}'),
