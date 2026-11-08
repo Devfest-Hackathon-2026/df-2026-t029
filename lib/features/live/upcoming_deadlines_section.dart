@@ -164,7 +164,11 @@ class _DeadlineTile extends StatelessWidget {
           : _kindIcon(entry.deadline.kind),
       title: entry.live.title,
       subs: [
-        [reception.name, if (reception.winnersOnly) '【当選者のみ】'].join(' '),
+        [
+          reception.name,
+          if (reception.winnersOnly && !reception.name.contains('当選者のみ'))
+            '【当選者のみ】',
+        ].join(' '),
         ?opens,
       ],
       // 近い締切（7日以内）の目印キーは、チップに付けて残す

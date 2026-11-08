@@ -14,6 +14,7 @@ import '../../providers/oshi_color_providers.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/hako_app_widgets.dart';
 import '../../utils/trade_board.dart';
+import '../../utils/updated_at_format.dart';
 import 'board_filter_sheet.dart';
 import 'trade_post_summary.dart';
 
@@ -41,8 +42,8 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    
-      final following = ref.watch(followingOshisProvider);
+
+    final following = ref.watch(followingOshisProvider);
     // null は「フォロー中すべて」（最初はこれ。Fc 5.1）。
     // 選んでいた推しのフォローを外したときも「フォロー中すべて」として扱う
     final selected = ref.watch(boardTargetProvider);
@@ -82,6 +83,15 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
                       _filterButton(target),
                     ],
                   ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: HakoPageScaffold.padding(context).left,
+          ),
+          child: const HakoHint(
+            '「譲」は手放せるグッズ、「求」はほしいグッズです。',
+            key: Key('hint_trade_board'),
           ),
         ),
         _filterChips(),
@@ -301,10 +311,7 @@ class _OshiSelector extends StatelessWidget {
           isExpanded: true,
           value: selectedKey,
           items: [
-            const DropdownMenuItem(
-              value: _allKey,
-              child: Text('フォロー中すべて'),
-            ),
+            const DropdownMenuItem(value: _allKey, child: Text('フォロー中の推し すべて')),
             for (final o in oshis)
               DropdownMenuItem(
                 value: o.key,
@@ -353,12 +360,8 @@ class _BoardCard extends ConsumerWidget {
       all,
     );
 
-    Widget mutedLine(String text) => Text(
-      text,
-      style: muted,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-    );
+    Widget mutedLine(String text) =>
+        Text(text, style: muted, maxLines: 1, overflow: TextOverflow.ellipsis);
 
     return Card(
       key: Key('trade_board_post_${post.id}'),
@@ -407,7 +410,7 @@ class _BoardCard extends ConsumerWidget {
                   Text(
                     updatedAt == null
                         ? '保存中…'
-                        : '更新：${formatDateOnly(updatedAt)}',
+                        : '更新 ${formatUpdatedAt(updatedAt, withTime: false)}',
                     style: theme.textTheme.bodySmall,
                   ),
                 ],
@@ -421,9 +424,9 @@ class _BoardCard extends ConsumerWidget {
               if (gives.isNotEmpty || wants.isNotEmpty)
                 const SizedBox(height: 10),
               if (gives.isNotEmpty)
-                Text('譲：$gives', style: theme.textTheme.bodyMedium),
+                HakoGiveWantLine(kind: HakoGiveWantKind.give, text: gives),
               if (wants.isNotEmpty)
-                Text('求：$wants', style: theme.textTheme.bodyMedium),
+                HakoGiveWantLine(kind: HakoGiveWantKind.want, text: wants),
               // 5. そのほか（小さく）
               const SizedBox(height: 6),
               if (targets.isNotEmpty) mutedLine(targets),

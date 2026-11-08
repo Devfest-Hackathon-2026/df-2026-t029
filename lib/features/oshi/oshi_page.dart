@@ -36,6 +36,10 @@ class OshiPage extends StatelessWidget {
             // 最推し（いないときは何も出ない。Fc 3.2）
             const FavoriteOshiCard(),
             const HakoSectionHeader('フォロー中の推し'),
+            const HakoHint(
+              'フォローすると、予定がホームとライブ一覧に届きます。',
+              key: Key('hint_oshi_following'),
+            ),
             const FollowingOshiList(),
           ],
         ),

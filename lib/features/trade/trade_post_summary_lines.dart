@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../models/trade_post.dart';
-import '../live_form/date_time_field.dart';
+import '../../theme/hako_app_widgets.dart';
+import '../../utils/updated_at_format.dart';
 import 'trade_post_summary.dart';
 
 /// 投稿の要約の行（タグ、譲、求、受け渡し方法、更新日時）。
@@ -27,14 +28,16 @@ class TradePostSummaryLines extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(tagLine(post)),
-        if (gives.isNotEmpty) Text('譲：$gives'),
-        if (wants.isNotEmpty) Text('求：$wants'),
+        if (gives.isNotEmpty)
+          HakoGiveWantLine(kind: HakoGiveWantKind.give, text: gives),
+        if (wants.isNotEmpty)
+          HakoGiveWantLine(kind: HakoGiveWantKind.want, text: wants),
         if (post.isTextOnly) const Text('品目なし（自動のマッチングの対象外）'),
         if (showHandover)
           Text('受け渡し：${post.handover.map((h) => h.label).join('・')}'),
         const SizedBox(height: 4),
         Text(
-          updatedAt == null ? '保存中…' : '更新：${formatDateTime(updatedAt)}',
+          updatedAt == null ? '保存中…' : '更新 ${formatUpdatedAt(updatedAt)}',
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],

@@ -124,8 +124,25 @@ Future<GoRouter> pumpAt(
 }
 
 /// [key] の中に [text] がある
-Finder textIn(String key, String text) =>
-    find.descendant(of: _key(key), matching: find.text(text), matchRoot: true);
+Finder textIn(String key, String text) => find.descendant(
+  of: _key(key).first,
+  matching: find.text(text),
+  matchRoot: true,
+);
+
+/// 自分のライブ一覧（「今後のライブ」の区画）にある行の数。
+/// 同じキーの行が、その下の「フォロー中の推しの今後のライブ」にも出るので、
+/// 「ライブを追加」ボタンより上にあるものだけを数える
+int _mineCount(WidgetTester tester, String liveId) {
+  final addY = tester.getTopLeft(_key('live_list_add_button')).dy;
+  return tester
+      .elementList(_key('live_timeline_item_$liveId'))
+      .where(
+        (e) =>
+            tester.getTopLeft(find.byElementPredicate((x) => x == e)).dy < addY,
+      )
+      .length;
+}
 
 void main() {
   group('ライブ一覧', () {
@@ -140,16 +157,12 @@ void main() {
       expect(_key('live_list_loading'), findsOneWidget);
     });
 
-    testWidgets('0件: 右下の「ライブを追加する」からライブを追加する画面へ行ける', (tester) async {
+    testWidgets('0件: 区画の下の「ライブを追加」からライブを追加する画面へ行ける', (tester) async {
       await pumpAt(tester, '/lives');
-      expect(_key('live_list_empty'), findsOneWidget);
-      expect(
-        find.text('ライブ一覧はまだ空です。\n右下の「ライブを追加する」から、行くライブを追加しましょう'),
-        findsOneWidget,
-      );
-      expect(find.byType(FloatingActionButton), findsOneWidget);
-      expect(find.text('ライブを追加する'), findsWidgets);
-      await tester.tap(_key('live_list_register_fab'));
+      expect(_key('live_list_upcoming_empty'), findsOneWidget);
+      expect(find.text('今後のライブはまだありません'), findsOneWidget);
+      expect(find.text('ライブを追加'), findsOneWidget);
+      await tester.tap(_key('live_list_add_button'));
       await tester.pumpAndSettle();
       expect(find.text('route:/lives/add'), findsOneWidget);
     });
@@ -165,14 +178,14 @@ void main() {
         ),
         myRepo: FakeMyLiveRepository(),
       );
-      expect(_key('live_list_empty'), findsOneWidget);
-      expect(_key('live_list_tile_l1'), findsNothing);
+      expect(_key('live_list_upcoming_empty'), findsOneWidget);
+      expect(_mineCount(tester, 'l1'), 0);
     });
 
-    testWidgets('フォロー0件でも 0件の表示で、右下に「ライブを追加する」を出す', (tester) async {
+    testWidgets('フォロー0件でも 0件の表示で、「ライブを追加」を出す', (tester) async {
       await pumpAt(tester, '/lives', followRepo: FakeFollowRepository());
-      expect(_key('live_list_empty'), findsOneWidget);
-      expect(_key('live_list_register_fab'), findsOneWidget);
+      expect(_key('live_list_upcoming_empty'), findsOneWidget);
+      expect(_key('live_list_add_button'), findsOneWidget);
     });
 
     testWidgets('エラー → もう一度読み込む', (tester) async {
@@ -189,10 +202,14 @@ void main() {
       liveRepo.fail = false;
       await tester.tap(_key('live_list_retry_button'));
       await tester.pumpAndSettle();
-      expect(_key('live_list_tile_l1'), findsOneWidget);
+      expect(_mineCount(tester, 'l1'), 1);
     });
 
     testWidgets('これから（近い順）→ 公演未登録 → 「終了」の見出しの下に終了したライブ', (tester) async {
+      // ListView は見えない行を作らないので、全部が見える高さにする
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       await pumpAt(
         tester,
         '/lives',
@@ -212,21 +229,27 @@ void main() {
           ],
         ),
       );
-      double y(String id) => tester.getTopLeft(_key('live_list_tile_$id')).dy;
+      // 今後のライブはタイムラインの行、終了したライブは従来の行（キーが違う）
+      double y(String id, {bool ended = false}) => tester
+          .getTopLeft(
+            _key('${ended ? 'live_list_tile_' : 'live_timeline_item_'}$id')
+                .first,
+          )
+          .dy;
       final header = tester.getTopLeft(_key('live_list_finished_header')).dy;
       expect(y('today'), lessThan(y('far')));
       expect(y('far'), lessThan(y('none')));
       expect(y('none'), lessThan(header));
-      expect(header, lessThan(y('ended')));
+      expect(header, lessThan(y('ended', ended: true)));
 
       // 出演者と日付は、別々の行（Text）で出る
-      expect(textIn('live_list_tile_far', 'グループ1'), findsOneWidget);
+      expect(textIn('live_timeline_item_far', 'グループ1'), findsOneWidget);
       expect(
-        textIn('live_list_tile_far', '次の公演 2026/12/1(火) 18:00（全2公演）'),
+        textIn('live_timeline_item_far', '次の公演 2026/12/1(火) 18:00（全2公演）'),
         findsOneWidget,
       );
-      expect(textIn('live_list_tile_none', '個人1'), findsOneWidget);
-      expect(textIn('live_list_tile_none', '公演の日程は未登録です'), findsOneWidget);
+      expect(textIn('live_timeline_item_none', '個人1'), findsOneWidget);
+      expect(textIn('live_timeline_item_none', '公演の日程は未登録です'), findsOneWidget);
       expect(textIn('live_list_tile_ended', 'グループ1'), findsOneWidget);
       expect(
         textIn('live_list_tile_ended', '終了（最終公演 2026/11/4(水) 18:00）'),
@@ -245,8 +268,46 @@ void main() {
           performances: [perfOf('p1', 'l1', h(24))],
         ),
       );
-      expect(_key('live_list_tile_l1'), findsOneWidget);
+      expect(_mineCount(tester, 'l1'), 1);
       expect(_key('live_list_finished_header'), findsNothing);
+    });
+
+    testWidgets('補足: 「今後のライブ」の下にいつも出る（0件でも）。「終了」の補足は出ない', (tester) async {
+      await pumpAt(tester, '/lives');
+      expect(_key('hint_live_upcoming'), findsOneWidget);
+      expect(find.text('開催日の近い順です。タップすると詳細を開けます。'), findsOneWidget);
+      expect(
+        tester.getTopLeft(_key('live_list_upcoming_header')).dy,
+        lessThan(tester.getTopLeft(_key('hint_live_upcoming')).dy),
+      );
+      expect(_key('hint_live_finished'), findsNothing);
+    });
+
+    testWidgets('補足: 「終了」の見出しが出るときだけ、その下に「終了」の補足が出る', (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpAt(
+        tester,
+        '/lives',
+        liveRepo: FakeLiveRepository(
+          lives: const [
+            Live(id: 'ended', title: '終わったライブ', groupIds: ['g1']),
+          ],
+          performances: [perfOf('e1', 'ended', DateTime(2026, 11, 4, 18))],
+        ),
+      );
+      expect(_key('live_list_finished_header'), findsOneWidget);
+      expect(_key('hint_live_finished'), findsOneWidget);
+      expect(find.text('終了したライブです。思い出はメモリーでも見返せます。'), findsOneWidget);
+      expect(
+        tester.getTopLeft(_key('live_list_finished_header')).dy,
+        lessThan(tester.getTopLeft(_key('hint_live_finished')).dy),
+      );
+      expect(
+        tester.getTopLeft(_key('hint_live_finished')).dy,
+        lessThan(tester.getTopLeft(_key('live_list_tile_ended')).dy),
+      );
     });
 
     testWidgets('行を押すとライブ詳細へ', (tester) async {
@@ -260,7 +321,7 @@ void main() {
           performances: [perfOf('p1', 'l1', h(24))],
         ),
       );
-      await tester.tap(_key('live_list_tile_l1'));
+      await tester.tap(_key('live_timeline_item_l1').first);
       await tester.pumpAndSettle();
       expect(_key('live_detail_title'), findsOneWidget);
       expect(textIn('live_detail_title', 'ライブA'), findsOneWidget);
@@ -270,8 +331,8 @@ void main() {
       final liveRepo = FakeLiveRepository();
       final myRepo = FakeMyLiveRepository();
       await pumpAt(tester, '/lives', liveRepo: liveRepo, myRepo: myRepo);
-      expect(_key('live_list_empty'), findsOneWidget);
-      expect(_key('live_list_register_fab'), findsOneWidget);
+      expect(_key('live_list_upcoming_empty'), findsOneWidget);
+      expect(_key('live_list_add_button'), findsOneWidget);
       liveRepo
         ..setLives(const [
           Live(id: 'l1', title: 'A', groupIds: ['g1']),
@@ -279,12 +340,12 @@ void main() {
         ..setPerformances([perfOf('p1', 'l1', h(24))]);
       await tester.pumpAndSettle();
       // ライブが登録されただけでは、自分のライブ一覧に入っていないので出ない
-      expect(_key('live_list_tile_l1'), findsNothing);
+      expect(_mineCount(tester, 'l1'), 0);
       await myRepo.add('u1', 'l1');
       await tester.pumpAndSettle();
-      expect(_key('live_list_tile_l1'), findsOneWidget);
-      // Fa-3: 件数によらず「ライブを追加する」を出し続ける（1件以上でも消えない）
-      expect(_key('live_list_register_fab'), findsOneWidget);
+      expect(_mineCount(tester, 'l1'), 1);
+      // Fa-3: 件数によらず「ライブを追加」を出し続ける（1件以上でも消えない）
+      expect(_key('live_list_add_button'), findsOneWidget);
     });
 
     testWidgets('スマホの幅（360px）で、長い名前でもはみ出さない', (tester) async {
@@ -305,7 +366,7 @@ void main() {
         ),
       );
       expect(tester.takeException(), isNull);
-      expect(_key('live_list_tile_l1'), findsOneWidget);
+      expect(_mineCount(tester, 'l1'), 1);
     });
   });
 

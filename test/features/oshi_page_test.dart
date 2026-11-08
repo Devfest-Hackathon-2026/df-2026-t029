@@ -159,4 +159,63 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  group('補足（電球の行）', () {
+    testWidgets('「フォロー中の推し」の補足は、いつも出る。最推しがいなければ最推しの補足は出ない', (tester) async {
+      _useTallScreen(tester);
+      await pumpPage(
+        tester,
+        const OshiPage(),
+        oshiRepo: FakeOshiRepository([oshi('g1', 'A')]),
+        followRepo: FakeFollowRepository(const FollowState(groupIds: {'g1'})),
+      );
+      expect(_key('hint_oshi_following'), findsOneWidget);
+      expect(find.text('フォローすると、予定がホームとライブ一覧に届きます。'), findsOneWidget);
+      expect(_key('hint_oshi_favorite'), findsNothing);
+    });
+
+    testWidgets('フォロー中が0件でも「フォロー中の推し」の補足は出る', (tester) async {
+      _useTallScreen(tester);
+      await pumpPage(
+        tester,
+        const OshiPage(),
+        oshiRepo: FakeOshiRepository([oshi('g1', 'A')]),
+        followRepo: FakeFollowRepository(),
+      );
+      expect(_key('hint_oshi_following'), findsOneWidget);
+      expect(_key('hint_oshi_favorite'), findsNothing);
+    });
+
+    testWidgets('最推しがいるときだけ、最推しの補足が出る', (tester) async {
+      _useTallScreen(tester);
+      await pumpPage(
+        tester,
+        const OshiPage(),
+        oshiRepo: FakeOshiRepository([oshi('g1', 'A')]),
+        followRepo: FakeFollowRepository(const FollowState(groupIds: {'g1'})),
+        favoriteKey: 'group/g1',
+      );
+      expect(_key('hint_oshi_favorite'), findsOneWidget);
+      expect(find.text('いちばん応援している推しです。'), findsOneWidget);
+      expect(_key('hint_oshi_following'), findsOneWidget);
+    });
+
+    testWidgets('最推しの補足は「最推し」の見出しの下、フォロー中の補足は「フォロー中の推し」の見出しの下', (tester) async {
+      _useTallScreen(tester);
+      await pumpPage(
+        tester,
+        const OshiPage(),
+        oshiRepo: FakeOshiRepository([oshi('g1', 'A')]),
+        followRepo: FakeFollowRepository(const FollowState(groupIds: {'g1'})),
+        favoriteKey: 'group/g1',
+      );
+      double y(Finder f) => tester.getTopLeft(f).dy;
+      expect(y(find.text('最推し')), lessThan(y(_key('hint_oshi_favorite'))));
+      expect(
+        y(find.text('フォロー中の推し')),
+        lessThan(y(_key('hint_oshi_following'))),
+      );
+      expect(y(_key('hint_oshi_favorite')), lessThan(y(find.text('フォロー中の推し'))));
+    });
+  });
 }

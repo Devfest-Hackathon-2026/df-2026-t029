@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../providers/trade_post_providers.dart';
 import '../../utils/trade_match.dart';
-import '../live_form/date_time_field.dart';
+import '../../theme/brand_colors.dart';
+import '../../theme/hako_app_widgets.dart';
+import '../../utils/updated_at_format.dart';
 import '../common/user_avatar.dart';
 import 'trade_post_summary.dart';
 import 'trade_post_thumb.dart';
@@ -66,10 +68,26 @@ class TradeMatchView extends ConsumerWidget {
               ),
             if (mutual.isNotEmpty) ...[
               _heading(context, '相互マッチ（${mutual.length}件）'),
+              const HakoHint(
+                '「相互」は、お互いの「譲」と「求」がぴったり合っている状態です。',
+                key: Key('hint_trade_mutual'),
+              ),
               for (final m in mutual) _MatchCard(match: m),
             ],
             if (oneSided.isNotEmpty) ...[
               _heading(context, '片方マッチ（${oneSided.length}件）'),
+              const Padding(
+                key: Key('hint_trade_oneside'),
+                padding: EdgeInsets.only(top: 4),
+                child: Text(
+                  '片方の条件だけが合っている相手です。',
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.65,
+                    color: BrandColors.sub,
+                  ),
+                ),
+              ),
               for (final m in oneSided) _MatchCard(match: m),
             ],
           ]);
@@ -174,24 +192,24 @@ class _MatchCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                Text(
-                  receive.isEmpty
-                      ? 'もらえるもの：あなたの求に合う品目があります'
-                      : 'もらえるもの：$receive',
+                HakoGiveWantLine(
+                  kind: HakoGiveWantKind.receive,
+                  text: receive.isEmpty ? 'あなたの求に合う品目があります' : receive,
                 ),
                 if (match.isMutual)
-                  Text(
-                    give.isEmpty ? '出せるもの：相手の求に合う品目があります' : '出せるもの：$give',
+                  HakoGiveWantLine(
+                    kind: HakoGiveWantKind.offer,
+                    text: give.isEmpty ? '相手の求に合う品目があります' : give,
                   ),
                 if (match.pairs.length > 1)
-                  Text('合うあなたの投稿：${match.pairs.length}件'),
+                  Text('条件が合うあなたの投稿：${match.pairs.length}件'),
                 Text(tagLine(theirs)),
                 Text('受け渡し：${theirs.handover.map((h) => h.label).join('・')}'),
                 const SizedBox(height: 4),
                 Text(
                   updatedAt == null
                       ? '保存中…'
-                      : '更新：${formatDateTime(updatedAt)}',
+                      : '更新 ${formatUpdatedAt(updatedAt)}',
                   style: theme.textTheme.bodySmall,
                 ),
               ],

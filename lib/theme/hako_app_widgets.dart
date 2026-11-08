@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../repositories/auth_repository.dart';
 import '../features/common/user_avatar.dart';
+import '../features/help/help_button.dart';
+import '../providers/help_providers.dart';
 import '../providers/oshi_providers.dart';
 import '../providers/profile_providers.dart';
 import 'brand_colors.dart';
@@ -72,6 +74,8 @@ class AccountMenuButton extends ConsumerWidget {
           : UserAvatar(uid: uid, name: name, size: 28),
       iconSize: 24,
       constraints: const BoxConstraints(minWidth: 200),
+      // 初回の吹き出しがメニューにかぶらないよう、開いたら消す
+      onOpened: () => ref.read(helpCoachVisibleProvider.notifier).dismiss(),
       onSelected: (value) {
         switch (value) {
           case 'profile':
@@ -169,6 +173,8 @@ class HakoAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       actions: [
+        // 5つのトップの画面だけ「?」が出る（HakoHelpScope の topic が null なら何も出ない）
+        const HelpButton(),
         if (showAccount)
           IconTheme(
             data: IconThemeData(color: foreground),
@@ -717,6 +723,120 @@ class HakoEmpty extends StatelessWidget {
           style: HakoFonts.jp(size: 13, color: BrandColors.sub, height: 1.6),
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ヘルプ（案C）の部品
+// ---------------------------------------------------------------------------
+
+/// 電球の行（短い補足。13・sub・行の高さ 1.6。上に 8）
+class HakoHint extends StatelessWidget {
+  const HakoHint(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ExcludeSemantics(
+            child: Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: Icon(
+                Icons.lightbulb_outline,
+                size: 18,
+                color: BrandColors.ink,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: HakoFonts.jp(
+                size: 13,
+                color: BrandColors.sub,
+                height: 1.6,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 譲・求・もらえる・出せる
+enum HakoGiveWantKind { give, want, receive, offer }
+
+/// 「譲」「求」などのラベル＋本文
+class HakoGiveWantLine extends StatelessWidget {
+  const HakoGiveWantLine({super.key, required this.kind, required this.text});
+
+  final HakoGiveWantKind kind;
+  final String text;
+
+  String get _label => switch (kind) {
+    HakoGiveWantKind.give => '譲',
+    HakoGiveWantKind.want => '求',
+    HakoGiveWantKind.receive => 'もらえる',
+    HakoGiveWantKind.offer => '出せる',
+  };
+
+  String get _semanticsLabel => switch (kind) {
+    HakoGiveWantKind.give => '譲（手放せるグッズ）',
+    HakoGiveWantKind.want => '求（ほしいグッズ）',
+    _ => _label,
+  };
+
+  /// 「譲」「もらえる」＝淡い桃、「求」「出せる」＝淡い黄
+  Color get color => switch (kind) {
+    HakoGiveWantKind.give || HakoGiveWantKind.receive => BrandColors.hall6Soft,
+    HakoGiveWantKind.want || HakoGiveWantKind.offer => BrandColors.hall3Soft,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final long =
+        kind == HakoGiveWantKind.receive || kind == HakoGiveWantKind.offer;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Semantics(
+          label: _semanticsLabel,
+          excludeSemantics: true,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+              padding: EdgeInsets.symmetric(horizontal: long ? 7 : 4),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: BrandColors.ink, width: 2),
+              ),
+              child: Text(
+                _label,
+                style: HakoFonts.jp(
+                  size: 12,
+                  weight: FontWeight.w700,
+                  height: 1.2,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(text, style: HakoFonts.jp(size: 15, height: 1.55)),
+        ),
+      ],
     );
   }
 }

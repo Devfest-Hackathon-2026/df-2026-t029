@@ -47,9 +47,7 @@ class MemoryListPage extends StatelessWidget {
                 ],
               ),
               const Expanded(
-                child: TabBarView(
-                  children: [_MineTab(), SharedMemoriesView()],
-                ),
+                child: TabBarView(children: [_MineTab(), SharedMemoriesView()]),
               ),
             ],
           ),
@@ -147,6 +145,10 @@ class _AlbumView extends StatelessWidget {
         ),
       ),
     );
+    Widget hint(String text, String key) => SliverPadding(
+      padding: EdgeInsets.symmetric(horizontal: pad.left),
+      sliver: SliverToBoxAdapter(child: HakoHint(text, key: Key(key))),
+    );
     final top = SliverPadding(
       padding: EdgeInsets.only(top: pad.top - 22 < 0 ? 0 : pad.top - 22),
     );
@@ -154,6 +156,7 @@ class _AlbumView extends StatelessWidget {
     // 参戦予定（行）
     final upcoming = <Widget>[
       header('参戦予定'),
+      hint('これから行くライブです。座席も確認できます。', 'hint_memory_next'),
       if (album.upcoming.isEmpty)
         none('参戦予定の記録はありません')
       else
@@ -170,6 +173,7 @@ class _AlbumView extends StatelessWidget {
     // 参戦済み（カードのグリッド）
     final attended = <Widget>[
       header('参戦済み'),
+      hint('行ったライブの思い出です。', 'hint_memory_done'),
       if (album.attended.isEmpty)
         const SliverToBoxAdapter(
           child: EmptyState(
