@@ -56,7 +56,8 @@ firebase deploy --only firestore:indexes
 firebase deploy --only functions
 ```
 
-- `sendDeadlineReminders`（15分おき）と `getEventWeather`（公演の日の天気。Callable）が `asia-northeast1` にデプロイされる。Blaze プランが必要。
+- `sendDeadlineReminders`（15分おき。締切と申込開始の通知）、`getEventWeather`（公演の日の天気。Callable）、`notifyNewMatches`（交換の投稿の書き込みで動く。新しい相互マッチの通知）が `asia-northeast1` にデプロイされる。Blaze プランが必要。
+- `notifyNewMatches` は Firestore のトリガーなので、初回は Eventarc の API の有効化と権限の付与を聞かれる。権限が行き渡るまで数分かかり、1回目のデプロイが失敗したら、少し待ってもう一度デプロイする。
 - `getEventWeather` はシークレット `WEATHER_API_KEY` を使う（2.9）。シークレットを作る前にデプロイすると失敗する。
 - 初回は必要な API の有効化を聞かれるので進める。コンテナイメージの削除ポリシーは既定の日数でよい。
 - すぐに動かして確かめるときは、Google Cloud コンソール → Cloud Scheduler → `firebase-schedule-sendDeadlineReminders-...` →「強制実行」。結果は Firebase コンソール → Functions → ログで見る。
@@ -175,6 +176,7 @@ firebase functions:secrets:set WEATHER_API_KEY
 13. メモリーの写真: 記録の編集で写真を追加・保存でき、詳細画面とアルバムのカードに表示される（表示されないときは 2.8 の CORS を確かめる）。
 14. 遠征: ライブ詳細の公演の行と遠征の一覧（`/trips`）に、9日後までの公演の天気予報が出る。ホームに「次の遠征」が出て、「すべて見る」で一覧が開く。「行き方」「周辺の宿」などが Google マップで開く。
 15. アイコン: 推しの札を押して、色・絵文字・画像を選べる（画像は自分にだけ見える）。プロフィールでアイコンを選ぶと、ホームのあいさつ・アカウントのボタン・自分の投稿と返信・チャット一覧（相手から見たとき）に出る。
+16. 通知（add_S）: 申込開始が1時間以内の未申込の受付があると、強制実行で「まもなく申込開始」が届く。締切の通知の題名に【推しの名前】が付く。相互マッチする投稿を作ると、相手（通知をオンにしたアカウント）に「新しい相互マッチ」が届き、押すと投稿の詳細が添付付きで開く。
 
 ## 4. デモ用データ（架空）
 

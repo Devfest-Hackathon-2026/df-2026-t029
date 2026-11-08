@@ -351,6 +351,17 @@ tradePosts/p1
 
 投稿・返信・チャットにはアイコンを複製せず、uid からこのドキュメントを読む。
 
+
+### 3.17 users/{uid}/fcmTokens・sentNotifications（通知）
+
+Step6・add_S。`fcmTokens` はアプリが本人として書き、`sentNotifications` は Cloud Functions（Admin SDK）だけが書く。
+
+| コレクション | ドキュメント ID | フィールド | 内容 |
+|---|---|---|---|
+| fcmTokens | FCM トークン | createdAt・updatedAt | 通知を送るブラウザ |
+| sentNotifications | `{receptionId}_{kind}_{段階}` | receptionId・kind（`start`・`apply`・`result`・`payment`）・stage（`1h`・`1d`・`3h`）・deadlineAt・sentAt | 申込開始・締切の通知を送った記録（二重送信の防止） |
+| sentNotifications | `match_{postId}_{theirPostId}` | postId・theirPostId・kind（`match`）・sentAt | 新しい相互マッチの通知を送った記録 |
+
 ## 4. 値の定義
 
 **groups / oshis の status**
