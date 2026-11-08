@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../providers/profile_providers.dart';
 import '../../theme/hako_app_widgets.dart';
 import '../../theme/hako_fonts.dart';
+import '../../providers/oshi_providers.dart';
+import '../common/user_avatar.dart';
 import '../live/upcoming_deadlines_section.dart';
 
 import 'home_section_header.dart';
@@ -29,7 +31,10 @@ class HomePage extends ConsumerWidget {
           key: const Key('home_page'),
           padding: HakoPageScaffold.padding(context),
           children: [
-            _Greeting(name: profile?.displayName ?? 'ゲスト'),
+            _Greeting(
+              uid: ref.watch(currentUidProvider),
+              name: profile?.displayName ?? 'ゲスト',
+            ),
             const HomeSectionHeader(title: '次の締切'),
             const UpcomingDeadlinesSection(),
             const HomeUpcomingLives(),
@@ -46,21 +51,37 @@ class HomePage extends ConsumerWidget {
   }
 }
 
-/// ① あいさつと「行きたいライブを追加」
+/// ① あいさつ（左にアイコン。add_I 3.3）と「行きたいライブを追加」
 class _Greeting extends StatelessWidget {
-  const _Greeting({required this.name});
+  const _Greeting({required this.uid, required this.name});
 
+  final String? uid;
   final String name;
 
   @override
   Widget build(BuildContext context) {
+    final uid = this.uid;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'こんにちは、$nameさん',
-          key: const Key('home_greeting'),
-          style: HakoFonts.jp(size: 24, weight: FontWeight.w700, height: 1.35),
+        Row(
+          children: [
+            if (uid != null) ...[
+              UserAvatar(uid: uid, name: name, size: 48),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Text(
+                'こんにちは、$nameさん',
+                key: const Key('home_greeting'),
+                style: HakoFonts.jp(
+                  size: 24,
+                  weight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         FilledButton.icon(

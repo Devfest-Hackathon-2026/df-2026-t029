@@ -9,6 +9,7 @@ import '../../providers/oshi_providers.dart';
 import '../../providers/trade_post_providers.dart';
 import '../../repositories/trade_chat_repository.dart';
 import '../live_form/date_time_field.dart';
+import '../common/user_avatar.dart';
 import 'trade_post_summary.dart';
 
 /// 投稿の返信の一覧と入力欄（詳細画面の下に置く）。
@@ -179,6 +180,8 @@ class _ReplyTile extends ConsumerWidget {
           children: [
             Row(
               children: [
+                UserAvatar(uid: reply.uid, name: reply.displayName),
+                const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     reply.displayName,

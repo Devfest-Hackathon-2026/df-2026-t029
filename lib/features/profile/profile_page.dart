@@ -5,13 +5,15 @@ import 'package:go_router/go_router.dart';
 import '../../models/user_profile.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/profile_providers.dart';
+import '../../providers/public_profile_providers.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/hako_app_widgets.dart';
 import '../../theme/hako_fonts.dart';
 import 'notification_switch.dart';
+import 'profile_icon_editor.dart';
 import 'theme_color_picker.dart';
 
-/// プロフィールの作成・編集画面（G-8）。未作成なら初回作成として開く
+/// プロフィールの作成・編集画面（G-8・add_I 3.2）。未作成なら初回作成として開く
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
 
@@ -78,6 +80,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       await ref
           .read(profileRepositoryProvider)
           .save(uid, displayName: _name.text, xAccount: _normalizeX(_x.text));
+      // 公開プロフィールにも名前を書く（add_I 3.2）。失敗してもプロフィールの保存は終わっている
+      try {
+        await ref
+            .read(publicProfileRepositoryProvider)
+            .saveName(uid, _name.text);
+      } catch (e) {
+        debugPrint('公開プロフィールの名前を保存できませんでした: $e');
+      }
       if (!mounted) return;
       // 初回作成は、プロフィールが届いた時点で build の ref.listen がホームへ移す
       if (isInitial) return;
@@ -134,6 +144,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     return ListView(
                       padding: pad.copyWith(bottom: 48),
                       children: [
+                        // アイコン（add_I 3.2）
+                        ProfileIconEditor(name: profile?.displayName ?? ''),
                         Padding(
                           padding: const EdgeInsets.only(bottom: 16),
                           child: Text(

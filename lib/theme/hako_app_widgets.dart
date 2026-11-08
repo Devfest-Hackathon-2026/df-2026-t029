@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../repositories/auth_repository.dart';
+import '../features/common/user_avatar.dart';
+import '../providers/oshi_providers.dart';
+import '../providers/profile_providers.dart';
 import 'brand_colors.dart';
 import 'hako_fonts.dart';
 
@@ -59,9 +62,14 @@ class AccountMenuButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final uid = ref.watch(currentUidProvider);
+    final name = ref.watch(myProfileProvider).value?.displayName ?? '';
     return PopupMenuButton<String>(
       tooltip: 'アカウント',
-      icon: const Icon(Icons.person_outline, size: 24),
+      // 自分のアイコン（add_I 3.3）。未ログインのときは人のアイコン
+      icon: uid == null
+          ? const Icon(Icons.person_outline, size: 24)
+          : UserAvatar(uid: uid, name: name, size: 28),
       iconSize: 24,
       constraints: const BoxConstraints(minWidth: 200),
       onSelected: (value) {

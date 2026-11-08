@@ -584,6 +584,22 @@ service cloud.firestore {
     }
 
     // =============================================================
+    // 公開プロフィール（add_I 3.2）。ログイン済みなら読める。書くのは本人だけ
+    // =============================================================
+
+    match /publicProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isOwner(userId) &&
+        request.resource.data.keys().hasOnly(['displayName', 'iconPath', 'updatedAt']) &&
+        isValidOptionalString(request.resource.data, 'displayName', 1, 100) &&
+        (!('iconPath' in request.resource.data) ||
+          (request.resource.data.iconPath is string &&
+           request.resource.data.iconPath.matches('userIcons/' + userId + '/[^/]{1,100}'))) &&
+        request.resource.data.updatedAt == request.time;
+      allow delete: if isOwner(userId);
+    }
+
+    // =============================================================
     // ライブ・公演・受付（作成は Step2、更新と変更履歴は Step4。削除は不可）
     // =============================================================
 

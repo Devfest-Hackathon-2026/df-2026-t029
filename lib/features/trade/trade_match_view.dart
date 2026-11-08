@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers/trade_post_providers.dart';
 import '../../utils/trade_match.dart';
 import '../live_form/date_time_field.dart';
+import '../common/user_avatar.dart';
 import 'trade_post_summary.dart';
 import 'trade_post_thumb.dart';
 
@@ -156,6 +157,8 @@ class _MatchCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
+                    UserAvatar(uid: theirs.uid, name: theirs.displayName),
+                    const SizedBox(width: 8),
                     Flexible(
                       child: Text(
                         theirs.displayName,

@@ -30,10 +30,12 @@ tradePosts/{postId}               交換・売買の投稿
   └ replies/{replyId}             返信
 chats/{chatId}                    個人チャット
   └ messages/{messageId}          メッセージ
+publicProfiles/{uid}              公開プロフィール（アイコン。add_I）
 users/{uid}                       ユーザー（個人データ）
   ├ applications/{receptionId}    申込状況
   ├ myLives/{liveId}              自分のライブ一覧
-  └ memories/{performanceId}      ライブの記録
+  ├ memories/{performanceId}      ライブの記録
+  └ settings/{name}               個人の設定（oshiColors・oshiEmojis・oshiImages など）
 ```
 
 ## 3. 各コレクションの項目
@@ -322,6 +324,30 @@ tradePosts/p1
 
 「参戦予定」「参戦済み」の状態は保存せず、`startAt` と現在時刻から判定する。
 写真の保存先は `users/{uid}/memories/{performanceId}/{ファイル名}` とする（M-5）。
+
+
+### 3.15 users/{uid}/settings（推しの色・絵文字・画像。個人の設定）
+
+キーはどれも「推しの色のキー」（`group:{groupId}`・`person:{oshiId}`）。本人だけが読み書きできる。
+
+| ドキュメント | フィールド | 型 | 内容 |
+|---|---|---|---|
+| oshiColors | colors | map | キー → 色（ARGB の数。Fc） |
+| oshiEmojis | emojis | map | キー → 絵文字1文字（add_I） |
+| oshiImages | images | map | キー → Storage のパス `users/{uid}/oshiIcons/{ファイル名}`（add_I。本人にしか見えない） |
+| （共通） | updatedAt | timestamp | 更新日時 |
+
+### 3.16 publicProfiles/{uid}（公開プロフィール）
+
+ログイン済みなら誰でも読める。書くのは本人だけ（add_I）。
+
+| フィールド | 型 | 必須 | 内容 |
+|---|---|---|---|
+| displayName | string | | ハンドルネーム（プロフィールの保存のときに書く。100文字まで） |
+| iconPath | string | | アイコンの Storage のパス `userIcons/{uid}/{ファイル名}` |
+| updatedAt | timestamp | ○ | 更新日時 |
+
+投稿・返信・チャットにはアイコンを複製せず、uid からこのドキュメントを読む。
 
 ## 4. 値の定義
 

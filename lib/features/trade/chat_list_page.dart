@@ -8,6 +8,7 @@ import '../../models/trade_chat.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/trade_post_providers.dart';
 import '../live_form/date_time_field.dart';
+import '../common/user_avatar.dart';
 
 /// チャットの一覧（最後のメッセージの新しい順）。押すとチャット画面を開く
 class ChatListPage extends ConsumerWidget {
@@ -66,7 +67,11 @@ class _ChatTile extends StatelessWidget {
       leading: Badge(
         isLabelVisible: unread,
         smallSize: 10,
-        child: const Icon(Icons.chat_bubble_outline),
+        child: UserAvatar(
+          uid: chat.otherUid(me),
+          name: chat.otherName(me),
+          size: 36,
+        ),
       ),
       title: Text(
         summary == null ? chat.otherName(me) : '${chat.otherName(me)}　$summary',
