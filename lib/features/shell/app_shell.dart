@@ -135,11 +135,12 @@ class _AppShellState extends ConsumerState<AppShell> {
                     ),
                     // 「?」はアカウントのボタンの上に置く
                     const HelpButton(),
-                    // アカウントのボタンは、タブの一番下に置く
+                    // アカウントのボタンは、タブの一番下に置く（タブの丸より少し大きく。Fe 3.2）
                     const Padding(
                       padding: EdgeInsets.only(bottom: 16),
                       child: AccountMenuButton(
                         key: Key('shell_account_button'),
+                        avatarSize: 48,
                       ),
                     ),
                   ],
