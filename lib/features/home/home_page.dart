@@ -16,43 +16,115 @@ import 'home_new_trades.dart';
 import 'home_expense_summary.dart';
 import 'home_next_trip.dart';
 import 'home_oshi_days.dart';
+import '../shell/app_shell.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
+  /// 本文の幅がこれ以上なら2列（Fe 3.4。メモリー一覧と同じ基準）
+  static const double _twoColumnWidth = 900;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(myProfileProvider).value;
+    final padding = HakoPageScaffold.padding(context);
+
+    // 区画の一覧は1か所にまとめる（Fe 3.4）。左の列（広い）と右の列（狭い）
+    const left = <Widget>[
+      _DeadlinesBlock(),
+      HomeUpcomingLives(),
+      HomeNewTrades(),
+      HomeRecentMemories(),
+    ];
+    const right = <Widget>[
+      // 当落発表（Fe 3.3）
+      _DeadlinesBlock(results: true),
+      // 次の遠征（add_E 6章）
+      HomeNextTrip(),
+      // 今月の推し活費（H-3）
+      HomeExpenseSummary(),
+    ];
+    // 1列のときの順：次の締切 → 当落発表 → 今後のライブ → 次の遠征 → 新しい交換 → 推し活費 → 思い出
+    final single = <Widget>[
+      left[0],
+      right[0],
+      left[1],
+      right[1],
+      left[2],
+      right[2],
+      left[3],
+    ];
 
     return HakoPageScaffold(
       title: 'おしあし',
       showDesktopTitle: false,
+      maxContentWidth: kShellMaxContentWidth,
       body: SafeArea(
-        child: ListView(
-          key: const Key('home_page'),
-          padding: HakoPageScaffold.padding(context),
-          children: [
-            _Greeting(
-              uid: ref.watch(currentUidProvider),
-              name: profile?.displayName ?? 'ゲスト',
-            ),
-            // 推しの記念日（add_O 3.3）
-            const HomeOshiDays(),
-            const HomeSectionHeader(title: '次の締切'),
-            const UpcomingDeadlinesSection(),
-            // 当落発表は次の締切と分ける（Fe 3.3）
-            const HomeSectionHeader(title: '当落発表'),
-            const UpcomingDeadlinesSection(results: true),
-            const HomeUpcomingLives(),
-            // 次の遠征（add_E 6章）
-            const HomeNextTrip(),
-            const HomeNewTrades(),
-            // 今月の推し活費（H-3）
-            const HomeExpenseSummary(),
-            const HomeRecentMemories(),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final twoColumns =
+                HakoPageScaffold.isWide(context) &&
+                constraints.maxWidth - padding.horizontal >= _twoColumnWidth;
+            return ListView(
+              key: const Key('home_page'),
+              padding: padding,
+              children: [
+                _Greeting(
+                  uid: ref.watch(currentUidProvider),
+                  name: profile?.displayName ?? 'ゲスト',
+                ),
+                // 推しの記念日（add_O 3.3）
+                const HomeOshiDays(),
+                if (twoColumns)
+                  Row(
+                    key: const Key('home_two_columns'),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: left,
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: right,
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  ...single,
+              ],
+            );
+          },
         ),
       ),
+    );
+  }
+}
+
+/// 見出しと「次の締切」または「当落発表」（Fe 3.3・3.4）
+class _DeadlinesBlock extends StatelessWidget {
+  const _DeadlinesBlock({this.results = false});
+
+  final bool results;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        HomeSectionHeader(title: results ? '当落発表' : '次の締切'),
+        UpcomingDeadlinesSection(results: results),
+      ],
     );
   }
 }
