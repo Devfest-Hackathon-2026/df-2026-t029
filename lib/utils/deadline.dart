@@ -130,6 +130,10 @@ class LiveListEntry {
   /// 今日（端末の日付）以降で最も早い公演の開演日時。終了していれば null
   final DateTime? nextStartAt;
 
+  /// 次の公演（[nextStartAt] の公演）。終了していれば null
+  Performance? get nextPerformance =>
+      performances.where((p) => p.startAt == nextStartAt).firstOrNull;
+
   /// すべての公演の日付が今日より前（公演が0件のライブも「終了」扱いにせず、
   /// 一覧の最後に置く）
   final bool isEnded;

@@ -545,11 +545,13 @@ class FirestoreLiveRepository implements LiveRepository {
         DocumentReference<Map<String, dynamic>> ref,
         List<FieldChange> changes, {
         bool syncPerformers = false,
+        Map<String, dynamic> extra = const {},
       }) {
         tx.update(ref, {
           for (final c in changes)
             c.field: c.hasAfter ? c.after : FieldValue.delete(),
           if (syncPerformers) ...performers,
+          ...extra,
           ...audit,
         });
         for (final c in changes) {
@@ -579,6 +581,11 @@ class FirestoreLiveRepository implements LiveRepository {
           _performances.doc(d.existing.id),
           d.changes,
           syncPerformers: true,
+          // 開演日時を変えたら「時間未定」の印を外す（add_L L-4c-2）
+          extra: {
+            if (d.changes.any((c) => c.field == 'startAt'))
+              'startTimeUnknown': FieldValue.delete(),
+          },
         );
       }
       for (final d in plan.changedReceptions) {

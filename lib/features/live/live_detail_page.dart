@@ -338,7 +338,7 @@ class _DetailView extends StatelessWidget {
       case HistoryCollection.performances:
         for (final p in detail.performances) {
           if (p.id == target.docId) {
-            return '公演 ${formatDateTime(p.startAt)} ${p.venue}';
+            return '公演 ${formatPerformanceStart(p)} ${p.venue}';
           }
         }
         return '公演';
@@ -544,7 +544,9 @@ class _PerformanceTile extends ConsumerWidget {
         contentPadding: EdgeInsets.zero,
         leading: const Icon(Icons.calendar_today_outlined, size: 28),
         title: Text(
-          '${formatDateTime(p.startAt)} 開演$dayLabel',
+          p.startTimeUnknown
+              ? '${formatDateOnly(p.startAt)} 時間未定$dayLabel'
+              : '${formatDateTime(p.startAt)} 開演$dayLabel',
           style: HakoFonts.jp(
             size: 15,
             color: finished ? BrandColors.sub : BrandColors.ink,

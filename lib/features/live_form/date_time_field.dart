@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../models/performance.dart';
 
 /// 日時の入力欄（タップで日付→時刻の順に選ぶ。× で未設定に戻す）
 class DateTimeField extends StatelessWidget {
@@ -65,3 +66,15 @@ String formatDateTime(DateTime d) {
   return '${d.year}/${d.month}/${d.day}(${weekdays[d.weekday - 1]}) '
       '${two(d.hour)}:${two(d.minute)}';
 }
+
+
+/// 日付だけ（例：2026/11/23(月)）
+String formatDateOnly(DateTime d) {
+  const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
+  return '${d.year}/${d.month}/${d.day}(${weekdays[d.weekday - 1]})';
+}
+
+/// 公演の開演。時間未定なら「2026/11/23(月) 時間未定」（add_L L-4c-2）
+String formatPerformanceStart(Performance p) => p.startTimeUnknown
+    ? '${formatDateOnly(p.startAt)} 時間未定'
+    : formatDateTime(p.startAt);
