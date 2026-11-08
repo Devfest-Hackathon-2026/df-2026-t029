@@ -267,17 +267,23 @@ async function loadForecastDays(db, pref) {
     throw new HttpsError("internal", "天気を取得できませんでした");
   }
   const json = await res.json();
-  // displayDate はその場所の日付（日本なら日本時間）
+  // displayDate はその場所の日付（日本なら日本時間）。
+  // 日本（ウェザーニューズ社のデータ）は昼の予報 daytimeForecast が無く、
+  // 1日全体の予報 fullDayForecast で返るので、そちらを使う
   const days = (json.forecastDays ?? []).map((d) => {
     const date = d.displayDate ?? {};
-    const daytime = d.daytimeForecast ?? {};
+    const forecast = d.daytimeForecast ?? d.fullDayForecast ?? {};
+    // 説明の末尾の「（夜間）」などのかっこ書きは外す
+    const text = (forecast.weatherCondition?.description?.text ?? "")
+        .replace(/[（(][^）)]*[）)]$/, "")
+        .trim();
     return {
       date: `${date.year}-${pad2(date.month)}-${pad2(date.day)}`,
-      type: daytime.weatherCondition?.type ?? "TYPE_UNSPECIFIED",
-      text: daytime.weatherCondition?.description?.text ?? "",
+      type: forecast.weatherCondition?.type ?? "TYPE_UNSPECIFIED",
+      text,
       maxC: roundOrNull(d.maxTemperature?.degrees),
       minC: roundOrNull(d.minTemperature?.degrees),
-      rainPercent: daytime.precipitation?.probability?.percent ?? null,
+      rainPercent: forecast.precipitation?.probability?.percent ?? null,
     };
   });
   await ref.set({
