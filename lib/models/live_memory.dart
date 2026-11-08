@@ -16,6 +16,8 @@ class LiveMemory {
     this.setlist = const [],
     this.impression,
     this.images = const [],
+    this.isPublic = false,
+    this.publicSeat = false,
     this.createdAt,
     this.updatedAt,
   });
@@ -51,6 +53,8 @@ class LiveMemory {
       setlist: toStringList(data['setlist']),
       impression: data['impression'] as String?,
       images: toStringList(data['images']),
+      isPublic: data['isPublic'] as bool? ?? false,
+      publicSeat: data['publicSeat'] as bool? ?? false,
       createdAt: toDateTime(data['createdAt']),
       updatedAt: toDateTime(data['updatedAt']),
     );
@@ -65,6 +69,13 @@ class LiveMemory {
   final List<String> setlist;
   final String? impression;
   final List<String> images; // Storage のパス（1枚目が表紙）
+
+  /// 同じ推しのファンに公開するか（add_K 3.1）
+  final bool isPublic;
+
+  /// 座席も公開するか。[isPublic] が false のときは使わない（add_K 3.1）
+  final bool publicSeat;
+
   final DateTime? createdAt; // 保存直後（サーバー時刻の確定前）は null
   final DateTime? updatedAt; // 同上
 
@@ -81,14 +92,19 @@ class LiveMemory {
         'setlist': setlist,
         if (impression != null) 'impression': impression,
         'images': images,
+        'isPublic': isPublic,
+        'publicSeat': publicSeat,
       };
 
-  /// 座席・セトリ・感想・写真を差し替えた複製。null を渡すとその項目を空にする
+  /// 座席・セトリ・感想・写真（と公開の設定）を差し替えた複製。
+  /// null を渡すとその項目を空にする。[isPublic]・[publicSeat] は省略すると今の値
   LiveMemory copyWithContent({
     required String? seat,
     required List<String> setlist,
     required String? impression,
     required List<String> images,
+    bool? isPublic,
+    bool? publicSeat,
   }) =>
       LiveMemory(
         performanceId: performanceId,
@@ -100,6 +116,8 @@ class LiveMemory {
         setlist: setlist,
         impression: impression,
         images: images,
+        isPublic: isPublic ?? this.isPublic,
+        publicSeat: publicSeat ?? this.publicSeat,
         createdAt: createdAt,
         updatedAt: updatedAt,
       );

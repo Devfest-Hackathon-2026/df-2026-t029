@@ -36,6 +36,7 @@ import 'features/shell/app_shell.dart';
 import 'features/expense/expense_page.dart';
 import 'features/common/foreground_notification_listener.dart';
 import 'features/travel/trip_list_page.dart';
+import 'features/memory/shared_memory_detail_page.dart';
 
 import 'repositories/auth_repository.dart';
 
@@ -186,6 +187,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'trips',
                 builder: (context, state) => const TripListPage(),
+              ),
+              // みんなのメモリーの詳細（add_K 6.3）。ホームの下に置き、戻るとメモリーへ戻る
+              GoRoute(
+                path: 'shared-memories/:id',
+                builder: (context, state) =>
+                    SharedMemoryDetailPage(id: state.pathParameters['id']!),
               ),
             ],
           ),
