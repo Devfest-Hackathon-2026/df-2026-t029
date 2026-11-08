@@ -75,6 +75,42 @@ class AuthRepository {
     );
   }
 
+  /// 今のユーザーのメールアドレス。いなければ null
+  String? get currentEmail => _auth.currentUser?.email;
+
+  /// 今のユーザーのログイン方法の ID（'password'・'google.com' など）
+  List<String> get providerIds =>
+      _auth.currentUser?.providerData.map((p) => p.providerId).toList() ??
+      const [];
+
+  /// 新しいアドレスに確認のメールを送る（verifyBeforeUpdateEmail）。
+  /// アドレスは前後の空白を除く。ユーザーがいなければ StateError。
+  /// FirebaseAuthException（requires-recent-login など）はそのまま投げる
+  Future<void> startEmailChange(String newEmail) async {
+    final user = _auth.currentUser;
+    if (user == null) throw StateError('ログインしていません');
+    await user.verifyBeforeUpdateEmail(newEmail.trim());
+  }
+
+  /// パスワードで再認証する。いまのアドレスと渡したパスワードで資格情報を作る
+  Future<void> reauthenticateWithPassword(String password) async {
+    final user = _auth.currentUser;
+    final email = user?.email;
+    if (user == null || email == null) throw StateError('ログインしていません');
+    await user.reauthenticateWithCredential(
+      EmailAuthProvider.credential(email: email, password: password),
+    );
+  }
+
+  /// ユーザーを読み直し、いまのメールアドレスを返す。
+  /// ログインが無効になっていれば FirebaseAuthException を投げる
+  Future<String?> reloadCurrentEmail() async {
+    final before = _auth.currentUser;
+    if (before == null) return null;
+    await before.reload();
+    return _auth.currentUser?.email;
+  }
+
   Future<void> signOut() => _auth.signOut();
 }
 

@@ -34,3 +34,27 @@ String? authErrorMessage(String code) {
       return 'うまくいきませんでした（$code）。';
   }
 }
+
+/// メール変更の画面用の文言（4.5）。既存の authErrorMessage は変えない。
+/// requires-recent-login は null（文を出さず、パスワード欄を出す）。
+/// 知らないコードは、コードを含まない文にする
+String? emailChangeErrorMessage(String code) {
+  switch (code) {
+    case 'requires-recent-login':
+      return null;
+    case 'email-already-in-use':
+      return 'このメールアドレスは、すでに別のアカウントで使われています。';
+    case 'invalid-email':
+      return 'メールアドレスの形式が正しくありません。（例：example@mail.com）';
+    case 'invalid-credential':
+    case 'wrong-password':
+    case 'invalid-login-credentials':
+      return 'パスワードが違います。';
+    case 'too-many-requests':
+      return '試した回数が多すぎます。しばらく待ってから、もう一度お試しください。';
+    case 'network-request-failed':
+      return '通信できませんでした。電波の良いところで、もう一度お試しください。';
+    default:
+      return 'うまくいきませんでした。もう一度お試しください。';
+  }
+}
