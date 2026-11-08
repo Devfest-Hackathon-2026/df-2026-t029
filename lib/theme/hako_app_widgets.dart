@@ -19,6 +19,27 @@ const double kHakoWideBreakpoint = 720;
 /// 第1段階の画面の本文の最大幅（PC）
 const double kHakoContentMaxWidth = 640;
 
+/// HakoPageScaffold を使わない画面（投稿の詳細・チャットなど）の最大幅（Fe 3.5）
+const double kHakoCenteredPageMaxWidth = 960;
+
+/// HakoPageScaffold を使わない画面を、PC の幅で最大幅まで絞って中央に置く（Fe 3.5）
+class HakoCenteredPage extends StatelessWidget {
+  const HakoCenteredPage({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: kHakoCenteredPageMaxWidth),
+        child: child,
+      ),
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // ページの色
 // ---------------------------------------------------------------------------
