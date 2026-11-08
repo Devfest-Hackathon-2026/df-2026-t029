@@ -6,6 +6,7 @@ import '../../models/performance.dart';
 import '../../models/trip.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/trip_providers.dart';
+import '../live_form/date_time_field.dart';
 import '../live_form/live_draft_to_models.dart' show formatYen;
 
 /// 遠征メモの1行の要約（例：「遠征：新幹線・宿あり　計 ¥32,000」）
@@ -18,7 +19,26 @@ String tripSummary(Trip trip) {
   return trip.hasCost ? '$head　計 ¥${formatYen(trip.totalCost)}' : head;
 }
 
-/// 遠征メモの入力シート（E-2）。記録があれば、その値を入れて開く
+/// 例：11/9(月) 8:30
+String formatShortDateTime(DateTime d) {
+  const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
+  final minute = d.minute.toString().padLeft(2, '0');
+  return '${d.month}/${d.day}(${weekdays[d.weekday - 1]}) ${d.hour}:$minute';
+}
+
+/// 遠征メモの時刻の1行（add_E 3章）。
+/// 例：「行き 11/9(月) 8:30 発 ／ 帰り 11/9(月) 22:10 発 ／ チェックイン 11/9(月) 15:00」。
+/// 時刻が1つも無ければ null
+String? tripTimesLine(Trip trip) {
+  final parts = [
+    if (trip.departAt case final d?) '行き ${formatShortDateTime(d)} 発',
+    if (trip.returnAt case final d?) '帰り ${formatShortDateTime(d)} 発',
+    if (trip.checkInAt case final d?) 'チェックイン ${formatShortDateTime(d)}',
+  ];
+  return parts.isEmpty ? null : parts.join(' ／ ');
+}
+
+/// 遠征メモの入力シート（E-2・add_E 3章）。記録があれば、その値を入れて開く
 Future<void> showTripSheet(
   BuildContext context, {
   required Performance performance,
@@ -49,6 +69,9 @@ class _TripSheetState extends ConsumerState<_TripSheet> {
       ref.read(myTripsProvider).value?[widget.performance.id];
 
   late TravelTransport? _transport = _existing?.transport;
+  late DateTime? _departAt = _existing?.departAt;
+  late DateTime? _returnAt = _existing?.returnAt;
+  late DateTime? _checkInAt = _existing?.checkInAt;
   late final _transportCost = TextEditingController(
     text: _existing?.transportCost?.toString() ?? '',
   );
@@ -57,6 +80,9 @@ class _TripSheetState extends ConsumerState<_TripSheet> {
   );
   late final _hotelCost = TextEditingController(
     text: _existing?.hotelCost?.toString() ?? '',
+  );
+  late final _localNote = TextEditingController(
+    text: _existing?.localNote ?? '',
   );
   late final _note = TextEditingController(text: _existing?.note ?? '');
 
@@ -68,6 +94,7 @@ class _TripSheetState extends ConsumerState<_TripSheet> {
     _transportCost.dispose();
     _hotelName.dispose();
     _hotelCost.dispose();
+    _localNote.dispose();
     _note.dispose();
     super.dispose();
   }
@@ -96,9 +123,13 @@ class _TripSheetState extends ConsumerState<_TripSheet> {
         startAt: p.startAt,
         venue: p.venue,
         transport: _transport,
+        departAt: _departAt,
+        returnAt: _returnAt,
         transportCost: _cost(_transportCost, '交通費'),
         hotelName: _hotelName.text.trim(),
+        checkInAt: _checkInAt,
         hotelCost: _cost(_hotelCost, '宿代'),
+        localNote: _localNote.text.trim(),
         note: _note.text.trim(),
         createdAt: _existing?.createdAt,
       );
@@ -147,6 +178,8 @@ class _TripSheetState extends ConsumerState<_TripSheet> {
     final p = widget.performance;
     // 金額は数字だけ入力できるようにする
     final digitsOnly = [FilteringTextInputFormatter.digitsOnly];
+    // 日時を最初に選ぶときは、公演の日を開く
+    final day = DateTime(p.startAt.year, p.startAt.month, p.startAt.day);
 
     return Padding(
       key: const Key('trip_sheet'),
@@ -186,6 +219,22 @@ class _TripSheetState extends ConsumerState<_TripSheet> {
               ],
             ),
             const SizedBox(height: 12),
+            DateTimeField(
+              key: const Key('trip_depart_field'),
+              label: '行きの出発',
+              value: _departAt,
+              initialDate: day,
+              onChanged: (v) => setState(() => _departAt = v),
+            ),
+            const SizedBox(height: 8),
+            DateTimeField(
+              key: const Key('trip_return_field'),
+              label: '帰りの出発（終電など）',
+              value: _returnAt,
+              initialDate: day,
+              onChanged: (v) => setState(() => _returnAt = v),
+            ),
+            const SizedBox(height: 12),
             TextField(
               key: const Key('trip_transport_cost_field'),
               controller: _transportCost,
@@ -209,7 +258,14 @@ class _TripSheetState extends ConsumerState<_TripSheet> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 8),
+            DateTimeField(
+              key: const Key('trip_check_in_field'),
+              label: 'チェックイン',
+              value: _checkInAt,
+              initialDate: day,
+              onChanged: (v) => setState(() => _checkInAt = v),
+            ),
+            const SizedBox(height: 12),
             TextField(
               key: const Key('trip_hotel_cost_field'),
               controller: _hotelCost,
@@ -223,6 +279,18 @@ class _TripSheetState extends ConsumerState<_TripSheet> {
               ),
             ),
             const SizedBox(height: 16),
+            TextField(
+              key: const Key('trip_local_note_field'),
+              controller: _localNote,
+              enabled: !_saving,
+              maxLength: Trip.maxLocalNoteLength,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: '現地メモ（コインロッカー・食事・グッズ列の時間など）',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
             TextField(
               key: const Key('trip_note_field'),
               controller: _note,

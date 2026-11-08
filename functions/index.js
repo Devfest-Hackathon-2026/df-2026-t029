@@ -13,6 +13,12 @@ const {initializeApp} = require("firebase-admin/app");
 const {getFirestore, FieldValue, Timestamp} = require("firebase-admin/firestore");
 const {getMessaging} = require("firebase-admin/messaging");
 
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {defineSecret} = require("firebase-functions/params");
+const {findPrefecture} = require("./prefectures");
+
+const WEATHER_API_KEY = defineSecret("WEATHER_API_KEY");
+
 initializeApp();
 setGlobalOptions({region: "asia-northeast1", maxInstances: 1});
 
@@ -210,5 +216,106 @@ exports.sendDeadlineReminders = onSchedule(
         }
       }
       logger.info(`リマインド通知: ユーザー ${tokensByUid.size} 人、送信 ${total} 件`);
+    },
+);
+
+// ---------------------------------------------------------------------------
+// 公演の日の天気（add_E 5章）
+// ---------------------------------------------------------------------------
+
+/** 天気のキャッシュを使う時間（3時間） */
+const WEATHER_CACHE_MS = 3 * HOUR;
+
+/** 2桁にする */
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+/** 数なら整数に丸める。数でなければ null */
+function roundOrNull(v) {
+  return typeof v === "number" && Number.isFinite(v) ? Math.round(v) : null;
+}
+
+/**
+ * 都道府県の10日分の予報（日ごとの要約）を返す。
+ * weatherCache/pref-{code} に3時間置き、それより新しければ Weather API を呼ばない
+ */
+async function loadForecastDays(db, pref) {
+  const ref = db.collection("weatherCache").doc(`pref-${pref.code}`);
+  const snap = await ref.get();
+  if (snap.exists) {
+    const cached = snap.data();
+    const fetchedAt = cached.fetchedAt?.toMillis?.() ?? 0;
+    if (Date.now() - fetchedAt < WEATHER_CACHE_MS && Array.isArray(cached.days)) {
+      return cached.days;
+    }
+  }
+
+  const params = new URLSearchParams({
+    "key": WEATHER_API_KEY.value(),
+    "location.latitude": String(pref.lat),
+    "location.longitude": String(pref.lng),
+    "days": "10",
+    "pageSize": "10",
+    "languageCode": "ja",
+  });
+  const res = await fetch(
+      `https://weather.googleapis.com/v1/forecast/days:lookup?${params}`);
+  if (!res.ok) {
+    logger.error(`Weather API の呼び出しに失敗しました: ${res.status}`,
+        await res.text());
+    throw new HttpsError("internal", "天気を取得できませんでした");
+  }
+  const json = await res.json();
+  // displayDate はその場所の日付（日本なら日本時間）。
+  // 日本（ウェザーニューズ社のデータ）は昼の予報 daytimeForecast が無く、
+  // 1日全体の予報 fullDayForecast で返るので、そちらを使う
+  const days = (json.forecastDays ?? []).map((d) => {
+    const date = d.displayDate ?? {};
+    const forecast = d.daytimeForecast ?? d.fullDayForecast ?? {};
+    // 説明の末尾の「（夜間）」などのかっこ書きは外す
+    const text = (forecast.weatherCondition?.description?.text ?? "")
+        .replace(/[（(][^）)]*[）)]$/, "")
+        .trim();
+    return {
+      date: `${date.year}-${pad2(date.month)}-${pad2(date.day)}`,
+      type: forecast.weatherCondition?.type ?? "TYPE_UNSPECIFIED",
+      text,
+      maxC: roundOrNull(d.maxTemperature?.degrees),
+      minC: roundOrNull(d.minTemperature?.degrees),
+      rainPercent: forecast.precipitation?.probability?.percent ?? null,
+    };
+  });
+  await ref.set({
+    prefecture: pref.name,
+    fetchedAt: FieldValue.serverTimestamp(),
+    days,
+  });
+  return days;
+}
+
+/**
+ * 公演の日の天気（Callable）。
+ * 入力：{prefecture: "東京都", date: "2026-11-09"}
+ * 出力：{status: "ok", date, type, text, maxC, minC, rainPercent}
+ *      または {status: "outOfRange" | "unknownPlace", date}
+ */
+exports.getEventWeather = onCall(
+    {secrets: [WEATHER_API_KEY]},
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "ログインしてください");
+      }
+      const {prefecture, date} = request.data ?? {};
+      if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        throw new HttpsError("invalid-argument", "日付が正しくありません");
+      }
+      const pref = findPrefecture(prefecture);
+      if (!pref) return {status: "unknownPlace", date};
+
+      const days = await loadForecastDays(getFirestore(), pref);
+      const day = days.find((d) => d.date === date);
+      if (!day) return {status: "outOfRange", date};
+      return {status: "ok", ...day};
     },
 );

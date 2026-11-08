@@ -50,13 +50,14 @@ firebase deploy --only firestore:indexes
 - `firestore.rules` は横山さんと共有なので、デプロイの前に一声かける。
 - インデックスは作成に数分かかる。コンソールの「Firestore → インデックス」で「有効」になるまで、該当の画面（グッズ交換の掲示板・マッチング・チャット一覧）がエラーになることがある。
 
-### 1.5 Cloud Functions（リマインド通知。変えたときだけ）
+### 1.5 Cloud Functions（リマインド通知・天気。変えたときだけ）
 
 ```bash
 firebase deploy --only functions
 ```
 
-- `sendDeadlineReminders`（15分おき、`asia-northeast1`）がデプロイされる。Blaze プランが必要。
+- `sendDeadlineReminders`（15分おき）と `getEventWeather`（公演の日の天気。Callable）が `asia-northeast1` にデプロイされる。Blaze プランが必要。
+- `getEventWeather` はシークレット `WEATHER_API_KEY` を使う（2.9）。シークレットを作る前にデプロイすると失敗する。
 - 初回は必要な API の有効化を聞かれるので進める。コンテナイメージの削除ポリシーは既定の日数でよい。
 - すぐに動かして確かめるときは、Google Cloud コンソール → Cloud Scheduler → `firebase-schedule-sendDeadlineReminders-...` →「強制実行」。結果は Firebase コンソール → Functions → ログで見る。
 
@@ -140,6 +141,19 @@ gcloud storage buckets update gs://oshiashi-test.firebasestorage.app --cors-file
 - 確認は `gcloud storage buckets describe gs://oshiashi-test.firebasestorage.app --format="default(cors_config)"`。
 - API キーの「API の制限」をかけるときは、Cloud Storage for Firebase も含める（2.5）。
 
+### 2.9 天気（Weather API）
+
+- Google Cloud コンソール → API とサービス → ライブラリ で **Weather API** を有効にする（11/8 済み）。
+- 認証情報で Functions 用の API キーを作り、**API の制限を Weather API だけ**にする。アプリケーションの制限は付けない（サーバーから呼ぶため）。2.5 の Web 用の API キーとは別のキーにする。
+- キーは Secret Manager に保存する（リポジトリには書かない）。コマンドにはシークレットの名前だけを書き、キーは聞かれたところで貼り付ける（画面には出ない）。
+
+```bash
+firebase functions:secrets:set WEATHER_API_KEY
+```
+
+- キーを変えたときは、上のコマンドで新しい版を作り、`firebase deploy --only functions` をやり直す。
+- 無料枠は月1万回（Essentials）。Functions が都道府県ごとに3時間 `weatherCache` に置くので、同じ地域の公演では呼び出しが増えない。
+
 ## 3. 公開後の確認
 
 プレビュー・本番の両方で、PC の Chrome とスマホのブラウザで確かめる。
@@ -157,6 +171,7 @@ gcloud storage buckets update gs://oshiashi-test.firebasestorage.app --cors-file
 11. API キー: 許可していないサイトからは使えない（2.5 の設定が入っている）。
 12. リマインド通知: プロフィールで「リマインド通知」をオンにできる。期限が24時間以内の受付があると、15分以内に通知が届き、押すとライブ詳細が開く（Cloud Scheduler の強制実行ですぐ確かめられる）。PC か Android の Chrome で確かめる。
 13. メモリーの写真: 記録の編集で写真を追加・保存でき、詳細画面とアルバムのカードに表示される（表示されないときは 2.8 の CORS を確かめる）。
+14. 遠征: ライブ詳細の公演の行と遠征の一覧（`/trips`）に、9日後までの公演の天気予報が出る。ホームに「次の遠征」が出て、「すべて見る」で一覧が開く。「行き方」「周辺の宿」などが Google マップで開く。
 
 ## 4. デモ用データ（架空）
 
