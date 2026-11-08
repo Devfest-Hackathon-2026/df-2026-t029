@@ -8,6 +8,7 @@ import '../../providers/live_providers.dart';
 import '../../providers/oshi_providers.dart';
 import '../../repositories/live_repository.dart';
 import '../../utils/live_diff.dart';
+import '../../theme/hako_app_widgets.dart';
 import '../live/live_detail_page.dart' show receptionTypeLabels;
 import '../live_form/date_time_field.dart';
 import '../live_form/live_draft_to_models.dart';
@@ -74,7 +75,10 @@ Future<MergeReviewResult?> showMergeReview(
   BuildContext context,
   MergeReviewRequest request,
 ) => Navigator.of(context).push<MergeReviewResult>(
-  MaterialPageRoute(builder: (context) => MergeReviewPage(request: request)),
+  // PC で横に伸びすぎないように 960 で中央に置く（Fe 3.5）
+  MaterialPageRoute(
+    builder: (context) => HakoCenteredPage(child: MergeReviewPage(request: request)),
+  ),
 );
 
 /// 差分の確認画面（計画書 6章）

@@ -19,6 +19,27 @@ const double kHakoWideBreakpoint = 720;
 /// 第1段階の画面の本文の最大幅（PC）
 const double kHakoContentMaxWidth = 640;
 
+/// HakoPageScaffold を使わない画面（投稿の詳細・チャットなど）の最大幅（Fe 3.5）
+const double kHakoCenteredPageMaxWidth = 960;
+
+/// HakoPageScaffold を使わない画面を、PC の幅で最大幅まで絞って中央に置く（Fe 3.5）
+class HakoCenteredPage extends StatelessWidget {
+  const HakoCenteredPage({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: kHakoCenteredPageMaxWidth),
+        child: child,
+      ),
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // ページの色
 // ---------------------------------------------------------------------------
@@ -60,7 +81,10 @@ Color hueForPath(String path) {
 /// 人のアイコンのボタン＋メニュー（プロフィール・ログアウト）。
 /// 外枠の左のタブと、[HakoAppBar] の両方で使う
 class AccountMenuButton extends ConsumerWidget {
-  const AccountMenuButton({super.key});
+  const AccountMenuButton({super.key, this.avatarSize = 28});
+
+  /// 自分のアイコンの大きさ。左のタブでは 48（Fe 3.2）、スマホの上のバーは 28
+  final double avatarSize;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -70,9 +94,9 @@ class AccountMenuButton extends ConsumerWidget {
       tooltip: 'アカウント',
       // 自分のアイコン（add_I 3.3）。未ログインのときは人のアイコン
       icon: uid == null
-          ? const Icon(Icons.person_outline, size: 24)
-          : UserAvatar(uid: uid, name: name, size: 28),
-      iconSize: 24,
+          ? Icon(Icons.person_outline, size: avatarSize)
+          : UserAvatar(uid: uid, name: name, size: avatarSize),
+      iconSize: avatarSize,
       constraints: const BoxConstraints(minWidth: 200),
       // 初回の吹き出しがメニューにかぶらないよう、開いたら消す
       onOpened: () => ref.read(helpCoachVisibleProvider.notifier).dismiss(),
