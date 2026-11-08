@@ -12,6 +12,8 @@ class Performance {
     this.openAt,
     required this.venue,
     this.prefecture,
+    this.source,
+    this.startTimeUnknown = false,
   });
 
   final String? id; // 保存前は null
@@ -22,6 +24,16 @@ class Performance {
   final DateTime? openAt;
   final String venue;
   final String? prefecture;
+
+  /// 'ai' なら AI が登録した（add_L 3.1）。読むだけで、アプリからは書かない
+  final String? source;
+
+  /// AI が登録した公演か（add_L 5.3）
+  bool get isAi => source == 'ai';
+
+  /// 開演時刻が未定か（add_L L-4c-2）。true なら [startAt] はその日の 0:00。
+  /// AI が登録したときだけ付く。人が開演日時を変えると消える
+  final bool startTimeUnknown;
 
   factory Performance.fromFirestore(
       DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -35,6 +47,8 @@ class Performance {
       openAt: toDateTime(data['openAt']),
       venue: data['venue'] as String,
       prefecture: data['prefecture'] as String?,
+      source: data['source'] as String?,
+      startTimeUnknown: data['startTimeUnknown'] as bool? ?? false,
     );
   }
 

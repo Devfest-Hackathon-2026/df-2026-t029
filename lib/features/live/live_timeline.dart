@@ -12,7 +12,8 @@ String upcomingDateLine(LiveListEntry e) {
   if (next == null) return '公演の日程は未登録です';
   final count = e.performances.length;
   final rest = count > 1 ? '（全$count公演）' : '';
-  return '次の公演 ${formatDateTime(next)}$rest';
+  final p = e.nextPerformance;
+  return '次の公演 ${p != null ? formatPerformanceStart(p) : formatDateTime(next)}$rest';
 }
 
 /// ライブ一覧のタイムラインの1行（Fd 3.2）。
