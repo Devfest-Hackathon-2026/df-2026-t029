@@ -20,7 +20,12 @@ class ForegroundNotificationListener extends ConsumerWidget {
       if (message == null) return;
       final title = message.notification?.title ?? 'リマインド';
       final body = message.notification?.body;
+      // 開く先（add_S 3.4）。data.path があればそこ、無ければライブ詳細
+      final path = message.data['path'];
       final liveId = message.data['liveId'];
+      final target = path is String && path.startsWith('/')
+          ? path
+          : (liveId is String && liveId.isNotEmpty ? '/lives/$liveId' : null);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           duration: const Duration(seconds: 8),
@@ -35,11 +40,10 @@ class ForegroundNotificationListener extends ConsumerWidget {
               if (body != null) Text(body),
             ],
           ),
-          action: liveId is String && liveId.isNotEmpty
+          action: target != null
               ? SnackBarAction(
                   label: '開く',
-                  onPressed: () =>
-                      ref.read(routerProvider).go('/lives/$liveId'),
+                  onPressed: () => ref.read(routerProvider).go(target),
                 )
               : null,
         ),

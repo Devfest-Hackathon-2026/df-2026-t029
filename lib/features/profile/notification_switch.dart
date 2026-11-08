@@ -50,7 +50,9 @@ class _NotificationSwitchState extends ConsumerState<NotificationSwitch> {
       contentPadding: EdgeInsets.zero,
       secondary: const Icon(Icons.notifications_active_outlined),
       title: const Text('リマインド通知'),
-      subtitle: const Text('申込期限・当落発表・入金期限の1日前と3時間前に、このブラウザへ通知します'),
+      subtitle: const Text(
+        '申込開始（1時間前）・申込期限・当落発表・入金期限（1日前と3時間前）と、新しい相互マッチを、このブラウザへ通知します',
+      ),
       value: enabled.value ?? false,
       onChanged: _busy || enabled.isLoading ? null : _toggle,
     );

@@ -14,6 +14,7 @@ const {getFirestore, FieldValue, Timestamp} = require("firebase-admin/firestore"
 const {getMessaging} = require("firebase-admin/messaging");
 
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {onDocumentWritten} = require("firebase-functions/v2/firestore");
 const {defineSecret} = require("firebase-functions/params");
 const {findPrefecture} = require("./prefectures");
 
@@ -101,7 +102,123 @@ function chunk(list, size) {
   return result;
 }
 
-/** ユーザー1人分を調べて送る。送った件数を返す */
+/**
+ * 申込開始の通知（add_S 3.1）。未申込（申込状況が無い）で、
+ * 申込開始まで1時間以内なら {at}。それ以外は null
+ */
+function startNotice(reception, status, now) {
+  if (status !== undefined) return null;
+  const at = toDate(reception.applyStartAt);
+  if (!at) return null;
+  const remaining = at.getTime() - now.getTime();
+  return remaining > 0 && remaining <= HOUR ? {at} : null;
+}
+
+/**
+ * 通知の題名に入れる推しの情報（add_S 3.2）。
+ * フォロー中の推し・最推し・絵文字と、ライブに出てくるフォロー中の推しの名前
+ */
+async function loadOshiContext(db, userRef, liveOf) {
+  const settings = userRef.collection("settings");
+  const [userSnap, favSnap, emojiSnap] = await Promise.all([
+    userRef.get(),
+    settings.doc("favoriteOshi").get(),
+    settings.doc("oshiEmojis").get(),
+  ]);
+  const user = userSnap.data() ?? {};
+  const listOf = (v) => (Array.isArray(v) ? v : []);
+  const followingGroups = new Set(listOf(user.followingGroupIds));
+  const followingOshis = new Set(listOf(user.followingOshiIds));
+  const fav = favSnap.data();
+  const favoriteKey = fav && typeof fav.kind === "string" &&
+    typeof fav.id === "string" ? `${fav.kind}:${fav.id}` : null;
+  const emojis = emojiSnap.data()?.emojis ?? {};
+
+  // ライブに出てくるフォロー中の推しだけ、名前を読む
+  const refs = new Map();
+  for (const live of liveOf.values()) {
+    for (const id of listOf(live.groupIds)) {
+      if (followingGroups.has(id)) {
+        refs.set(`group:${id}`, db.collection("groups").doc(id));
+      }
+    }
+    for (const id of listOf(live.oshiIds)) {
+      if (followingOshis.has(id)) {
+        refs.set(`person:${id}`, db.collection("oshis").doc(id));
+      }
+    }
+  }
+  const names = new Map();
+  if (refs.size > 0) {
+    const keys = [...refs.keys()];
+    const snaps = await db.getAll(...refs.values());
+    snaps.forEach((s, i) => {
+      const name = s.exists ? s.data().name : null;
+      if (typeof name === "string" && name.trim()) {
+        names.set(keys[i], name.trim());
+      }
+    });
+  }
+  return {followingGroups, followingOshis, favoriteKey, emojis, names};
+}
+
+/**
+ * ライブの推しの【】（add_S 3.2）。例：「【🌙星宮ルナ】」。
+ * 最推しが入っていれば最推し、無ければ個人 → グループの順の最初の1つ。
+ * フォロー中の推しがいなければ ""
+ */
+function oshiPrefix(live, ctx) {
+  if (!live) return "";
+  const listOf = (v) => (Array.isArray(v) ? v : []);
+  const keys = [
+    ...listOf(live.oshiIds)
+        .filter((id) => ctx.followingOshis.has(id))
+        .map((id) => `person:${id}`),
+    ...listOf(live.groupIds)
+        .filter((id) => ctx.followingGroups.has(id))
+        .map((id) => `group:${id}`),
+  ].filter((k) => ctx.names.has(k));
+  if (keys.length === 0) return "";
+  const key = keys.includes(ctx.favoriteKey) ? ctx.favoriteKey : keys[0];
+  const emoji = typeof ctx.emojis[key] === "string" ? ctx.emojis[key] : "";
+  return `【${emoji}${ctx.names.get(key)}】`;
+}
+
+/**
+ * トークンへ送り、無効なトークンを fcmTokens から消す（Step6 6.2・add_S）。
+ * [path] は押したときに開くアプリのパス（data.path にも入れる）。
+ * 残ったトークンと、送れた件数を返す
+ */
+async function sendToTokens(messaging, userRef, tokens, {title, body, path, data}) {
+  const res = await messaging.sendEachForMulticast({
+    tokens,
+    notification: {title, body},
+    data: {...data, path},
+    webpush: {
+      notification: {icon: `${APP_URL}/icons/Icon-192.png`},
+      fcmOptions: {link: `${APP_URL}${path}`},
+    },
+  });
+  const invalid = [];
+  res.responses.forEach((resp, i) => {
+    if (!resp.success && INVALID_TOKEN_ERRORS.has(resp.error?.code)) {
+      invalid.push(tokens[i]);
+    }
+  });
+  for (const token of invalid) {
+    await userRef.collection("fcmTokens").doc(token).delete();
+  }
+  return {
+    tokens: tokens.filter((t) => !invalid.includes(t)),
+    successCount: res.successCount,
+  };
+}
+
+/**
+ * ユーザー1人分を調べて送る。送った件数を返す。
+ * 受付ごとに、申込開始（add_S 3.1）と次の締切（Step6 3.2）を調べ、
+ * 題名の先頭にライブの推しを入れる（add_S 3.2）
+ */
 async function remindUser(db, messaging, uid, tokens, now) {
   const userRef = db.collection("users").doc(uid);
 
@@ -130,8 +247,9 @@ async function remindUser(db, messaging, uid, tokens, now) {
 
   const liveSnaps = await db.getAll(
       ...liveIds.map((id) => db.collection("lives").doc(id)));
-  const titleOf = new Map(
-      liveSnaps.filter((s) => s.exists).map((s) => [s.id, s.data().title]));
+  const liveOf = new Map(
+      liveSnaps.filter((s) => s.exists).map((s) => [s.id, s.data()]));
+  const ctx = await loadOshiContext(db, userRef, liveOf);
 
   let sent = 0;
   for (const doc of receptions) {
@@ -140,52 +258,62 @@ async function remindUser(db, messaging, uid, tokens, now) {
     // 当選者のみの受付は、そのライブで当選している人だけ（isReceptionVisible）
     if (r.winnersOnly === true && !winnerLiveIds.has(r.liveId)) continue;
 
-    const deadline = nextDeadline(r, statusOf.get(doc.id));
-    if (!deadline) continue;
-    const remaining = deadline.at.getTime() - now.getTime();
-    const stage = stageOf(remaining);
-    if (!stage) continue;
+    const status = statusOf.get(doc.id);
+    const live = liveOf.get(r.liveId);
+    const liveTitle = live?.title ?? "ライブ";
+    const prefix = oshiPrefix(live, ctx);
 
-    const sentRef = userRef.collection("sentNotifications")
-        .doc(`${doc.id}_${deadline.kind}_${stage}`);
-    if ((await sentRef.get()).exists) continue;
-
-    const label = KIND_LABEL[deadline.kind];
-    const hours = Math.ceil(remaining / HOUR);
-    const liveTitle = titleOf.get(r.liveId) ?? "ライブ";
-    const title = `${label}まで あと${hours}時間`;
-    const body = `${liveTitle}（${r.name}）\n${formatAt(deadline.at)} まで`;
-
-    const res = await messaging.sendEachForMulticast({
-      tokens,
-      notification: {title, body},
-      data: {liveId: r.liveId},
-      webpush: {
-        notification: {icon: `${APP_URL}/icons/Icon-192.png`},
-        fcmOptions: {link: `${APP_URL}/lives/${r.liveId}`},
-      },
-    });
-
-    // 無効なトークンは消し、このあとの送信からも外す
-    const invalid = [];
-    res.responses.forEach((resp, i) => {
-      if (!resp.success && INVALID_TOKEN_ERRORS.has(resp.error?.code)) {
-        invalid.push(tokens[i]);
-      }
-    });
-    for (const token of invalid) {
-      await userRef.collection("fcmTokens").doc(token).delete();
+    // 送る候補（申込開始・次の締切）
+    const notices = [];
+    const start = startNotice(r, status, now);
+    if (start) {
+      notices.push({
+        kind: "start",
+        stage: "1h",
+        at: start.at,
+        title: `${prefix}まもなく申込開始`,
+        body: `${liveTitle}（${r.name}）\n${formatAt(start.at)} から`,
+      });
     }
-    tokens = tokens.filter((t) => !invalid.includes(t));
+    const deadline = nextDeadline(r, status);
+    if (deadline) {
+      const remaining = deadline.at.getTime() - now.getTime();
+      const stage = stageOf(remaining);
+      if (stage) {
+        const hours = Math.ceil(remaining / HOUR);
+        notices.push({
+          kind: deadline.kind,
+          stage,
+          at: deadline.at,
+          title: `${prefix}${KIND_LABEL[deadline.kind]}まで あと${hours}時間`,
+          body: `${liveTitle}（${r.name}）\n${formatAt(deadline.at)} まで`,
+        });
+      }
+    }
 
-    await sentRef.set({
-      receptionId: doc.id,
-      kind: deadline.kind,
-      stage,
-      deadlineAt: Timestamp.fromDate(deadline.at),
-      sentAt: FieldValue.serverTimestamp(),
-    });
-    sent += res.successCount;
+    for (const n of notices) {
+      if (tokens.length === 0) break;
+      const sentRef = userRef.collection("sentNotifications")
+          .doc(`${doc.id}_${n.kind}_${n.stage}`);
+      if ((await sentRef.get()).exists) continue;
+
+      const result = await sendToTokens(messaging, userRef, tokens, {
+        title: n.title,
+        body: n.body,
+        path: `/lives/${r.liveId}`,
+        data: {liveId: r.liveId},
+      });
+      tokens = result.tokens;
+
+      await sentRef.set({
+        receptionId: doc.id,
+        kind: n.kind,
+        stage: n.stage,
+        deadlineAt: Timestamp.fromDate(n.at),
+        sentAt: FieldValue.serverTimestamp(),
+      });
+      sent += result.successCount;
+    }
   }
   return sent;
 }
@@ -317,5 +445,109 @@ exports.getEventWeather = onCall(
       const day = days.find((d) => d.date === date);
       if (!day) return {status: "outOfRange", date};
       return {status: "ok", ...day};
+    },
+);
+
+// ---------------------------------------------------------------------------
+// 新しいマッチの通知（add_S 3.3）
+// ---------------------------------------------------------------------------
+
+/** 配列にする（配列でなければ空） */
+function arrayOf(v) {
+  return Array.isArray(v) ? v : [];
+}
+
+/** 2つの配列に共通の値があるか */
+function intersects(a, b) {
+  const set = new Set(arrayOf(b));
+  return arrayOf(a).some((v) => set.has(v));
+}
+
+/** 2つの配列の中身が同じか（順は問わない） */
+function sameSet(a, b) {
+  const x = new Set(arrayOf(a));
+  const y = new Set(arrayOf(b));
+  return x.size === y.size && [...x].every((v) => y.has(v));
+}
+
+/**
+ * 交換の投稿が募集中になった・譲や求が変わったときに、
+ * 相互マッチした相手の投稿の持ち主に通知する（相互マッチだけ）
+ */
+exports.notifyNewMatches = onDocumentWritten(
+    "tradePosts/{postId}",
+    async (event) => {
+      const beforeSnap = event.data?.before;
+      const afterSnap = event.data?.after;
+      const before = beforeSnap?.exists ? beforeSnap.data() : null;
+      const after = afterSnap?.exists ? afterSnap.data() : null;
+      if (!after || after.status !== "open") return;
+
+      // 新しく募集中になったか、譲・求が変わったときだけ
+      const changed = !before ||
+        before.status !== "open" ||
+        !sameSet(before.giveKeys, after.giveKeys) ||
+        !sameSet(before.wantKeys, after.wantKeys);
+      if (!changed) return;
+
+      const giveKeys = [...new Set(arrayOf(after.giveKeys))];
+      const wantKeys = arrayOf(after.wantKeys);
+      if (giveKeys.length === 0 || wantKeys.length === 0) return;
+
+      const db = getFirestore();
+      const messaging = getMessaging();
+      const postId = event.params.postId;
+
+      // この投稿の譲を求めている投稿（status はコードで絞る。インデックスを足さないため）
+      const candidates = new Map();
+      for (const keys of chunk(giveKeys, 30)) {
+        const snap = await db.collection("tradePosts")
+            .where("wantKeys", "array-contains-any", keys).get();
+        for (const d of snap.docs) candidates.set(d.id, d);
+      }
+
+      // 相手（uid）ごとに、最初の相互マッチの投稿を1つ
+      const firstByUid = new Map();
+      for (const d of candidates.values()) {
+        const theirs = d.data();
+        if (d.id === postId || theirs.status !== "open") continue;
+        if (typeof theirs.uid !== "string" || theirs.uid === after.uid) continue;
+        // 相手の譲がこの投稿の求にも当たる（相互マッチ）
+        if (!intersects(theirs.giveKeys, wantKeys)) continue;
+        if (!firstByUid.has(theirs.uid)) firstByUid.set(theirs.uid, d.id);
+      }
+
+      let sent = 0;
+      for (const [uid, theirPostId] of firstByUid) {
+        try {
+          const userRef = db.collection("users").doc(uid);
+          const tokenSnap = await userRef.collection("fcmTokens").get();
+          const tokens = tokenSnap.docs.map((t) => t.id);
+          if (tokens.length === 0) continue;
+
+          const sentRef = userRef.collection("sentNotifications")
+              .doc(`match_${postId}_${theirPostId}`);
+          if ((await sentRef.get()).exists) continue;
+
+          const result = await sendToTokens(messaging, userRef, tokens, {
+            title: "新しい相互マッチ",
+            body: `${after.displayName ?? "だれか"}さんの投稿と、譲と求が合っています`,
+            path: `/trade/${postId}?attach=${theirPostId}`,
+            data: {postId, theirPostId},
+          });
+          await sentRef.set({
+            postId,
+            theirPostId,
+            kind: "match",
+            sentAt: FieldValue.serverTimestamp(),
+          });
+          sent += result.successCount;
+        } catch (e) {
+          // 1人の失敗で全体を止めない
+          logger.error(`ユーザー ${uid} へのマッチの通知に失敗しました`, e);
+        }
+      }
+      logger.info(
+          `新しいマッチの通知: 投稿 ${postId}、相手 ${firstByUid.size} 人、送信 ${sent} 件`);
     },
 );
