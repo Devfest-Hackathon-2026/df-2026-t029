@@ -646,6 +646,8 @@ exports.dailyLiveFetch = onSchedule(
             .where("status", "==", "approved").get();
         for (const d of snap.docs) {
           if (d.id.startsWith("demo-")) continue;
+          // グループに入っている個人は対象外（L-4d）
+          if (k.kind === "person" && (d.data().groupIds ?? []).length > 0) continue;
           const followed = await db.collection("users")
               .where(k.field, "array-contains", d.id).limit(1).get();
           if (followed.empty) continue;

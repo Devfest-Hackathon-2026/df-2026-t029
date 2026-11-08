@@ -21,12 +21,14 @@ const RECHECK_MS = 7 * 24 * 60 * MINUTE;
  * 対象外なら {skip: "skipped"}、取得中・10分以内なら {skip: "busy"}、
  * 始められれば {data}（推しのドキュメントの中身）
  */
-function startRun(db, ref, id, mode, now) {
+function startRun(db, ref, kind, id, mode, now) {
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists || id.startsWith("demo-")) return {skip: "skipped"};
     const data = snap.data();
     if (data.status !== "approved") return {skip: "skipped"};
+    // グループに入っている個人は対象外（ライブはグループで取る。L-4d）
+    if (kind === "person" && arrayOf(data.groupIds).length > 0) return {skip: "skipped"};
 
     const lf = data.liveFetch ?? {};
     const startedMs = lf.startedAt?.toMillis?.() ?? 0;
@@ -62,7 +64,7 @@ async function runLiveFetch(kind, id, {mode}) {
   const ref = db.collection(kind === "group" ? "groups" : "oshis").doc(id);
   const now = new Date();
 
-  const start = await startRun(db, ref, id, mode, now);
+  const start = await startRun(db, ref, kind, id, mode, now);
   if (start.skip) return {status: start.skip};
   const data = start.data;
   const lf = data.liveFetch ?? {};

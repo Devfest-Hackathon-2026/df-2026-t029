@@ -12,9 +12,12 @@ import '../../theme/hako_fonts.dart';
 import '../live/official_url_link.dart';
 import 'ai_source_widgets.dart';
 
-/// 公式サイトからライブを探せる推しか（add_L 5.1）：承認済みで、デモ用（demo-）でない
+/// 公式サイトからライブを探せる推しか（add_L 5.1・L-4d）：
+/// 承認済みで、デモ用（demo-）でなく、グループに入っている個人でない
 bool canFetchLives(OshiSummary oshi) =>
-    oshi.isApproved && !oshi.id.startsWith('demo-');
+    oshi.isApproved &&
+    !oshi.id.startsWith('demo-') &&
+    !(oshi.kind == OshiKind.person && oshi.groupIds.isNotEmpty);
 
 /// 「公式サイトからライブを探す」（add_L 5.1）。取得中は閉じられない
 Future<void> showLiveFetchDialog(BuildContext context, OshiSummary oshi) =>
