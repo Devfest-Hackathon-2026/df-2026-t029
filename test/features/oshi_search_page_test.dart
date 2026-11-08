@@ -13,6 +13,16 @@ final _g2 = oshi('g2', '申請中ユニット', status: OshiStatus.pending);
 
 Finder _key(String k) => find.byKey(Key(k));
 
+/// 最初は「まずジャンルを選んでください」の画面（Fd-7）。「すべて」を選んで検索画面に進む。
+/// 検索語つきで開いたとき（initialQuery）は最初から検索画面なので、押さない
+Future<void> _pickAllGenres(WidgetTester tester) async {
+  final all = _key('oshi_genre_pick_all');
+  if (all.evaluate().isEmpty) return;
+  await tester.ensureVisible(all);
+  await tester.tap(all);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   group('4つの状態', () {
     testWidgets('読み込み中', (tester) async {
@@ -42,6 +52,7 @@ void main() {
       await tester.tap(_key('oshi_search_retry_button'));
       await tester.pumpAndSettle();
       expect(repo.watchCount, greaterThan(before));
+      await _pickAllGenres(tester);
       expect(_key('oshi_search_results'), findsOneWidget);
       expect(_key('oshi_tile_group_g1'), findsOneWidget);
     });
@@ -65,6 +76,7 @@ void main() {
         oshiRepo: FakeOshiRepository([_g2]),
         followRepo: FakeFollowRepository(),
       );
+      await _pickAllGenres(tester);
       expect(_key('oshi_search_empty'), findsOneWidget);
       expect(find.text('まだ公開されている推しがいません'), findsOneWidget);
     });
@@ -76,13 +88,17 @@ void main() {
         oshiRepo: FakeOshiRepository([_g1, _p1, _g2]),
         followRepo: FakeFollowRepository(),
       );
+      await _pickAllGenres(tester);
       expect(_key('oshi_search_results'), findsOneWidget);
       expect(_key('oshi_tile_group_g1'), findsOneWidget);
       expect(_key('oshi_tile_person_p1'), findsOneWidget);
       expect(_key('oshi_tile_group_g2'), findsNothing);
       expect(_key('oshi_search_footer_request_button'), findsOneWidget);
-      expect(find.text('グループ'), findsOneWidget);
-      expect(find.text('個人'), findsOneWidget);
+      // 種類の見分けは、アイコンの読み上げ（Fd-4 でテキストの札をやめた）
+      Finder kindIcon(String label) =>
+          find.byWidgetPredicate((w) => w is Icon && w.semanticLabel == label);
+      expect(kindIcon('グループ'), findsOneWidget);
+      expect(kindIcon('個人'), findsOneWidget);
     });
   });
 
@@ -95,6 +111,7 @@ void main() {
         oshiRepo: repo,
         followRepo: FakeFollowRepository(),
       );
+      await _pickAllGenres(tester);
       final watchCount = repo.watchCount;
 
       await tester.enterText(_key('oshi_search_field'), 'タロウ');
@@ -151,6 +168,7 @@ void main() {
         oshiRepo: FakeOshiRepository([_g1]),
         followRepo: follow,
       );
+      await _pickAllGenres(tester);
       await tester.tap(_key('oshi_follow_button_group_g1'));
       await tester.pumpAndSettle();
       expect(follow.followCalls, ['group/g1']);
@@ -170,6 +188,7 @@ void main() {
         oshiRepo: FakeOshiRepository([_g1]),
         followRepo: follow,
       );
+      await _pickAllGenres(tester);
       final button = _key('oshi_follow_button_group_g1');
       await tester.tap(button);
       await tester.pump();
@@ -191,6 +210,7 @@ void main() {
         oshiRepo: repo,
         followRepo: follow,
       );
+      await _pickAllGenres(tester);
       final button = _key('oshi_follow_button_group_g1');
       await tester.tap(button);
       await tester.pump();
@@ -216,6 +236,7 @@ void main() {
         oshiRepo: FakeOshiRepository([_g1]),
         followRepo: follow,
       );
+      await _pickAllGenres(tester);
       expect(onPressedOf(tester, _key('oshi_follow_button_group_g1')), isNull);
     });
 
@@ -228,6 +249,7 @@ void main() {
         oshiRepo: FakeOshiRepository([_g1]),
         followRepo: follow,
       );
+      await _pickAllGenres(tester);
       await tester.tap(_key('oshi_follow_button_group_g1'));
       await tester.pumpAndSettle();
       expect(find.text('申請中の推しはフォローできません'), findsOneWidget);
@@ -245,6 +267,7 @@ void main() {
         oshiRepo: FakeOshiRepository([_g1]),
         followRepo: follow,
       );
+      await _pickAllGenres(tester);
       await tester.tap(_key('oshi_follow_button_group_g1'));
       await tester.pumpAndSettle();
       expect(find.text('フォローできませんでした。もう一度お試しください'), findsOneWidget);
@@ -258,6 +281,7 @@ void main() {
         oshiRepo: FakeOshiRepository([_g1]),
         followRepo: follow,
       );
+      await _pickAllGenres(tester);
       await tester.tap(_key('oshi_follow_button_group_g1'));
       await tester.pump();
       await tester.pumpWidget(const SizedBox());

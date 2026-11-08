@@ -166,7 +166,7 @@ void main() {
     await pumpHome(tester, width: 390);
     expect(_key('hako_app_bar'), findsOneWidget);
     expect(find.text('おしあし'), findsOneWidget);
-    expect(find.byIcon(Icons.person_outline), findsWidgets);
+    expect(find.byTooltip('アカウント'), findsOneWidget);
     await pumpHome(tester, width: 1000);
     expect(_key('hako_app_bar'), findsNothing);
     expect(_key('hako_page_title'), findsNothing);
