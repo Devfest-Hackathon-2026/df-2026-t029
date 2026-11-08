@@ -14,6 +14,7 @@ const {getFirestore, FieldValue, Timestamp} = require("firebase-admin/firestore"
 const {getMessaging} = require("firebase-admin/messaging");
 
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {onDocumentWritten} = require("firebase-functions/v2/firestore");
 const {defineSecret} = require("firebase-functions/params");
 const {findPrefecture} = require("./prefectures");
 
@@ -444,5 +445,109 @@ exports.getEventWeather = onCall(
       const day = days.find((d) => d.date === date);
       if (!day) return {status: "outOfRange", date};
       return {status: "ok", ...day};
+    },
+);
+
+// ---------------------------------------------------------------------------
+// 新しいマッチの通知（add_S 3.3）
+// ---------------------------------------------------------------------------
+
+/** 配列にする（配列でなければ空） */
+function arrayOf(v) {
+  return Array.isArray(v) ? v : [];
+}
+
+/** 2つの配列に共通の値があるか */
+function intersects(a, b) {
+  const set = new Set(arrayOf(b));
+  return arrayOf(a).some((v) => set.has(v));
+}
+
+/** 2つの配列の中身が同じか（順は問わない） */
+function sameSet(a, b) {
+  const x = new Set(arrayOf(a));
+  const y = new Set(arrayOf(b));
+  return x.size === y.size && [...x].every((v) => y.has(v));
+}
+
+/**
+ * 交換の投稿が募集中になった・譲や求が変わったときに、
+ * 相互マッチした相手の投稿の持ち主に通知する（相互マッチだけ）
+ */
+exports.notifyNewMatches = onDocumentWritten(
+    "tradePosts/{postId}",
+    async (event) => {
+      const beforeSnap = event.data?.before;
+      const afterSnap = event.data?.after;
+      const before = beforeSnap?.exists ? beforeSnap.data() : null;
+      const after = afterSnap?.exists ? afterSnap.data() : null;
+      if (!after || after.status !== "open") return;
+
+      // 新しく募集中になったか、譲・求が変わったときだけ
+      const changed = !before ||
+        before.status !== "open" ||
+        !sameSet(before.giveKeys, after.giveKeys) ||
+        !sameSet(before.wantKeys, after.wantKeys);
+      if (!changed) return;
+
+      const giveKeys = [...new Set(arrayOf(after.giveKeys))];
+      const wantKeys = arrayOf(after.wantKeys);
+      if (giveKeys.length === 0 || wantKeys.length === 0) return;
+
+      const db = getFirestore();
+      const messaging = getMessaging();
+      const postId = event.params.postId;
+
+      // この投稿の譲を求めている投稿（status はコードで絞る。インデックスを足さないため）
+      const candidates = new Map();
+      for (const keys of chunk(giveKeys, 30)) {
+        const snap = await db.collection("tradePosts")
+            .where("wantKeys", "array-contains-any", keys).get();
+        for (const d of snap.docs) candidates.set(d.id, d);
+      }
+
+      // 相手（uid）ごとに、最初の相互マッチの投稿を1つ
+      const firstByUid = new Map();
+      for (const d of candidates.values()) {
+        const theirs = d.data();
+        if (d.id === postId || theirs.status !== "open") continue;
+        if (typeof theirs.uid !== "string" || theirs.uid === after.uid) continue;
+        // 相手の譲がこの投稿の求にも当たる（相互マッチ）
+        if (!intersects(theirs.giveKeys, wantKeys)) continue;
+        if (!firstByUid.has(theirs.uid)) firstByUid.set(theirs.uid, d.id);
+      }
+
+      let sent = 0;
+      for (const [uid, theirPostId] of firstByUid) {
+        try {
+          const userRef = db.collection("users").doc(uid);
+          const tokenSnap = await userRef.collection("fcmTokens").get();
+          const tokens = tokenSnap.docs.map((t) => t.id);
+          if (tokens.length === 0) continue;
+
+          const sentRef = userRef.collection("sentNotifications")
+              .doc(`match_${postId}_${theirPostId}`);
+          if ((await sentRef.get()).exists) continue;
+
+          const result = await sendToTokens(messaging, userRef, tokens, {
+            title: "新しい相互マッチ",
+            body: `${after.displayName ?? "だれか"}さんの投稿と、譲と求が合っています`,
+            path: `/trade/${postId}?attach=${theirPostId}`,
+            data: {postId, theirPostId},
+          });
+          await sentRef.set({
+            postId,
+            theirPostId,
+            kind: "match",
+            sentAt: FieldValue.serverTimestamp(),
+          });
+          sent += result.successCount;
+        } catch (e) {
+          // 1人の失敗で全体を止めない
+          logger.error(`ユーザー ${uid} へのマッチの通知に失敗しました`, e);
+        }
+      }
+      logger.info(
+          `新しいマッチの通知: 投稿 ${postId}、相手 ${firstByUid.size} 人、送信 ${sent} 件`);
     },
 );
