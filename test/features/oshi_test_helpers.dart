@@ -6,9 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:oshiashi/models/oshi.dart';
+import 'package:oshiashi/providers/favorite_oshi_providers.dart';
 import 'package:oshiashi/providers/live_providers.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
+import 'package:oshiashi/providers/profile_providers.dart';
 import 'package:oshiashi/repositories/auth_repository.dart';
+import 'package:oshiashi/repositories/favorite_oshi_repository.dart';
 import 'package:oshiashi/repositories/follow_repository.dart';
 import 'package:oshiashi/repositories/oshi_repository.dart';
 
@@ -171,15 +174,37 @@ void usePhoneSize(WidgetTester tester) {
   addTearDown(tester.view.reset);
 }
 
+/// 最推しの偽リポジトリ（Firebase を使わない）。最初は最推しなし
+class FakeFavoriteOshiRepository implements FavoriteOshiRepository {
+  FakeFavoriteOshiRepository([this.key]);
+
+  String? key;
+
+  @override
+  Stream<String?> watch(String uid) => Stream.value(key);
+
+  @override
+  Future<void> set(String uid, OshiSummary oshi) async => key = oshi.key;
+
+  @override
+  Future<void> clear(String uid) async => key = null;
+}
+
 List<Override> overridesFor(
   FakeOshiRepository oshiRepo,
   FakeFollowRepository followRepo, {
   String? uid = 'u1',
+  String? favoriteKey,
 }) => [
   currentUidProvider.overrideWithValue(uid),
   authStateProvider.overrideWith((ref) => Stream<User?>.value(null)),
+  // 上のバーのアカウントのボタン（AccountMenuButton）が読む
+  myProfileProvider.overrideWithValue(const AsyncData(null)),
   oshiRepositoryProvider.overrideWithValue(oshiRepo),
   followRepositoryProvider.overrideWithValue(followRepo),
+  favoriteOshiRepositoryProvider.overrideWithValue(
+    FakeFavoriteOshiRepository(favoriteKey),
+  ),
   // ホームの「次の締切」（Step2）が Firestore や1分のタイマーを使わないように
   liveRepositoryProvider.overrideWithValue(FakeLiveRepository()),
   applicationRepositoryProvider.overrideWithValue(FakeApplicationRepository()),
@@ -192,10 +217,11 @@ Future<void> pumpPage(
   required FakeOshiRepository oshiRepo,
   required FakeFollowRepository followRepo,
   bool settle = true,
+  String? favoriteKey,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: overridesFor(oshiRepo, followRepo),
+      overrides: overridesFor(oshiRepo, followRepo, favoriteKey: favoriteKey),
       // エラーの自動再試行を止める
       retry: (_, _) => null,
       child: MaterialApp(home: page),

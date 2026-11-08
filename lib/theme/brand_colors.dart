@@ -21,6 +21,12 @@ abstract final class BrandColors {
   static const tonal = Color(0xFFEDE6D3); // 軽いチップ・スイッチの切
   static const tonal2 = Color(0xFFE4DBC3); // リンクのチップ
   static const rowLine = Color(0x40121212); // 一覧の行の下線（ink の 25%）
+  // 淡い色（ヘルプ・下部バー。濃い色の対）
+  static const hall1Soft = Color(0xFFFBD6CE); // 推し
+  static const hall3Soft = Color(0xFFFBF0B4); // ホーム
+  static const hall4Soft = Color(0xFFCDEFDF); // メモリー
+  static const hall5Soft = Color(0xFFD3E5FA); // ライブ一覧
+  static const hall6Soft = Color(0xFFFADCE9); // グッズ交換・「譲」
   // 黒い区画の中
   static const onInkSub = Color(0xFFDDDDDD); // 補足の文字
   static const boardRule = Color(0xFF555555); // 掲示板の見出しの下線
@@ -30,6 +36,16 @@ abstract final class BrandColors {
   // Google ボタン（Google のブランドのガイドライン）
   static const googleBorder = Color(0xFF747775);
   static const googleText = Color(0xFF1F1F1F);
+}
+
+/// 濃い色（hall1・3・4・5・6）に対応する淡い色。ほかの色はそのまま返す
+Color softOf(Color hall) {
+  if (hall == BrandColors.hall1) return BrandColors.hall1Soft;
+  if (hall == BrandColors.hall3) return BrandColors.hall3Soft;
+  if (hall == BrandColors.hall4) return BrandColors.hall4Soft;
+  if (hall == BrandColors.hall5) return BrandColors.hall5Soft;
+  if (hall == BrandColors.hall6) return BrandColors.hall6Soft;
+  return hall;
 }
 
 /// テーマカラーの上に置く文字・アイコンの色（墨か白の、コントラストが高いほう）

@@ -1334,7 +1334,7 @@
    ],
    "oshiIds": [],
    "type": "other",
-   "name": "BD 封入先行",
+   "name": "BD封入先行",
    "applyStartAt": "2026-10-28T03:00:00.000Z",
    "applyEndAt": "2026-11-04T14:59:00.000Z",
    "resultAt": "2026-11-07T09:00:00.000Z",

@@ -113,13 +113,21 @@ class _ListView extends StatelessWidget {
           '今後のライブ',
           key: Key('live_list_upcoming_header'),
         ),
+        const HakoHint(
+          '開催日の近い順です。タップすると詳細を開けます。',
+          key: Key('hint_live_upcoming'),
+        ),
         if (upcoming.isEmpty)
           Padding(
             key: const Key('live_list_upcoming_empty'),
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
               '今後のライブはまだありません',
-              style: HakoFonts.jp(size: 13, color: BrandColors.sub, height: 1.5),
+              style: HakoFonts.jp(
+                size: 13,
+                color: BrandColors.sub,
+                height: 1.5,
+              ),
             ),
           )
         else
@@ -149,6 +157,10 @@ class _ListView extends StatelessWidget {
         const OshiUpcomingLivesList(),
         if (ended.isNotEmpty) ...[
           const HakoSectionHeader('終了', key: Key('live_list_finished_header')),
+          const HakoHint(
+            '終了したライブです。思い出はメモリーでも見返せます。',
+            key: Key('hint_live_finished'),
+          ),
           for (final r in ended) _LiveTile(row: r),
         ],
       ],

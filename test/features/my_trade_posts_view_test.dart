@@ -8,6 +8,7 @@ import 'package:oshiashi/features/trade/my_trade_posts_view.dart';
 import 'package:oshiashi/features/trade/trade_post_summary.dart';
 import 'package:oshiashi/models/oshi.dart';
 import 'package:oshiashi/models/trade_post.dart';
+import 'package:oshiashi/theme/hako_app_widgets.dart';
 import 'package:oshiashi/providers/live_providers.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
 import 'package:oshiashi/providers/trade_post_providers.dart';
@@ -151,9 +152,32 @@ void main() {
     expect(find.text('募集終了'), findsOneWidget);
     expect(find.text('グループ1'), findsNWidgets(2));
     expect(find.text('交換希望・買取希望'), findsOneWidget);
-    expect(find.text('譲：アクスタ（A）、アクスタ（B）'), findsOneWidget);
-    expect(find.text('求：個人1'), findsOneWidget);
+    // 札（譲・求）と本文は別々（S1。HakoGiveWantLine）
+    Finder line(HakoGiveWantKind kind, String text) => find.byWidgetPredicate(
+      (w) => w is HakoGiveWantLine && w.kind == kind && w.text == text,
+    );
+    expect(line(HakoGiveWantKind.give, 'アクスタ（A）、アクスタ（B）'), findsOneWidget);
+    expect(line(HakoGiveWantKind.want, '個人1'), findsOneWidget);
+    expect(find.text('譲'), findsOneWidget);
+    expect(find.text('求'), findsOneWidget);
     expect(find.text('品目なし（自動のマッチングの対象外）'), findsOneWidget);
+  });
+
+  testWidgets('更新日時は「更新 」＋時刻つき（年は今年なら省略）', (tester) async {
+    await pumpList(
+      tester,
+      FakeTradePostRepository(),
+      posts: [postOf('a', updatedAt: DateTime(2026, 11, 3, 9, 5))],
+    );
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Text &&
+            RegExp(r'^更新 (\d{4}/)?11/3\(火\) 09:05$').hasMatch(w.data ?? ''),
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('更新：'), findsNothing);
   });
 
   testWidgets('募集終了は確認してから変更する', (tester) async {

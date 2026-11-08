@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>おしあし ログイン後UI 案C:ヘルプシート</title>
+<style>
+:root{
+  --bg:#FBF6E9;--ink:#111;--muted:#4D4A42;--line:#C9C2AE;
+  --yellow:#F5D31A;--yellow-s:#FBF0B4;
+  --red:#EF4630;--red-s:#FBD6CE;
+  --blue:#3F8FE6;--blue-s:#D3E5FA;
+  --pink:#F27CB1;--pink-s:#FADCE9;
+  --green:#2DBE7E;--green-s:#CDEFDF;
+  --tb:76px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI","Yu Gothic",Meiryo,sans-serif;background:#E7E0CB;color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;word-break:auto-phrase;line-break:strict}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid #1D4ED8;outline-offset:2px}
+.stage{display:flex;gap:32px;justify-content:center;align-items:flex-start;padding:20px 16px;min-height:100vh}
+.notes{width:340px;flex:none;position:sticky;top:20px;background:#fff;border:2px solid var(--ink);border-radius:14px;padding:18px 18px 16px;max-height:calc(100vh - 40px);overflow:auto;font-size:14px}
+.notes .tag-id{display:inline-block;background:var(--ink);color:#fff;font-weight:800;border-radius:6px;padding:1px 9px;font-size:13px}
+.notes h2{font-size:18px;margin:8px 0 4px}
+.notes h3{font-size:14px;margin:16px 0 6px;font-weight:800}
+.notes p{color:var(--muted);line-height:1.7}
+.notes ul{padding-left:1.2em;line-height:1.7}
+.notes li{margin:2px 0}
+.notes table{width:100%;border-collapse:collapse;font-size:13px}
+.notes td{border-top:1px solid var(--line);padding:5px 4px;vertical-align:top}
+.notes td:first-child{color:#8A2A1C;text-decoration:line-through;width:45%}
+.phone{position:relative;width:390px;height:min(844px,calc(100dvh - 40px));flex:none;display:flex;flex-direction:column;background:var(--bg);border:2px solid var(--ink);border-radius:28px;overflow:hidden;box-shadow:8px 8px 0 rgba(17,17,17,.9)}
+.s-home{--c:var(--yellow);--cs:var(--yellow-s)}
+.s-oshi{--c:var(--red);--cs:var(--red-s)}
+.s-live{--c:var(--blue);--cs:var(--blue-s)}
+.s-trade{--c:var(--pink);--cs:var(--pink-s)}
+.s-memory{--c:var(--green);--cs:var(--green-s)}
+
+/* ===== アプリバー ===== */
+.appbar{flex:none;display:flex;align-items:center;gap:10px;min-height:58px;padding:0 14px 0 18px;background:var(--c);border-bottom:2px solid var(--ink)}
+.appbar h1{font-size:20px;font-weight:600;letter-spacing:.02em}
+.ab-text{flex:1;min-width:0}
+.ab-spacer{flex:1}
+.avatar{flex:none;width:34px;height:34px;border-radius:50%;border:2px solid var(--ink);background:radial-gradient(circle at 50% 36%,#EBCDB8 0 24%,transparent 25%),radial-gradient(ellipse at 50% 105%,#EBCDB8 0 36%,transparent 37%),#7C2228}
+.avatar.lg{width:50px;height:50px}
+.help-btn{flex:none;width:36px;height:36px;border-radius:50%;border:2px solid var(--ink);background:#fff;display:grid;place-items:center}
+.help-btn[aria-pressed="true"]{background:var(--ink);color:#fff}
+
+/* ===== 本文 ===== */
+.main{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:16px 16px calc(var(--tb) + 96px)}
+.ic{display:block;flex:none}
+.hello{display:flex;align-items:center;gap:14px}
+.hello h2{font-size:24px;font-weight:600;line-height:1.3}
+.btn{display:inline-flex;align-items:center;gap:8px;min-height:46px;padding:0 20px;border:2px solid var(--ink);border-radius:999px;background:var(--red);font-weight:700;font-size:15px}
+.hello-wrap{display:flex;flex-direction:column;gap:14px}
+.sec{margin-top:30px}
+.sec:first-child{margin-top:4px}
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.sec-title{font-size:17px;font-weight:800;padding:0 3px;background:linear-gradient(transparent 62%,var(--c) 62%)}
+.sec-link{border:0;background:none;font-size:14px;font-weight:700;padding:6px 0 6px 8px;display:inline-flex;align-items:center;gap:2px}
+.sec-desc{font-size:13px;color:var(--muted);line-height:1.65;margin-top:8px}
+.list{margin-top:6px}
+.row{display:flex;gap:14px;align-items:flex-start;padding:14px 2px;border-bottom:1.5px solid var(--line);width:100%;background:none;border-top:0;border-left:0;border-right:0;text-align:left}
+.row .ri{margin-top:2px}
+.row .rb{flex:1;min-width:0}
+.row .rt{font-size:16px;line-height:1.45}
+.row .rs{font-size:13px;color:var(--muted);margin-top:2px;line-height:1.5}
+.row .chev{align-self:center;margin-left:4px}
+.badge{display:inline-block;margin-top:8px;border:2px solid var(--ink);border-radius:9px;padding:1px 10px;font-size:13px;font-weight:700;line-height:1.55}
+.b-green{background:var(--green)}.b-red{background:var(--red)}.b-yellow{background:var(--yellow)}.b-white{background:#fff}
+.card{background:#fff;border:2px solid var(--ink);border-radius:14px;padding:12px 14px}
+.hscroll{display:flex;gap:12px;overflow-x:auto;margin:12px -16px 0;padding:2px 16px 12px;scroll-snap-type:x proximity}
+.hscroll>*{scroll-snap-align:start}
+.lcard{flex:none;width:208px;background:#fff;border:2px solid var(--ink);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;text-align:left}
+.chip-row{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:2px solid var(--ink);border-radius:8px;padding:0 8px;font-size:12px;font-weight:700;background:var(--yellow);line-height:1.6}
+.chip.dark{background:var(--ink);color:#fff}
+.chip.white{background:#fff}
+.lcard .lt{font-size:15px;font-weight:700;line-height:1.45}
+.lcard .lm{font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.trip{display:flex;gap:14px;align-items:center;margin-top:12px;padding:12px 14px}
+.dateblock{flex:none;width:52px;border:2px solid var(--ink);border-radius:10px;background:var(--yellow);text-align:center;overflow:hidden}
+.dateblock small{display:block;font-size:11px;font-weight:700;line-height:1.5}
+.dateblock b{display:block;font-size:22px;line-height:1.1}
+.trip .tt{font-weight:700;font-size:16px}
+.trip .tm{font-size:13px;color:var(--muted)}
+.post{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+.post.new{border-left:7px solid var(--blue)}
+.post-top{display:flex;align-items:center;gap:8px}
+.mini{flex:none;width:26px;height:26px;border-radius:50%;border:1.5px solid var(--ink);display:grid;place-items:center;font-size:12px;font-weight:700;background:#fff}
+.post-name{font-weight:800;font-size:16px}
+.post-grp{font-size:12px;color:var(--muted)}
+.ptype{display:inline-block;align-self:flex-start;font-size:12px;font-weight:700;border:1.5px solid var(--ink);border-radius:6px;padding:0 8px;background:var(--bg)}
+.line{display:flex;gap:8px;font-size:15px;line-height:1.55;align-items:flex-start}
+.line .k{flex:none;min-width:24px;height:24px;margin-top:1px;padding:0 4px;display:grid;place-items:center;border:2px solid var(--ink);border-radius:6px;font-size:12px;font-weight:800;background:var(--pink-s)}
+.line .k.want{background:var(--yellow-s)}
+.line .k.long{padding:0 7px}
+.line.plain{padding-left:0;color:var(--ink)}
+.stamp{font-size:12px;color:var(--muted);margin-top:2px}
+.money{padding:14px 16px;margin-top:12px;display:block;width:100%;text-align:left}
+.money .m1{display:flex;align-items:baseline;gap:8px}
+.money .m1 b{font-size:26px;color:#B3261E}
+.money .m1 span{font-size:14px;font-weight:600}
+.bar{height:10px;border-radius:6px;background:#B3261E;margin:10px 0 8px;border:1.5px solid var(--ink)}
+.money .warn{display:flex;gap:6px;align-items:center;font-size:13px;font-weight:700;color:#B3261E}
+.mem-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.mcard{background:#fff;border:2px solid var(--ink);border-radius:14px;overflow:hidden;text-align:left;display:flex;flex-direction:column}
+.mcard .mi{height:76px;background:var(--green);display:grid;place-items:center;border-bottom:2px solid var(--ink)}
+.mcard .mi.photo{background:radial-gradient(circle at 50% 120%,#F3E3FF 0 10%,transparent 11%),radial-gradient(circle at 25% 40%,#7A6BFF88 0 14%,transparent 15%),radial-gradient(circle at 75% 35%,#FF6FD888 0 14%,transparent 15%),linear-gradient(#2B1D63,#5B3FA6)}
+.mcard .mb{padding:10px 12px 12px;display:flex;flex-direction:column;gap:3px}
+.mcard .mt{font-size:14px;font-weight:700;line-height:1.45}
+.mcard .md{font-size:12.5px;color:var(--muted)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 4px}
+.fchip{border:2px solid var(--ink);border-radius:999px;padding:0 16px;min-height:40px;font-size:15px;font-weight:700;background:var(--bg)}
+.fchip[aria-pressed="true"]{background:var(--ink);color:#fff}
+.fb{display:flex;align-items:center;gap:12px;padding:16px 2px;border-bottom:1.5px solid var(--line)}
+.fb .ava{flex:none;width:46px;height:46px;border-radius:50%;border:2px solid var(--ink);display:grid;place-items:center;font-size:18px;font-weight:700;background:#fff}
+.fb .ava.grp{background:var(--ink);color:#fff}
+.fb .ava.hot{border-color:var(--blue);box-shadow:0 0 0 2px var(--ink)}
+.fb .bd{flex:1;min-width:0}
+.fb .nm{font-size:17px;font-weight:700;line-height:1.35}
+.tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+.tag{white-space:nowrap;border:1.5px solid var(--ink);border-radius:7px;padding:0 7px;font-size:11.5px;font-weight:600;background:#EEE7C9;line-height:1.55}
+.star{border:0;background:none;width:40px;height:40px;display:grid;place-items:center}
+.follow{flex:none;border:2px solid var(--ink);border-radius:999px;padding:0 11px;min-height:40px;font-size:13px;white-space:nowrap;font-weight:700;background:var(--bg)}
+.fav{margin-top:12px;display:flex;gap:14px;align-items:center;padding:14px 16px}
+.fav .ava{width:56px;height:56px;border-radius:50%;background:var(--red);border:2px solid var(--ink);display:grid;place-items:center;font-size:22px;font-weight:700;flex:none}
+.fav .nm{font-size:22px;font-weight:700;line-height:1.3}
+
+/* ===== サブタブ(グッズ交換) ===== */
+.subtabs{flex:none;display:flex;align-items:stretch;border-bottom:1.5px solid var(--line);background:var(--bg);margin:-16px -16px 0;padding-right:6px}
+.subtabs .st{flex:1;border:0;background:none;min-height:50px;font-size:15px;font-weight:600;border-bottom:3px solid transparent;color:var(--muted)}
+.subtabs .st[aria-selected="true"]{color:var(--ink);font-weight:800;border-bottom-color:var(--ink)}
+.msgbtn{position:relative;flex:none;width:48px;border:0;background:none;display:grid;place-items:center}
+.msgbtn i{position:absolute;top:8px;right:4px;min-width:18px;height:18px;border-radius:9px;background:#D93025;color:#fff;font:700 11px/18px sans-serif;text-align:center;font-style:normal}
+.pick{display:flex;align-items:center;justify-content:space-between;margin:14px 0 4px;padding:8px 2px;border-bottom:2px solid var(--ink);font-size:17px;font-weight:600}
+.pick .pk{display:flex;gap:10px;align-items:center}
+.refresh{display:flex;justify-content:flex-end;margin-top:8px}
+.refresh button{border:0;background:none;display:inline-flex;gap:6px;align-items:center;font-size:14px;font-weight:600;min-height:40px;padding:0 4px}
+.mhead{font-size:16px;font-weight:800;margin:10px 0 2px}
+.mt-badge{display:inline-block;border:2px solid var(--ink);border-radius:9px;padding:0 12px;font-size:14px;font-weight:700;background:var(--bg)}
+.mine-top{display:flex;align-items:center;gap:10px}
+.mine-top .dots{margin-left:auto}
+.dim{opacity:.62}
+.thumb{flex:none;width:56px;height:56px;border-radius:10px;background:var(--green);border:2px solid var(--ink);display:grid;place-items:center}
+.thumb i{display:block;width:26px;height:26px;border-radius:50%;background:#fff;border:2px solid var(--ink)}
+.hint-c{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--muted);line-height:1.6;margin-top:8px}
+
+/* ===== FAB ===== */
+.fab{position:absolute;right:16px;bottom:calc(var(--tb) + 16px);z-index:4;display:none;align-items:center;gap:8px;min-height:50px;padding:0 20px;border:2px solid var(--ink);border-radius:999px;background:var(--red);font-weight:700;font-size:15px;box-shadow:3px 3px 0 var(--ink)}
+.fab.on{display:inline-flex}
+
+/* ===== 下部バー(共通) ===== */
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:var(--tb);display:flex;background:var(--bg);border-top:2px solid var(--ink);z-index:6}
+.tab{position:relative;flex:1;min-width:0;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 2px 8px}
+.tab .tl{font-size:12px;line-height:1.2;white-space:nowrap}
+.tab .dot{position:absolute;top:6px;left:calc(50% + 8px);min-width:18px;height:18px;border-radius:9px;background:#D93025;color:#fff;font:700 11px/18px sans-serif;text-align:center;border:2px solid var(--bg);box-sizing:content-box}
+
+/* ===== シート(案C) ===== */
+.backdrop{position:absolute;inset:0;background:rgba(17,17,17,.45);opacity:0;pointer-events:none;z-index:8;transition:opacity .2s}
+.backdrop.on{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:9;background:var(--bg);border:2px solid var(--ink);border-bottom:0;border-radius:22px 22px 0 0;padding:10px 20px 24px;transform:translateY(105%);transition:transform .25s ease;max-height:82%;overflow:auto}
+.sheet.on{transform:none}
+.sheet .grab{width:44px;height:5px;border-radius:3px;background:var(--ink);opacity:.3;margin:0 auto 12px}
+.sheet h3{font-size:18px;font-weight:800;display:flex;align-items:center;gap:10px}
+.sheet h3 .pill{width:12px;height:22px;border-radius:6px;background:var(--c);border:2px solid var(--ink)}
+.sheet ol{list-style:none;margin:14px 0 16px;display:flex;flex-direction:column;gap:12px}
+.sheet li{display:flex;gap:12px;align-items:flex-start;background:#fff;border:2px solid var(--ink);border-radius:14px;padding:12px 14px}
+.sheet li .n{flex:none;width:28px;height:28px;border-radius:50%;background:var(--c);border:2px solid var(--ink);display:grid;place-items:center;font-weight:800;font-size:14px}
+.sheet li b{display:block;font-size:15px;margin-bottom:2px}
+.sheet li span{font-size:14px;color:var(--muted);line-height:1.65}
+.sheet .legend{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px}
+.sheet .close{width:100%;min-height:48px;border:2px solid var(--ink);border-radius:999px;background:var(--ink);color:#fff;font-weight:800;font-size:15px}
+.coach{position:absolute;z-index:7;top:64px;right:10px;max-width:230px;background:var(--ink);color:#fff;font-size:13px;line-height:1.55;padding:10px 14px;border-radius:12px}
+.coach:before{content:"";position:absolute;top:-8px;right:60px;border:8px solid transparent;border-top:0;border-bottom-color:var(--ink)}
+.coach button{display:block;margin-top:8px;border:0;background:#fff;color:var(--ink);font-weight:800;border-radius:8px;padding:4px 12px;min-height:32px}
+
+/* ===== 画面幅が狭い場合 ===== */
+@media (max-width:820px){
+  .stage{flex-direction:column;align-items:center;padding:0}
+  .phone{width:100%;height:100dvh;border:0;border-radius:0;box-shadow:none}
+  .notes{position:static;width:auto;max-width:560px;max-height:none;margin:20px 16px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+
+body{font-size:16px}
+/* 下部バー:5つの画面を色で区別。選択中は少し浮かせる */
+.tab{color:#2F2C25;gap:4px}
+.tab .ti{width:44px;height:44px;border-radius:50%;background:var(--cs);border:2px solid var(--ink);display:grid;place-items:center;transition:transform .15s,background .15s}
+.tab.on .ti{background:var(--c);transform:translateY(-6px);box-shadow:0 3px 0 var(--ink)}
+.tab.on .tl{font-weight:800;transform:translateY(-4px)}
+.tab .tl{font-size:12px}
+.tab .dot{left:calc(50% + 10px);top:4px}
+:root{--tb:80px}
+
+</style>
+</head>
+<body class="vC">
+<div class="stage">
+  <div class="phone s-home" id="phone">
+    <header class="appbar" id="appbar"></header>
+    <main class="main" id="main"></main>
+    <button class="fab" id="fab" type="button"></button>
+    <nav class="tabbar" id="tabbar" aria-label="メインメニュー"></nav>
+    <div class="backdrop" id="backdrop"></div>
+    <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="この画面でできること"></section>
+  </div>
+  <aside class="notes">
+<span class="tag-id">案C</span><h2>ヘルプシートタイプ</h2>
+<p>画面はすっきり保ち、必要なときだけ「?」から説明を開く案です。慣れた人の邪魔になりません。</p>
+<h3>変更点</h3>
+<ul>
+<li>ヘッダー右に「?」ボタン。押すと「この画面でできること」が下から開く</li>
+<li>初回だけ、「?」の場所を知らせる吹き出しを表示(ホーム)</li>
+<li>締切の色の意味(赤/緑/黄)、「譲」「求」の意味もシート内にまとめた</li>
+<li>わかりにくい箇所(最推し、フォロー、相互マッチなど)にだけ短い補足を表示</li>
+<li>下部バーは5画面を色分けしたアイコン。選択中は浮き上がって濃い色に</li>
+</ul>
+<h3>日本語・表示の修正</h3>
+<table>
+<tr><td>ブレイガイド先行</td><td>プレイガイド先行</td></tr>
+<tr><td>アップグレード(当選者のみ)【当選者のみ】</td><td>アップグレード(当選者のみ)</td></tr>
+<tr><td>BD 封入先行</td><td>BD封入先行</td></tr>
+<tr><td>aa / xx(テスト用の表示)</td><td>BLUE ORBIT ワンマンライブ / 会場未定</td></tr>
+<tr><td>フォロー中すべて</td><td>フォロー中の推し すべて</td></tr>
+<tr><td>合うあなたの投稿:2件</td><td>条件が合うあなたの投稿:2件</td></tr>
+<tr><td>譲: / 求:(文字のみ)</td><td>「譲」「求」のラベル表示+説明</td></tr>
+<tr><td>更新:2026/11/9(月)…</td><td>更新 11/9(月)…(年を省略)</td></tr>
+</table>
+<p style="margin-top:8px;font-size:12.5px">※「片方向マッチ」は、元画面で文字が切れていて読み取れなかったため仮の名前です。実際の名称に合わせて差し替えてください。</p>
+</aside>
+</div>
+<script>
+const VARIANT='C';
+const $=s=>document.querySelector(s);
+const P={
+ home:'<path d="M3.500 11 12 3.800 20.500 11"/><path d="M5.500 9.800V20h4.500v-5.500h4V20h4.500V9.800"/>',
+ heart:'<path d="M12 20.500s-8-4.900-8-10.600C4 6.900 6.200 5 8.600 5c1.400 0 2.700.7 3.400 1.800C12.700 5.700 14 5 15.400 5 17.800 5 20 6.900 20 9.900c0 5.700-8 10.600-8 10.600z"/>',
+ list:'<rect x="4" y="3" width="16" height="18" rx="2.500"/><path d="M8 8h1M8 12h1M8 16h1M12 8h5M12 12h5M12 16h5"/>',
+ swap:'<path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/>',
+ book:'<rect x="7" y="3" width="13" height="15" rx="2"/><path d="M4 7v13a1 1 0 0 0 1 1h12M11 3v7l2-1.500 2 1.500V3"/>',
+ search:'<circle cx="11" cy="11" r="6.500"/><path d="m16 16 4.500 4.500"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ cal:'<rect x="4" y="5" width="16" height="15" rx="2.500"/><path d="M4 10h16M8 3v4M16 3v4"/>',
+ calEdit:'<path d="M20 12V7.500A2.500 2.500 0 0 0 17.500 5h-11A2.500 2.500 0 0 0 4 7.500v10A2.500 2.500 0 0 0 6.500 20H12M4 10h16M8 3v4M16 3v4"/><path d="m14 19 .6-2.600 5-5a1.400 1.400 0 0 1 2 2l-5 5z"/>',
+ calCheck:'<rect x="4" y="5" width="16" height="15" rx="2.500"/><path d="M4 10h16M8 3v4M16 3v4M9 15l2 2 4-4"/>',
+ cash:'<rect x="3" y="6" width="18" height="12" rx="2.500"/><circle cx="12" cy="12" r="2.600"/><path d="M6.500 12h.01M17.500 12h.01"/>',
+ mega:'<path d="M3.500 10.500v3a1 1 0 0 0 1 1H7l6 4V5.500l-6 4H4.500a1 1 0 0 0-1 1z"/><path d="M16.500 9a4 4 0 0 1 0 6M19 6.500a8 8 0 0 1 0 11"/>',
+ clock:'<circle cx="12" cy="12" r="8.500"/><path d="M12 7.500V12l3 2"/>',
+ chev:'<path d="m9 5 7 7-7 7"/>',
+ msg:'<path d="M4 5.500h16v11H9.500L5 20.500v-4H4z"/><path d="M8 9.500h8M8 12.500h5"/>',
+ help:'<circle cx="12" cy="12" r="9"/><path d="M9.500 9.500a2.600 2.600 0 1 1 3.600 2.400c-.8.400-1.100.9-1.100 1.600M12 17h.01"/>',
+ close:'<path d="M6 6l12 12M18 6 6 18"/>',
+ bulb:'<path d="M9 18h6M10 21h4M12 3.500a6 6 0 0 0-3.600 10.800c.7.600 1.100 1.300 1.100 2.200h5c0-.9.400-1.600 1.100-2.200A6 6 0 0 0 12 3.500z"/>',
+ star:'<path d="m12 3.500 2.700 5.500 6 .9-4.400 4.200 1 6-5.300-2.900L6.700 20l1-6L3.300 9.900l6-.9z"/>',
+ note:'<path d="M9 18V5.500l11-2V16"/><circle cx="6.500" cy="18" r="2.500"/><circle cx="17.500" cy="16" r="2.500"/>',
+ dots:'<path d="M12 5h.01M12 12h.01M12 19h.01" stroke-width="3"/>',
+ refresh:'<path d="M20 12a8 8 0 1 1-2.400-5.700M20 4.500v4.800h-4.800"/>',
+ filter:'<path d="M4 7h16M7 12h10M10 17h4"/>',
+ group:'<circle cx="12" cy="9" r="2.600"/><circle cx="5.800" cy="11" r="2"/><circle cx="18.200" cy="11" r="2"/><path d="M7.500 18c.4-2.600 2.200-4 4.500-4s4.100 1.400 4.500 4M2.500 18c.2-1.800 1.400-3 3.300-3M21.500 18c-.2-1.800-1.400-3-3.300-3"/>',
+ warn:'<path d="M12 4 2.800 20h18.400z"/><path d="M12 10v4.500M12 17.500h.01"/>',
+ down:'<path d="m6 9 6 6 6-6"/>'
+};
+const ic=(n,s=24,sw=2)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+const icFill=(n,s=24)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+
+/* ---------- 画面の基本情報 ---------- */
+const SCREENS=['home','oshi','live','trade','memory'];
+const META={
+ home:{label:'ホーム',title:'おしあし',icon:'home',sub:'締切とライブの予定を、ひと目で確認',
+  tip:'申込・入金・当落発表の締切が、近い順に並びます。バッジの色は 赤=申込、緑=入金、黄=当落発表 です。'},
+ oshi:{label:'推し',title:'推し',icon:'heart',sub:'フォロー中の推しをまとめて管理',
+  tip:'フォローした推しの予定が、ホームとライブ一覧に集まります。星マークは「最推し」の印です。「メンバー ▼」でグループの所属メンバーを確認できます。'},
+ live:{label:'ライブ一覧',title:'ライブ一覧',icon:'list',sub:'登録したライブを開催日の近い順に表示',
+  tip:'登録したライブが開催日の近い順に並びます。ライブ名をタップすると公演ごとの詳細を開けます。新しく追加するときは、右下のボタンから。'},
+ trade:{label:'グッズ交換',title:'グッズ交換',icon:'swap',sub:'交換の相手を探して、やりとりしよう',
+  tip:'「譲」は手放せるグッズ、「求」はほしいグッズです。「マッチ」では、お互いの条件が合う相手が見つかります。右上の吹き出しはメッセージです。'},
+ memory:{label:'メモリー',title:'メモリー',icon:'book',sub:'参戦の予定と思い出を記録',
+  tip:'これから参戦するライブと、参戦済みの思い出を見返せます。座席などの情報は、ライブごとの詳細に残ります。'}
+};
+const TRADE_TIPS={
+ board:'フォロー中の推しの交換募集が、新しい順に並びます。「譲」は手放せるグッズ、「求」はほしいグッズです。',
+ match:'あなたの投稿と条件が合う相手の一覧です。「相互」は、お互いの「譲」と「求」がぴったり合っている状態です。',
+ mine:'あなたが出した投稿の管理画面です。交換が決まったら、右のメニュー(⋮)から「募集終了」にしておきましょう。'
+};
+const HELP={
+ home:[['締切をチェックする','申込・入金・当落発表の期限が近い順に並びます。タップすると詳細を開けます。'],['ライブを追加する','上の赤いボタンから、行きたいライブを登録できます。'],['推し活費を見る','今月の支出が予算を超えていないか、いつでも確認できます。']],
+ oshi:[['推しを探して追加','「推しを探す」から、気になるアーティストやグループを探せます。'],['最推しを決める','星マークをつけた推しが「最推し」になります。'],['メンバーを見る','グループの「メンバー ▼」をタップすると、所属メンバーを確認できます。']],
+ live:[['ライブの予定を見る','登録したライブが、開催日の近い順に並びます。'],['詳細を開く','ライブ名をタップすると、公演ごとの日時などを確認できます。'],['ライブを追加する','右下の「ライブを追加する」から、新しく登録できます。']],
+ trade:[['掲示板で探す','フォロー中の推しの交換募集を見て、気になる投稿を探します。'],['マッチを確認する','あなたの投稿と条件が合う相手が表示されます。「相互」はぴったり合っている状態です。'],['自分の投稿を管理する','投稿の編集や、交換が決まったあとの「募集終了」はここから。']],
+ memory:[['参戦予定を確認','これから行くライブの日時や会場、座席を確認できます。'],['思い出を見返す','参戦済みのライブがカードで並びます。'],['記録を残す','座席などの情報は、ライブごとの詳細に残せます。']]
+};
+
+/* ---------- データ ---------- */
+const DEADLINES=[
+ {i:'cash',t:'ルミナス☆ガーデン 秋のワンマン「花ひらく」',s:'FC先行',b:'入金期限あと1日',c:'green'},
+ {i:'calEdit',t:'ステラノート 全国ツアー 2026「ひかりの旋律」',s:'アップグレード(当選者のみ)',b:'申込期限あと2日',c:'red'},
+ {i:'mega',t:'Prism Voice 1st LIVE「Colorful Harmony」',s:'BD封入先行',b:'当選発表 2026/11/11(水) 18:00',c:'yellow'},
+ {i:'cash',t:'ほしぞらフェス 2026',s:'プレイガイド先行',b:'入金期限あと3日',c:'green'},
+ {i:'calEdit',t:'ルミナス☆ガーデン 新曲リリースイベント',s:'特典会 整理券(抽選)',b:'申込期限あと3日',c:'red'}
+];
+const SOON=[
+ {d:'11/8(日)',n:'本日',t:'BLUE ORBIT ワンマンライブ',m:'13:00・会場未定'},
+ {d:'11/12(木)',n:'あと4日',t:'ルミナス☆ガーデン 新曲リリースイベント',m:'13:00・池袋スカイステージ'},
+ {d:'11/18(水)',n:'あと10日',t:'ミッドナイト・トレイン LIVE HOUSE TOUR「終電のあとで」',m:'19:00・全4公演'}
+];
+const POSTS=[
+ {n:'いるか',g:'ステラノート',give:['ステラノート トレーディングカード vol.1(星宮ルナ)'],want:['ステラノート 缶バッジ(会場限定)(雪村ミオ)'],how:'郵送',u:'11/9(月) 09:00',nw:1},
+ {n:'モモ担',g:'ルミナス☆ガーデン',give:['ルミナス☆ガーデン ランダムアクリルキーホルダー(桜井リン)','ルミナス☆ガーデン ランダムアクリルキーホルダー(葉山ツバサ)'],want:['ルミナス☆ガーデン ランダムアクリルキーホルダー(花咲モモ)'],how:'郵送',u:'11/9(月) 09:00',nw:1},
+ {n:'るなまる',g:'ステラノート',give:['ステラノート TOUR 2026 ランダムアクリルスタンド(星宮ルナ)'],want:['ステラノート TOUR 2026 ランダムアクリルスタンド(月城ソラ)'],how:'郵送・手渡し',u:'11/9(月) 08:00'},
+ {n:'ひかりんご',g:'ステラノート',give:['ステラノート TOUR 2026 ランダムアクリルスタンド(雪村ミオ)'],want:['陽野ヒカリ'],how:'',u:'11/9(月) 07:00'},
+ {n:'夜更かしベース',g:'ミッドナイト・トレイン',give:['ミッドナイト・トレイン ピック型キーホルダー(鳴海カイ)','ミッドナイト・トレイン ピック型キーホルダー(霧島ジン)'],want:['ミッドナイト・トレイン ピック型キーホルダー(早瀬ユウキ)'],how:'',u:'11/9(月) 06:00'},
+ {n:'しずく推し',g:'Prism Voice',give:['Prism Voice 缶バッジ(天羽ユイ)','Prism Voice 缶バッジ(春野ナナ)'],want:['Prism Voice 缶バッジ(宵宮シズク)'],how:'',u:'11/8(日) 22:00'}
+];
+const MATCHES=[
+ {n:'いるか',get:'ステラノート トレーディングカード vol.1(星宮ルナ)',giv:'ステラノート 缶バッジ(会場限定)(雪村ミオ)',how:'郵送',u:'11/9(月) 09:00'},
+ {n:'るなまる',get:'ステラノート TOUR 2026 ランダムアクリルスタンド(星宮ルナ)',giv:'ステラノート TOUR 2026 ランダムアクリルスタンド(月城ソラ)',how:'郵送・手渡し',u:'11/9(月) 08:00',mine:2},
+ {n:'みおみお',get:'ステラノート 缶バッジ(会場限定)(星宮ルナ)',giv:'ステラノート 缶バッジ(会場限定)(雪村ミオ)',how:'郵送',u:'11/8(日) 20:00'}
+];
+const MINE=[
+ {st:'募集中',t:'ステラノート',type:'交換希望',give:['ステラノート TOUR 2026 ランダムアクリルスタンド(月城ソラ)','ステラノート TOUR 2026 ランダムアクリルスタンド(陽野ヒカリ)'],want:['ステラノート TOUR 2026 ランダムアクリルスタンド(星宮ルナ)'],u:'11/8(日) 22:00'},
+ {st:'募集中',t:'星宮ルナ',type:'交換希望',give:['ステラノート TOUR 2026 ランダムアクリルスタンド(月城ソラ)','ステラノート TOUR 2026 ランダムアクリルスタンド(雪村ミオ)'],want:[],u:'11/7(土) 21:07',thumb:1},
+ {st:'募集中',t:'ステラノート',type:'交換希望・譲渡(売ります)/価格:定価',give:['ステラノート 缶バッジ(会場限定)(雪村ミオ)'],want:['星宮ルナ'],u:'11/7(土) 20:00'},
+ {st:'募集終了',t:'ステラノート',type:'交換希望',give:['ステラノート 生写真セット「はじまりの夜」(陽野ヒカリ)'],want:[],u:'',end:1}
+];
+const OSHI=[
+ {n:'星宮ルナ',k:'p',tags:['個人','アイドル','所属:ステラノート'],star:1},
+ {n:'空野カナタ',k:'p',tags:['個人','アーティスト・バンド']},
+ {n:'Prism Voice',k:'g',tags:['グループ','声優'],mem:1},
+ {n:'ステラノート',k:'g',tags:['グループ','アイドル'],mem:1,hot:1},
+ {n:'ミッドナイト・トレイン',k:'g',tags:['グループ','アーティスト・バンド'],mem:1},
+ {n:'ルミナス☆ガーデン',k:'g',tags:['グループ','アイドル'],mem:1}
+];
+const LIVES=[
+ ['BLUE ORBIT ワンマンライブ','BLUE ORBIT','2026/11/8(日) 13:00',''],
+ ['ルミナス☆ガーデン 新曲リリースイベント','ルミナス☆ガーデン','2026/11/12(木) 13:00','(全2公演)'],
+ ['ミッドナイト・トレイン LIVE HOUSE TOUR「終電のあとで」','ミッドナイト・トレイン','2026/11/18(水) 19:00','(全4公演)'],
+ ['ルミナス☆ガーデン 秋のワンマン「花ひらく」','ルミナス☆ガーデン','2026/11/21(土) 18:30',''],
+ ['空野カナタ アコースティックライブ「ことのは」','空野カナタ','2026/11/23(月) 19:00','(全2公演)'],
+ ['Prism Voice 1st LIVE「Colorful Harmony」','Prism Voice','2026/12/4(金) 17:00','(全2公演)'],
+ ['ほしぞらフェス 2026','ステラノート、ルミナス☆ガーデン、ミッドナイト・トレイン、空野カナタ','2026/12/9(水) 12:00','(全2公演)'],
+ ['ステラノート 全国ツアー 2026「ひかりの旋律」','ステラノート','2026/12/19(土) 18:00','(全5公演)']
+];
+const ENDED=[
+ ['ミッドナイト・トレイン ワンマン「夜明け前」','ミッドナイト・トレイン','2026/11/1(日) 19:00'],
+ ['ステラノート 1st ライブ「はじまりの夜」','ステラノート','2026/10/20(火) 18:00']
+];
+const MEM_NEXT=[
+ ['ほしぞらフェス 2026','2026/12/9(水) 12:00 開演','静岡ほしぞら公園 特設ステージ',''],
+ ['ステラノート 全国ツアー 2026「ひかりの旋律」','2026/12/19(土) 18:00 開演','東京ドリームホール','座席:アリーナ C3ブロック 8列 21番']
+];
+const MEM_DONE=[
+ ['空野カナタ アコースティックライブ「ことのは」','2026/11/6(金) 19:00','金沢ことのはホール',1],
+ ['ミッドナイト・トレイン ワンマン「夜明け前」','2026/11/1(日) 19:00','東京ネオンホール',0],
+ ['ステラノート 1st ライブ「はじまりの夜」','2026/10/20(火) 18:00','横浜ハーバーホール',0]
+];
+
+/* ---------- 状態 ---------- */
+const st={screen:'home',tab:'board',filter:'all',stars:{'星宮ルナ':true},hideGuide:{},sheet:false,coach:true};
+const guideKey=()=>st.screen+(st.screen==='trade'?':'+st.tab:'');
+
+/* ---------- 部品 ---------- */
+function sec(title,desc,link,showInC){
+  const d=desc&&(VARIANT==='B'||(VARIANT==='C'&&showInC))
+    ?(VARIANT==='B'?`<p class="sec-desc">${desc}</p>`:`<p class="hint-c">${ic('bulb',18)}<span>${desc}</span></p>`):'';
+  return `<div class="sec-head"><h2 class="sec-title">${title}</h2>${link?`<button class="sec-link" type="button">${link}${ic('chev',16,2.5)}</button>`:''}</div>${d}`;
+}
+const badge=(t,c)=>`<span class="badge b-${c}">${t}</span>`;
+function listLine(kind,arr){return arr.map(x=>`<div class="line"><span class="k ${kind==='譲'?'':'want'}" aria-label="${kind==='譲'?'譲(手放せるグッズ)':'求(ほしいグッズ)'}">${kind}</span><span>${x}</span></div>`).join('')}
+function postCard(p,extra){
+  return `<article class="card post ${p.nw?'new':''}">
+    <div class="post-top"><span class="mini">${p.n[0]}</span><div><div class="post-name">${p.n}</div><div class="post-grp">${p.g}</div></div></div>
+    <span class="ptype">交換希望</span>
+    ${listLine('譲',p.give)}${listLine('求',p.want)}
+    ${p.how?`<div class="line plain"><span>受け渡し:${p.how}</span></div>`:''}
+    <div class="stamp">更新 ${p.u}</div></article>`;
+}
+
+/* ---------- 各画面 ---------- */
+function guideBlock(){
+  if(VARIANT!=='A')return '';
+  const k=guideKey();
+  if(st.hideGuide[k])return '';
+  const tip=st.screen==='trade'?TRADE_TIPS[st.tab]:META[st.screen].tip;
+  return `<div class="guide" role="note"><span class="gi">${ic('bulb',20)}</span><p>${tip}</p><button class="gx" type="button" data-act="hideGuide" aria-label="ヒントを閉じる">${ic('close',18,2.5)}</button></div>`;
+}
+function vHome(){
+  return `${guideBlock()}
+  <div class="hello-wrap"><div class="hello"><span class="avatar lg"></span><h2>こんにちは、けんさん</h2></div>
+  <button class="btn" type="button" style="align-self:flex-start">${ic('plus',20,2.5)}行きたいライブを追加</button></div>
+  <section class="sec">${sec('次の締切','申込・入金・当落発表の期限が近い順です。赤=申込、緑=入金、黄=当落発表。')}
+   <div class="list">${DEADLINES.map(d=>`<button class="row" type="button"><span class="ri">${ic(d.i,24)}</span><span class="rb"><div class="rt">${d.t}</div><div class="rs">${d.s}</div>${badge(d.b,d.c)}</span><span class="chev">${ic('chev',20)}</span></button>`).join('')}</div>
+   <div style="text-align:right"><button class="sec-link" type="button">すべて見る${ic('chev',16,2.5)}</button></div></section>
+  <section class="sec">${sec('今後のライブ','登録したライブを、日付の近い順に並べています。','すべて見る')}
+   <div class="hscroll">${SOON.map(l=>`<button class="lcard" type="button"><div class="chip-row"><span class="chip white">${l.d}</span><span class="chip dark">${l.n}</span></div><div class="lt">${l.t}</div><div class="lm">${ic('clock',16)}${l.m}</div></button>`).join('')}</div></section>
+  <section class="sec">${sec('次の遠征','いちばん近い遠征の予定です。メモがあればここに表示されます。','すべて見る')}
+   <div class="card trip"><div class="dateblock"><small>11月</small><b>8</b><small>日</small></div><div><div class="tt">BLUE ORBIT ワンマンライブ</div><div class="tm">13:00 開演・会場未定</div><div class="tm">遠征メモはまだありません</div></div></div></section>
+  <section class="sec">${sec('新しい交換','フォロー中の推しの、新しい交換募集です。','すべて見る')}
+   ${POSTS.map(p=>postCard(p)).join('')}</section>
+  <section class="sec">${sec('今月の推し活費','今月の支出を、予算と比べて確認できます。','すべて見る')}
+   <button class="card money" type="button"><div class="m1"><b>¥103,700</b><span>/ 予算 ¥100,000</span></div><div class="bar" role="img" aria-label="予算を超えています"></div><div class="warn">${ic('warn',18)}予算を ¥3,700 超えています</div></button></section>
+  <section class="sec">${sec('最近の思い出','参戦済みのライブを、新しい順に表示します。','すべて見る')}
+   <div class="mem-grid">${MEM_DONE.map(memCard).join('')}</div></section>`;
+}
+function memCard(m){return `<button class="mcard" type="button"><div class="mi ${m[3]?'photo':''}">${m[3]?'':ic('note',30)}</div><div class="mb"><div class="mt">${m[0]}</div><div class="md">${m[1]}</div><div class="md">${m[2]}</div></div></button>`}
+function vOshi(){
+  const list=OSHI.filter(o=>st.filter==='all'||(st.filter==='g'&&o.k==='g')||(st.filter==='p'&&o.k==='p'));
+  const cnt=k=>OSHI.filter(o=>k==='all'||o.k===k).length;
+  const fav=OSHI.find(o=>st.stars[o.n]);
+  return `${guideBlock()}
+  <button class="btn" type="button" style="background:var(--ink);color:#fff">${ic('search',20,2.5)}推しを探す</button>
+  <section class="sec">${sec('最推し','いちばん応援している推しです。',null,true)}
+   <div class="card fav">${fav?`<span class="ava">${fav.n[0]}</span><div><div class="nm">${fav.n}</div><div class="tags">${fav.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div></div>`:'<p>星マークをつけると、ここに表示されます。</p>'}</div></section>
+  <section class="sec">${sec('フォロー中の推し','フォローすると、予定がホームとライブ一覧に届きます。',null,true)}
+   <div class="chips" role="group" aria-label="絞り込み">
+    <button class="fchip" type="button" data-act="filter" data-v="all" aria-pressed="${st.filter==='all'}">すべて(${cnt('all')})</button>
+    <button class="fchip" type="button" data-act="filter" data-v="g" aria-pressed="${st.filter==='g'}">グループ(${cnt('g')})</button>
+    <button class="fchip" type="button" data-act="filter" data-v="p" aria-pressed="${st.filter==='p'}">個人(${cnt('p')})</button></div>
+   ${list.map(o=>`<div class="fb"><span class="ava ${o.k==='g'?'grp':''} ${o.hot?'hot':''}">${o.k==='g'?ic('group',24):o.n[0]}</span><div class="bd"><div class="nm">${o.n}</div><div class="tags">${o.tags.map(t=>`<span class="tag">${t}</span>`).join('')}${o.mem?'<span class="tag">メンバー ▼</span>':''}</div></div>
+     <button class="star" type="button" data-act="star" data-v="${o.n}" aria-pressed="${!!st.stars[o.n]}" aria-label="${o.n}を最推しにする">${st.stars[o.n]?`<span style="color:#F59E0B">${icFill('star',26)}</span>`:ic('star',26)}</button>
+     <button class="follow" type="button">フォロー中</button></div>`).join('')}</section>`;
+}
+function vLive(){
+  return `${guideBlock()}
+  <section class="sec">${sec('これからのライブ','開催日の近い順です。タップすると詳細を開けます。',null,true)}
+   <div class="list">${LIVES.map(l=>`<button class="row" type="button"><span class="ri">${ic('cal',24)}</span><span class="rb"><div class="rt">${l[0]}</div><div class="rs">${l[1]}</div><div class="rs">次の公演 ${l[2]}${l[3]}</div></span><span class="chev">${ic('chev',20)}</span></button>`).join('')}</div></section>
+  <section class="sec">${sec('終了','終了したライブです。思い出はメモリーでも見返せます。',null,true)}
+   <div class="list">${ENDED.map(l=>`<button class="row" type="button"><span class="ri">${ic('calCheck',24)}</span><span class="rb"><div class="rt">${l[0]}</div><div class="rs">${l[1]}</div><div class="rs">終了(最終公演 ${l[2]})</div></span><span class="chev">${ic('chev',20)}</span></button>`).join('')}</div></section>`;
+}
+function tradeTabs(){
+  const t=(k,l)=>`<button class="st" type="button" role="tab" data-act="tab" data-v="${k}" aria-selected="${st.tab===k}">${l}</button>`;
+  return `<div class="subtabs" role="tablist">${t('board','掲示板')}${t('match','マッチ')}${t('mine','自分の投稿')}<button class="msgbtn" type="button" aria-label="メッセージ(未読1件)">${ic('msg',24)}<i>1</i></button></div>`;
+}
+function vTrade(){
+  let body='';
+  if(st.tab==='board'){
+    body=`${VARIANT==='B'?`<p class="sec-desc" style="margin-top:12px">${TRADE_TIPS.board}</p>`:''}
+    <div class="pick"><span>フォロー中の推し すべて</span><span class="pk">${ic('down',22)}${ic('filter',22)}</span></div>
+    ${VARIANT==='C'?`<p class="hint-c">${ic('bulb',18)}<span>「譲」は手放せるグッズ、「求」はほしいグッズです。</span></p>`:''}
+    ${POSTS.map(p=>postCard(p)).join('')}`;
+  }else if(st.tab==='match'){
+    body=`${VARIANT==='B'?`<p class="sec-desc" style="margin-top:12px">${TRADE_TIPS.match}</p>`:''}
+    <div class="refresh"><button type="button">${ic('refresh',20)}更新</button></div>
+    <h2 class="mhead">相互マッチ(3件)</h2>
+    ${VARIANT==='C'?`<p class="hint-c">${ic('bulb',18)}<span>「相互」は、お互いの「譲」と「求」がぴったり合っている状態です。</span></p>`:''}
+    ${MATCHES.map(m=>`<article class="card post"><div class="post-top"><span class="mini">${m.n[0]}</span><span class="post-name">${m.n}</span><span class="mt-badge">相互</span></div>
+      <div class="line"><span class="k long">もらえる</span><span>${m.get}</span></div>
+      <div class="line"><span class="k want long">出せる</span><span>${m.giv}</span></div>
+      ${m.mine?`<div class="line plain"><span>条件が合うあなたの投稿:${m.mine}件</span></div>`:''}
+      <div class="line plain"><span>受け渡し:${m.how}</span></div><div class="stamp">更新 ${m.u}</div></article>`).join('')}
+    <h2 class="mhead" style="margin-top:22px">片方向マッチ(1件)</h2>
+    <p class="sec-desc" style="margin-top:4px;${VARIANT==='A'?'display:none':''}">片方の条件だけが合っている相手です。</p>`;
+  }else{
+    body=`${VARIANT==='B'?`<p class="sec-desc" style="margin-top:12px">${TRADE_TIPS.mine}</p>`:''}
+    <p style="margin:14px 2px 0;font-size:15px">投稿者名: <b>けん</b></p>
+    ${MINE.map(p=>`<article class="card post ${p.end?'dim':''}">
+      <div class="mine-top"><span class="mt-badge">${p.st}</span><b style="font-size:16px">${p.t}</b><span class="dots">${ic('dots',22)}</span></div>
+      <div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1;display:flex;flex-direction:column;gap:6px"><span class="ptype">${p.type}</span>${listLine('譲',p.give)}${listLine('求',p.want)}</div>${p.thumb?'<span class="thumb"><i></i></span>':''}</div>
+      ${p.u?`<div class="stamp">更新 ${p.u}</div>`:''}</article>`).join('')}`;
+  }
+  return `${tradeTabs()}${guideBlock()?`<div style="height:14px"></div>`+guideBlock():''}${body}`;
+}
+function vMemory(){
+  return `${guideBlock()}
+  <section class="sec">${sec('参戦予定','これから行くライブです。座席も確認できます。',null,true)}
+   <div class="list">${MEM_NEXT.map(m=>`<button class="row" type="button"><span class="ri">${ic('cal',24)}</span><span class="rb"><div class="rt">${m[0]}</div><div class="rs">${m[1]}</div><div class="rs">${m[2]}</div>${m[3]?`<div class="rs">${m[3]}</div>`:''}</span><span class="chev">${ic('chev',20)}</span></button>`).join('')}</div></section>
+  <section class="sec">${sec('参戦済み','行ったライブの思い出です。',null,true)}
+   <div class="mem-grid">${MEM_DONE.map(memCard).join('')}</div></section>`;
+}
+const VIEWS={home:vHome,oshi:vOshi,live:vLive,trade:vTrade,memory:vMemory};
+
+/* ---------- 描画 ---------- */
+function renderBar(){
+  const m=META[st.screen];
+  const help=(VARIANT==='A'||VARIANT==='C')
+    ?`<button class="help-btn" type="button" data-act="help" aria-label="${VARIANT==='A'?'ヒントを表示':'この画面でできることを見る'}" aria-pressed="${VARIANT==='A'?!st.hideGuide[guideKey()]:st.sheet}">${ic('help',22)}</button>`:'';
+  if(VARIANT==='B'){
+    $('#appbar').innerHTML=`<div class="ab-text"><h1>${m.title}</h1><p class="ab-sub">${m.sub}</p></div><span class="avatar" role="img" aria-label="アカウント"></span>`;
+  }else{
+    $('#appbar').innerHTML=`<h1>${m.title}</h1><span class="ab-spacer"></span>${help}<span class="avatar" role="img" aria-label="アカウント"></span>`;
+  }
+}
+function renderTabs(){
+  $('#tabbar').innerHTML=SCREENS.map(k=>{
+    const m=META[k],on=k===st.screen;
+    return `<button class="tab s-${k} ${on?'on':''}" type="button" data-go="${k}" ${on?'aria-current="page"':''}><span class="ti">${ic(m.icon,24,on?2.4:2)}</span><span class="tl">${m.label}</span>${k==='trade'?'<span class="dot" aria-label="未読1件">1</span>':''}</button>`;
+  }).join('');
+}
+function renderFab(){
+  const f=$('#fab');
+  const map={live:['plus','ライブを追加する'],trade:['plus','投稿を作る']};
+  const v=map[st.screen];
+  f.className='fab'+(v?' on':'');
+  if(v)f.innerHTML=ic(v[0],22,2.5)+v[1];
+}
+function renderSheet(){
+  if(VARIANT!=='C')return;
+  const m=META[st.screen],items=HELP[st.screen];
+  const legend=st.screen==='home'?`<div class="legend"><span class="badge b-red" style="margin:0">申込期限</span><span class="badge b-green" style="margin:0">入金期限</span><span class="badge b-yellow" style="margin:0">当落発表</span></div>`:'';
+  const extra=st.screen==='trade'?`<div class="legend"><span class="chip" style="background:var(--pink-s)">譲</span><span style="font-size:13px;align-self:center">手放せるグッズ</span><span class="chip">求</span><span style="font-size:13px;align-self:center">ほしいグッズ</span></div>`:'';
+  $('#sheet').innerHTML=`<div class="grab"></div><h3><span class="pill"></span>${m.label}の使い方</h3><p style="font-size:13px;color:var(--muted);margin-top:4px">この画面でできること</p>${legend}${extra}
+   <ol>${items.map((x,i)=>`<li><span class="n">${i+1}</span><div><b>${x[0]}</b><span>${x[1]}</span></div></li>`).join('')}</ol><button class="close" type="button" data-act="closeSheet">とじる</button>`;
+  $('#sheet').classList.toggle('on',st.sheet);
+  $('#backdrop').classList.toggle('on',st.sheet);
+}
+function renderCoach(){
+  const old=document.querySelector('.coach');if(old)old.remove();
+  if(VARIANT==='C'&&st.coach&&st.screen==='home'&&!st.sheet){
+    const d=document.createElement('div');d.className='coach';d.setAttribute('role','status');
+    d.innerHTML='はじめての方へ。画面右上の「?」から、使い方を見られます。<button type="button" data-act="coachOk">わかった</button>';
+    $('#phone').appendChild(d);
+  }
+}
+function renderMain(resetScroll){
+  const main=$('#main');
+  const y=main.scrollTop;
+  main.innerHTML=VIEWS[st.screen]();
+  main.scrollTop=resetScroll?0:y;
+}
+function paint(resetScroll){
+  $('#phone').className='phone s-'+st.screen;
+  renderBar();renderMain(resetScroll);renderTabs();renderFab();renderSheet();renderCoach();
+}
+document.addEventListener('click',e=>{
+  const go=e.target.closest('[data-go]');
+  if(go){st.screen=go.dataset.go;st.sheet=false;paint(true);return}
+  const a=e.target.closest('[data-act]');
+  if(!a)return;
+  const v=a.dataset.v;
+  switch(a.dataset.act){
+    case 'tab':st.tab=v;paint(true);break;
+    case 'filter':st.filter=v;paint(false);break;
+    case 'star':st.stars={};st.stars[v]=true;paint(false);break;
+    case 'hideGuide':st.hideGuide[guideKey()]=true;paint(false);break;
+    case 'help':
+      if(VARIANT==='A'){const k=guideKey();st.hideGuide[k]=!st.hideGuide[k];paint(false);$('#main').scrollTop=0}
+      else{st.sheet=true;st.coach=false;paint(false)}
+      break;
+    case 'closeSheet':st.sheet=false;paint(false);break;
+    case 'coachOk':st.coach=false;renderCoach();break;
+  }
+});
+$('#backdrop').addEventListener('click',()=>{st.sheet=false;paint(false)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&st.sheet){st.sheet=false;paint(false)}});
+paint(true);
+</script>
+</body>
+</html>

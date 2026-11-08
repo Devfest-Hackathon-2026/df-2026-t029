@@ -349,6 +349,57 @@ void main() {
     );
   });
 
+  testWidgets('受付名に「当選者のみ」が入っていれば【当選者のみ】を足さない（二重にしない）', (tester) async {
+    await pumpSection(
+      tester,
+      appRepo: FakeApplicationRepository({
+        'won1': const Application(
+          receptionId: 'won1',
+          liveId: 'l1',
+          status: ApplicationStatus.won,
+        ),
+      }),
+      oshiRepo: FakeOshiRepository(oshis),
+      followRepo: following(),
+      liveRepo: FakeLiveRepository(
+        lives: [live1],
+        receptions: [
+          recOf(
+            'r1',
+            'l1',
+            applyEndAt: h(48),
+            name: 'アップグレード（当選者のみ）',
+            winnersOnly: true,
+          ),
+          recOf(
+            'r2',
+            'l1',
+            applyEndAt: h(72),
+            name: '当選者のみアプグレ',
+            winnersOnly: true,
+          ),
+        ],
+      ),
+    );
+    final tile1 = _key('home_deadline_tile_r1');
+    expect(
+      find.descendant(of: tile1, matching: find.text('アップグレード（当選者のみ）')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: tile1, matching: find.textContaining('【当選者のみ】')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: _key('home_deadline_tile_r2'),
+        matching: find.text('当選者のみアプグレ'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('当選者のみ 【当選者のみ】'), findsNothing);
+  });
+
   testWidgets('24時間以内は、色だけでなくアイコンと文字でも示す', (tester) async {
     await pumpSection(
       tester,

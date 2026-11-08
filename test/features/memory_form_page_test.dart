@@ -12,10 +12,12 @@ import 'package:oshiashi/providers/live_providers.dart';
 import 'package:oshiashi/providers/memory_providers.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
 import 'package:oshiashi/providers/photo_providers.dart';
+import 'package:oshiashi/providers/public_memory_providers.dart';
 import 'package:oshiashi/repositories/memory_repository.dart';
 
 import 'live_test_helpers.dart';
 import 'photo_test_helpers.dart';
+import 'public_memory_test_helpers.dart';
 
 Finder _key(String k) => find.byKey(Key(k));
 
@@ -133,6 +135,9 @@ Future<void> pumpForm(
           ),
         ),
         memoryRepositoryProvider.overrideWithValue(memories),
+        publicMemoryRepositoryProvider.overrideWithValue(
+          FakePublicMemoryRepository(),
+        ),
         photoRepositoryProvider.overrideWithValue(FakePhotoRepository()),
       ],
       retry: (_, _) => null,

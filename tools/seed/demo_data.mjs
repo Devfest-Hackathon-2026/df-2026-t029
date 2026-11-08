@@ -411,7 +411,7 @@ export const LIVES = [
       {
         key: 'bd',
         type: 'other',
-        name: 'BD 封入先行',
+        name: 'BD封入先行',
         start: [-8, 12, 0],
         end: [-1, 23, 59],
         result: [2, 18, 0],
