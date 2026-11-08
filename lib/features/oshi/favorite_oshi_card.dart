@@ -7,6 +7,9 @@ import '../../providers/oshi_providers.dart';
 // import '../../theme/brand_colors.dart';
 import '../../theme/hako_app_widgets.dart';
 import '../../theme/hako_fonts.dart';
+import '../../models/oshi_days.dart';
+import '../../providers/live_providers.dart';
+import '../../providers/oshi_days_providers.dart';
 import 'group_members_sheet.dart';
 import 'oshi_list_tile.dart';
 
@@ -25,6 +28,14 @@ class FavoriteOshiCard extends ConsumerWidget {
       oshi,
       groupNamesById(ref.watch(allOshisProvider).value ?? const []),
     );
+    // 推して◯日（add_O 3.2）
+    final start = oshiStartDateOf(
+      oshi,
+      ref.watch(oshiDaysProvider).value ?? OshiDays.empty,
+    );
+    final dayCount = start == null
+        ? null
+        : oshiDayCount(start, ref.watch(nowProvider));
 
     return Column(
       key: const Key('favorite_oshi_card'),
@@ -54,6 +65,16 @@ class FavoriteOshiCard extends ConsumerWidget {
                           height: 1.4,
                         ),
                       ),
+                      if (dayCount != null)
+                        Text(
+                          '推して$dayCount日',
+                          key: const Key('favorite_oshi_day_count'),
+                          style: HakoFonts.jp(
+                            size: 14,
+                            weight: FontWeight.w700,
+                            height: 1.5,
+                          ),
+                        ),
                       const SizedBox(height: 4),
                       Wrap(
                         spacing: 6,

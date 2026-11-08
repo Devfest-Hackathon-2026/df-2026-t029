@@ -177,7 +177,7 @@ class OshiListTile extends StatelessWidget {
               badge
             else
               Tooltip(
-                message: '色と絵文字を選ぶ',
+                message: '色・絵文字・記念日',
                 child: InkWell(
                   key: ValueKey('oshi_color_button_$_keySuffix'),
                   customBorder: const CircleBorder(),
