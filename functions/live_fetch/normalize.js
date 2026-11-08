@@ -30,6 +30,12 @@ function cleanUrl(v) {
   return s && /^https?:\/\//i.test(s) ? s : null;
 }
 
+/** ライブの公式 URL（firestore.rules と同じく https・200文字まで） */
+function cleanHttpsUrl(v) {
+  const s = cleanUrl(v);
+  return s && s.startsWith("https://") && s.length <= 200 ? s : null;
+}
+
 /** X のユーザー名（@ なし）。URL で来ても名前だけにする */
 function cleanXAccount(v) {
   const s = cleanText(v, 200);
@@ -96,12 +102,12 @@ function normalizePerformance(p, now) {
   const ms = startAt.getTime() - now.getTime();
   if (ms < 0 || ms > TWO_YEARS_MS) return null;
 
-  let venue = cleanText(p.venue, 200);
+  let venue = cleanText(p.venue, 100);
   if (!venue) return null;
   const online = p.online === true;
   // isOnlineVenue（lib/utils/travel_links.dart）は「オンライン」か「配信」を含む会場名で判定する
   if (online && !venue.includes("オンライン") && !venue.includes("配信")) {
-    venue = `${venue}（オンライン配信）`.slice(0, 200);
+    venue = `${venue}（オンライン配信）`.slice(0, 100);
   }
 
   const open = cleanTime(p.openTime);
@@ -119,7 +125,7 @@ function normalizePerformance(p, now) {
 /** 受付1件。登録できなければ null */
 function normalizeReception(r, now) {
   if (!RECEPTION_TYPES.has(r?.type)) return null;
-  const name = cleanText(r.name, 100);
+  const name = cleanText(r.name, 50);
   if (!name) return null;
   const applyEndAt = parseJst(r.applyEndAt, [23, 59]);
   if (!applyEndAt || applyEndAt.getTime() <= now.getTime()) return null;
@@ -149,7 +155,7 @@ function normalizeResult(raw, now) {
   const lives = [];
   for (const l of arrayOf(raw?.lives)) {
     if (lives.length >= MAX_LIVES) break;
-    const title = cleanText(l?.title, 200);
+    const title = cleanText(l?.title, 100);
     if (!title) continue;
     const performances = arrayOf(l.performances)
         .map((p) => normalizePerformance(p, now))
@@ -160,7 +166,7 @@ function normalizeResult(raw, now) {
         .map((r) => normalizeReception(r, now))
         .filter(Boolean)
         .slice(0, MAX_RECEPTIONS);
-    lives.push({title, officialUrl: cleanUrl(l.officialUrl), performances, receptions});
+    lives.push({title, officialUrl: cleanHttpsUrl(l.officialUrl), performances, receptions});
   }
   return {
     officialUrl: cleanUrl(raw?.officialUrl),

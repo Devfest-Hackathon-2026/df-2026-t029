@@ -12,6 +12,7 @@ class Performance {
     this.openAt,
     required this.venue,
     this.prefecture,
+    this.source,
   });
 
   final String? id; // 保存前は null
@@ -22,6 +23,12 @@ class Performance {
   final DateTime? openAt;
   final String venue;
   final String? prefecture;
+
+  /// 'ai' なら AI が登録した（add_L 3.1）。読むだけで、アプリからは書かない
+  final String? source;
+
+  /// AI が登録した公演か（add_L 5.3）
+  bool get isAi => source == 'ai';
 
   factory Performance.fromFirestore(
       DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -35,6 +42,7 @@ class Performance {
       openAt: toDateTime(data['openAt']),
       venue: data['venue'] as String,
       prefecture: data['prefecture'] as String?,
+      source: data['source'] as String?,
     );
   }
 
