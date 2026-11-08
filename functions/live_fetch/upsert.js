@@ -178,6 +178,7 @@ async function upsertLives(db, target, result, searchQueries) {
       batch.set(db.collection("performances").doc(), {
         ...ids,
         startAt: Timestamp.fromDate(p.startAt),
+        ...(p.startTimeUnknown ? {startTimeUnknown: true} : {}),
         ...timestampField("openAt", p.openAt),
         venue: p.venue,
         ...(p.prefecture ? {prefecture: p.prefecture} : {}),

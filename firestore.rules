@@ -448,14 +448,15 @@ service cloud.firestore {
       return data.keys().hasOnly(['liveId', 'groupIds', 'oshiIds', 'startAt',
           'openAt', 'venue', 'prefecture',
           'createdBy', 'createdAt', 'updatedBy', 'updatedAt',
-          'source', 'sourceUrls']) &&
+          'source', 'sourceUrls', 'startTimeUnknown']) &&
         data.keys().hasAll(['liveId', 'groupIds', 'oshiIds', 'startAt',
           'venue', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt']) &&
         isStringOfSize(data.liveId, 1, 128) &&
         data.startAt is timestamp &&
         isOptionalTimestamp(data, 'openAt') &&
         isNonBlankString(data.venue, 100) &&
-        isValidOptionalString(data, 'prefecture', 1, 10);
+        isValidOptionalString(data, 'prefecture', 1, 10) &&
+        (!('startTimeUnknown' in data) || data.startTimeUnknown is bool);
     }
 
     function isValidPerformance(data) {

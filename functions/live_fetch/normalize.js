@@ -93,14 +93,20 @@ function normalizeName(v) {
       .replace(/[\s\p{P}\p{S}ー〜～]/gu, "");
 }
 
-/** 公演1件。登録できなければ null */
+/**
+ * 公演1件。登録できなければ null。
+ * 開演時刻が無いものは「時間未定」：その日の 0:00（日本時間）にして startTimeUnknown を付ける（L-4c-2）
+ */
 function normalizePerformance(p, now) {
-  const time = cleanTime(p?.startTime);
-  if (typeof p?.date !== "string" || !time) return null; // 開演時刻が無い公演は登録しない
-  const startAt = parseJst(`${p.date}T${time}`, [0, 0]);
+  if (typeof p?.date !== "string") return null;
+  const time = cleanTime(p.startTime);
+  const startTimeUnknown = time === null;
+  const startAt = parseJst(`${p.date}T${time ?? "00:00"}`, [0, 0]);
   if (!startAt) return null;
-  const ms = startAt.getTime() - now.getTime();
-  if (ms < 0 || ms > TWO_YEARS_MS) return null;
+  // 終わった公演は捨てる。時間未定は、その日が終わるまで残す
+  const endMs = startAt.getTime() + (startTimeUnknown ? 24 * HOUR : 0);
+  if (endMs < now.getTime()) return null;
+  if (startAt.getTime() - now.getTime() > TWO_YEARS_MS) return null;
 
   let venue = cleanText(p.venue, 100);
   if (!venue) return null;
@@ -112,10 +118,11 @@ function normalizePerformance(p, now) {
 
   const open = cleanTime(p.openTime);
   let openAt = open ? parseJst(`${p.date}T${open}`, [0, 0]) : null;
-  if (openAt && openAt.getTime() > startAt.getTime()) openAt = null;
+  if (openAt && !startTimeUnknown && openAt.getTime() > startAt.getTime()) openAt = null;
 
   return {
     startAt,
+    startTimeUnknown,
     openAt,
     venue,
     prefecture: online ? null : fullPrefectureName(p.prefecture),
