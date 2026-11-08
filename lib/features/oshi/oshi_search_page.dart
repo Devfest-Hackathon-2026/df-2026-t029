@@ -157,9 +157,8 @@ class _OshiSearchPageState extends ConsumerState<OshiSearchPage> {
                             names: names,
                           );
                         case GroupSearchEntry(:final group, :final hitMemberKeys):
-                          // 検索語があり、ヒットしたメンバーがいれば最初から開く
-                          final expanded = _expanded[group.key] ??
-                              (hasQuery && hitMemberKeys.isNotEmpty);
+                          // グループは最初から開いておく（Fd 5.5）
+                          final expanded = _expanded[group.key] ?? true;
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [

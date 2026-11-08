@@ -195,18 +195,32 @@ class OshiListTile extends StatelessWidget {
               child: badge,
             ),
           ),
+        // 開閉のボタン：直径 40 の丸（薄い地・墨 2px の枠）に大きな矢印（Fd 5.5）
         if (canToggle)
-          IconButton(
-            key: ValueKey('oshi_members_toggle_$_keySuffix'),
-            tooltip: membersExpanded! ? 'メンバーを閉じる' : 'メンバーを開く',
-            onPressed: onTap,
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 32),
-            icon: Icon(
-              membersExpanded! ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-              color: BrandColors.ink,
-              size: 28,
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Tooltip(
+              message: membersExpanded! ? 'メンバーを閉じる' : 'メンバーを開く',
+              child: Material(
+                color: BrandColors.tonal,
+                shape: const CircleBorder(
+                  side: BorderSide(color: BrandColors.ink, width: 2),
+                ),
+                child: InkWell(
+                  key: ValueKey('oshi_members_toggle_$_keySuffix'),
+                  customBorder: const CircleBorder(),
+                  onTap: onTap,
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Icon(
+                      membersExpanded! ? Icons.expand_less : Icons.expand_more,
+                      size: 30,
+                      color: BrandColors.ink,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
       ],
