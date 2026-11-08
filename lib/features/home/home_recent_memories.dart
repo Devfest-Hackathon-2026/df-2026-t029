@@ -29,7 +29,7 @@ class HomeRecentMemories extends ConsumerWidget {
             const HomeSectionMessage('参戦したライブを記録すると、ここに出ます'),
           AsyncValue(value: final a?) => HomeHorizontalList(
             key: const Key('home_recent_memories'),
-            height: 220,
+            height: 232,
             itemWidth: 180,
             children: [
               for (final m in a.attended.take(_maxMemories))
