@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../common/empty_state.dart';
+import '../common/user_avatar.dart';
 import '../../models/oshi.dart';
 import '../../models/trade_post.dart';
 import '../../models/goods.dart';
@@ -360,6 +361,8 @@ class _BoardCard extends ConsumerWidget {
               children: [
                 Row(
                   children: [
+                    UserAvatar(uid: post.uid, name: post.displayName),
+                    const SizedBox(width: 8),
                     Flexible(
                       child: Text(
                         post.displayName,

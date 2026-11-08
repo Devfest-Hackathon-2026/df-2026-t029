@@ -15,6 +15,7 @@ import '../../providers/trade_post_providers.dart';
 import '../live/official_url_link.dart';
 import '../live_form/date_time_field.dart';
 import '../common/photo_grid.dart';
+import '../common/user_avatar.dart';
 import 'trade_post_summary.dart';
 import 'trade_replies_section.dart';
 
@@ -138,6 +139,8 @@ class _PostBody extends ConsumerWidget {
           ),
         Row(
           children: [
+            UserAvatar(uid: post.uid, name: post.displayName),
+            const SizedBox(width: 8),
             Flexible(
               child: Text(
                 post.displayName,

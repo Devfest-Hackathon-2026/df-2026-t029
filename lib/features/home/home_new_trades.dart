@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/trade_post.dart';
 import '../../providers/trade_post_providers.dart';
 import '../trade/trade_post_summary_lines.dart';
+import '../common/user_avatar.dart';
 import '../../theme/hako_app_widgets.dart';
 import '../../theme/hako_fonts.dart';
 import 'home_section_header.dart';
@@ -53,13 +54,23 @@ class _TradeTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              post.displayName,
-              style: HakoFonts.jp(
-                size: 15,
-                weight: FontWeight.w700,
-                height: 1.5,
-              ),
+            Row(
+              children: [
+                UserAvatar(uid: post.uid, name: post.displayName),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    post.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: HakoFonts.jp(
+                      size: 15,
+                      weight: FontWeight.w700,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 4),
             TradePostSummaryLines(post: post),
