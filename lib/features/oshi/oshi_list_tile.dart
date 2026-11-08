@@ -25,8 +25,10 @@ List<String> groupNamesOf(OshiSummary oshi, Map<String, String> names) => [
 /// ⋮ のメニューの1項目（Fd 5.3）
 typedef OshiMenuItem = ({String label, IconData icon, VoidCallback onSelected});
 
-/// 行の幅がこれ未満なら、☆・ボタン類・⋮ を名前の下の行に並べる（Fd 5.1）
-const double _narrowTileWidth = 560;
+/// 行の幅がこれ未満なら、☆・ボタン類・⋮ を名前の下の行に並べる（Fd 5.1）。
+/// 「メンバーをまとめてフォロー」がある行は横に長いので、広い幅でも下の行にする
+const double _narrowTileWidth = 420;
+const double _narrowTileWidthWithFollowAll = 760;
 
 /// 推しの種別の札（Fc 4.3・5.3・add_I 3.1・3.1b）。
 /// グループは墨の丸に白（色があれば枠をその色にする）、
@@ -325,7 +327,10 @@ class OshiListTile extends StatelessWidget {
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final narrow = constraints.maxWidth < _narrowTileWidth;
+            final threshold = showFollowAll && oshi.kind == OshiKind.group
+                ? _narrowTileWidthWithFollowAll
+                : _narrowTileWidth;
+            final narrow = constraints.maxWidth < threshold;
             if (!narrow) {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
