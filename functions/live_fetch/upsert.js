@@ -50,14 +50,36 @@ function uniqueUrls(list) {
   return [...new Set(list.filter(Boolean))].slice(0, 5);
 }
 
-/** 対象の推しの、今あるライブ・公演・受付（比べる相手） */
-async function loadExisting(db, field, id) {
-  const [livesSnap, perfSnap, recSnap] = await Promise.all([
-    db.collection("lives").where(field, "array-contains", id).get(),
-    db.collection("performances").where(field, "array-contains", id).get(),
-    db.collection("receptions").where(field, "array-contains", id).get(),
+/**
+ * 対象の推しの、今あるライブ・公演・受付（比べる相手）。
+ * 個人は、所属グループのライブとも比べる（グループで登録済みのツアーを二重に作らない）
+ */
+async function loadExisting(db, target) {
+  const field = target.kind === "group" ? "groupIds" : "oshiIds";
+  const groupIds = target.kind === "person" ? target.groupIds.slice(0, 30) : [];
+
+  // コレクションごとに、対象の推しの分と所属グループの分を読んで、重なりを除く
+  const load = async (collection) => {
+    const queries = [
+      db.collection(collection).where(field, "array-contains", target.id).get(),
+    ];
+    if (groupIds.length > 0) {
+      queries.push(db.collection(collection)
+          .where("groupIds", "array-contains-any", groupIds).get());
+    }
+    const byId = new Map();
+    for (const snap of await Promise.all(queries)) {
+      for (const d of snap.docs) byId.set(d.id, d);
+    }
+    return [...byId.values()];
+  };
+  const [liveDocs, perfDocs, recDocs] = await Promise.all([
+    load("lives"),
+    load("performances"),
+    load("receptions"),
   ]);
-  const lives = livesSnap.docs.map((d) => {
+
+  const lives = liveDocs.map((d) => {
     const data = d.data();
     return {
       id: d.id,
@@ -69,13 +91,13 @@ async function loadExisting(db, field, id) {
     };
   });
   const byId = new Map(lives.map((l) => [l.id, l]));
-  for (const d of perfSnap.docs) {
+  for (const d of perfDocs) {
     const p = d.data();
     const startAt = toDate(p.startAt);
     const live = byId.get(p.liveId);
     if (live && startAt) live.performances.push({startAt, venue: p.venue ?? ""});
   }
-  for (const d of recSnap.docs) {
+  for (const d of recDocs) {
     const r = d.data();
     const live = byId.get(r.liveId);
     if (live) {
@@ -104,12 +126,12 @@ function timestampField(name, date) {
 
 /**
  * 登録する（add_L 3.4）。
- * [target]：{kind: "group" | "person", id}、[result]：normalizeResult の結果。
+ * target]：{kind: "group" | "person", id, groupIds}（groupIds は個人の所属グループ）、[result]：normalizeResult の結果。
  * 返り値：{added: {lives, performances, receptions}, lives: [{id, title, isNew}]}
  */
 async function upsertLives(db, target, result, searchQueries) {
   const field = target.kind === "group" ? "groupIds" : "oshiIds";
-  const existing = await loadExisting(db, field, target.id);
+  const existing = await loadExisting(db, target);
 
   const batch = db.batch();
   let writes = 0;

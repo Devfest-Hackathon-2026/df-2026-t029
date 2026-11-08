@@ -113,7 +113,8 @@ async function runLiveFetch(kind, id, {mode}) {
     }
 
     // 確かめて登録（3.4）
-    const {added, lives} = await upsertLives(db, {kind, id}, result, searchQueries);
+    const {added, lives} = await upsertLives(
+        db, {kind, id, groupIds: arrayOf(data.groupIds)}, result, searchQueries);
 
     const update = {
       "liveFetch.lastGeminiAt": geminiAt,
