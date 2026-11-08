@@ -50,6 +50,8 @@ class FirestoreMemoryRepository implements MemoryRepository {
         'setlist': memory.setlist,
         'impression': memory.impression ?? FieldValue.delete(),
         'images': memory.images,
+        'isPublic': memory.isPublic,
+        'publicSeat': memory.publicSeat,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 

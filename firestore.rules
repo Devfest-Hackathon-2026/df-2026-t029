@@ -600,6 +600,69 @@ service cloud.firestore {
     }
 
     // =============================================================
+    // 公開メモリー（add_K 4.1）。ログイン済みなら読める。書くのは本人だけ
+    // =============================================================
+
+    // 写真のパスの i 番目が無いか、あれば prefix で始まるパス
+    function isMemoryPhotoPathAt(list, i, prefix) {
+      return list.size() <= i ||
+        (list[i] is string && list[i].matches(prefix + '[^/]{1,200}'));
+    }
+
+    // 0〜8枚の写真のパス（本人のその公演の写真だけ）
+    function isValidMemoryPhotos(list, uid, performanceId) {
+      let prefix = 'users/' + uid + '/memories/' + performanceId + '/';
+      return list is list && list.size() <= 8 &&
+        isMemoryPhotoPathAt(list, 0, prefix) &&
+        isMemoryPhotoPathAt(list, 1, prefix) &&
+        isMemoryPhotoPathAt(list, 2, prefix) &&
+        isMemoryPhotoPathAt(list, 3, prefix) &&
+        isMemoryPhotoPathAt(list, 4, prefix) &&
+        isMemoryPhotoPathAt(list, 5, prefix) &&
+        isMemoryPhotoPathAt(list, 6, prefix) &&
+        isMemoryPhotoPathAt(list, 7, prefix);
+    }
+
+    function isValidPublicMemory(memoryId, data) {
+      return data.keys().hasOnly(['uid', 'displayName', 'performanceId',
+          'liveId', 'liveTitle', 'startAt', 'venue', 'groupIds', 'oshiIds',
+          'seat', 'setlist', 'impression', 'images', 'createdAt', 'updatedAt']) &&
+        data.keys().hasAll(['uid', 'displayName', 'performanceId', 'liveId',
+          'liveTitle', 'startAt', 'venue', 'groupIds', 'oshiIds', 'setlist',
+          'images', 'createdAt', 'updatedAt']) &&
+        data.uid == request.auth.uid &&
+        isStringOfSize(data.performanceId, 1, 100) &&
+        memoryId == request.auth.uid + '_' + data.performanceId &&
+        // 本人の記録があるときだけ公開できる
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)/memories/$(data.performanceId)) &&
+        isStringOfSize(data.displayName, 1, 100) &&
+        isStringOfSize(data.liveId, 1, 100) &&
+        isStringOfSize(data.liveTitle, 1, 200) &&
+        data.startAt is timestamp &&
+        isStringOfSize(data.venue, 0, 200) &&
+        isValidIdList20(data.groupIds) &&
+        isValidIdList20(data.oshiIds) &&
+        isValidOptionalString(data, 'seat', 1, 100) &&
+        data.setlist is list && data.setlist.size() <= 100 &&
+        isValidOptionalString(data, 'impression', 1, 2000) &&
+        isValidMemoryPhotos(data.images, request.auth.uid, data.performanceId) &&
+        data.updatedAt == request.time;
+    }
+
+    match /publicMemories/{memoryId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        isValidPublicMemory(memoryId, request.resource.data) &&
+        request.resource.data.createdAt == request.time;
+      allow update: if isAuthenticated() &&
+        isValidPublicMemory(memoryId, request.resource.data) &&
+        request.resource.data.createdAt == resource.data.createdAt;
+      // ID が「自分の uid_」で始まるものだけ消せる（無いものを消しても通る）
+      allow delete: if isAuthenticated() &&
+        memoryId.matches(request.auth.uid + '_.+');
+    }
+
+    // =============================================================
     // ライブ・公演・受付（作成は Step2、更新と変更履歴は Step4。削除は不可）
     // =============================================================
 
