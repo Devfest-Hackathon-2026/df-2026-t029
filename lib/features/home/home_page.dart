@@ -12,6 +12,7 @@ import 'home_recent_memories.dart';
 import 'home_upcoming_lives.dart';
 import 'home_new_trades.dart';
 import 'home_expense_summary.dart';
+import 'home_next_trip.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -32,6 +33,8 @@ class HomePage extends ConsumerWidget {
             const HomeSectionHeader(title: '次の締切'),
             const UpcomingDeadlinesSection(),
             const HomeUpcomingLives(),
+            // 次の遠征（add_E 6章）
+            const HomeNextTrip(),
             const HomeNewTrades(),
             // 今月の推し活費（H-3）
             const HomeExpenseSummary(),

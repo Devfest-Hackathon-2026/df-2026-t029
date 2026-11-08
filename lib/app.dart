@@ -35,6 +35,7 @@ import 'features/oshi/oshi_page.dart';
 import 'features/shell/app_shell.dart';
 import 'features/expense/expense_page.dart';
 import 'features/common/foreground_notification_listener.dart';
+import 'features/travel/trip_list_page.dart';
 
 import 'repositories/auth_repository.dart';
 
@@ -180,6 +181,11 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'expenses',
                 builder: (context, state) => const ExpensePage(),
+              ),
+              // 遠征の一覧（add_E 6章）。ホームの下に置き、戻るとホームへ戻る
+              GoRoute(
+                path: 'trips',
+                builder: (context, state) => const TripListPage(),
               ),
             ],
           ),
