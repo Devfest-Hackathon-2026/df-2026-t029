@@ -105,6 +105,15 @@ async function runLiveFetch(kind, id, {mode}) {
     const geminiAt = Timestamp.now();
     const result = normalizeResult(raw, now);
 
+    // 確かめ用のログ（L-4b）：調査メモの先頭と、確認の前後の件数
+    const rawLives = Array.isArray(raw?.lives) ? raw.lives : [];
+    const countPerfs = (lives) =>
+      lives.reduce((n, l) => n + (Array.isArray(l?.performances) ? l.performances.length : 0), 0);
+    logger.info(`ライブ情報の取得 ${kind}:${id}: 調査メモ`, memo.slice(0, 3000));
+    logger.info(`ライブ情報の取得 ${kind}:${id}: Gemini のライブ ${rawLives.length} 件・` +
+      `公演 ${countPerfs(rawLives)} 件 → 確認後のライブ ${result.lives.length} 件・` +
+      `公演 ${countPerfs(result.lives)} 件`, JSON.stringify(rawLives).slice(0, 3000));
+
     const officialUrl = knownUrl ?? result.officialUrl;
     if (!officialUrl) {
       await finish(ref, "noOfficialSite", {"liveFetch.lastGeminiAt": geminiAt});
