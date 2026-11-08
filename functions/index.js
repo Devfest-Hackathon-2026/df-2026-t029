@@ -14,7 +14,8 @@ const {getFirestore, FieldValue, Timestamp} = require("firebase-admin/firestore"
 const {getMessaging} = require("firebase-admin/messaging");
 
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
-const {onDocumentWritten} = require("firebase-functions/v2/firestore");
+const {onDocumentWritten, onDocumentUpdated} = require("firebase-functions/v2/firestore");
+const {runLiveFetch} = require("./live_fetch/run");
 const {defineSecret} = require("firebase-functions/params");
 const {findPrefecture} = require("./prefectures");
 
@@ -549,5 +550,130 @@ exports.notifyNewMatches = onDocumentWritten(
       }
       logger.info(
           `新しいマッチの通知: 投稿 ${postId}、相手 ${firstByUid.size} 人、送信 ${sent} 件`);
+    },
+);
+
+// ---------------------------------------------------------------------------
+// ライブ情報の自動取得（add_L 4章）
+// ---------------------------------------------------------------------------
+
+/** 取得の関数の共通の設定（Gemini の呼び出しを待つため長め） */
+const LIVE_FETCH_OPTIONS = {timeoutSeconds: 300, memory: "512MiB"};
+
+/**
+ * 手動の取得（Callable。add_L 4.1）。
+ * 入力：{kind: "group" | "person", id}
+ * 出力：{status, added, lives, officialUrl, searchQueries}
+ */
+exports.fetchOshiLives = onCall(LIVE_FETCH_OPTIONS, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "ログインしてください");
+  }
+  const {kind, id} = request.data ?? {};
+  if ((kind !== "group" && kind !== "person") ||
+      typeof id !== "string" || !id || id.includes("/")) {
+    throw new HttpsError("invalid-argument", "推しの指定が正しくありません");
+  }
+
+  let result;
+  try {
+    result = await runLiveFetch(kind, id, {mode: "manual"});
+  } catch (e) {
+    // くわしいエラーは run.js でログに出している
+    throw new HttpsError("internal", "取得できませんでした");
+  }
+  if (result.status === "busy") {
+    throw new HttpsError("resource-exhausted", "少し時間をおいてからもう一度お試しください");
+  }
+  return {
+    status: result.status,
+    added: result.added ?? {lives: 0, performances: 0, receptions: 0},
+    lives: result.lives ?? [],
+    officialUrl: result.officialUrl ?? null,
+    searchQueries: result.searchQueries ?? [],
+  };
+});
+
+/**
+ * 推しが承認されたら取得する（add_L 4.2）。
+ * 更新前が approved 以外で、更新後が approved のときだけ。デモ用（demo-）は除く
+ */
+async function fetchOnApproved(event, kind) {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  const id = event.params.id;
+  if (!after || after.status !== "approved" || before?.status === "approved") return;
+  if (id.startsWith("demo-")) return;
+  try {
+    await runLiveFetch(kind, id, {mode: "approved"});
+  } catch (e) {
+    // 再試行しない。くわしいエラーは run.js でログに出している
+  }
+}
+
+exports.onGroupApprovedFetchLives = onDocumentUpdated(
+    {document: "groups/{id}", retry: false, ...LIVE_FETCH_OPTIONS},
+    (event) => fetchOnApproved(event, "group"),
+);
+
+exports.onOshiApprovedFetchLives = onDocumentUpdated(
+    {document: "oshis/{id}", retry: false, ...LIVE_FETCH_OPTIONS},
+    (event) => fetchOnApproved(event, "person"),
+);
+
+/** 毎日の取得で1回に扱う推しの数・使ってよい時間（add_L 4.3） */
+const DAILY_MAX_TARGETS = 30;
+const DAILY_TIME_BUDGET_MS = 420 * 1000;
+
+/**
+ * 毎日の取得（add_L 4.3）。
+ * 承認済みで、フォローしている人が1人以上いる推しを、前回の取得が古い順に最大30件。
+ * ページが変わっていなければ Gemini は呼ばない（run.js）
+ */
+exports.dailyLiveFetch = onSchedule(
+    {schedule: "10 4 * * *", timeZone: "Asia/Tokyo", timeoutSeconds: 540, memory: "512MiB"},
+    async () => {
+      const db = getFirestore();
+      const startedMs = Date.now();
+
+      const targets = [];
+      const kinds = [
+        {kind: "group", collection: "groups", field: "followingGroupIds"},
+        {kind: "person", collection: "oshis", field: "followingOshiIds"},
+      ];
+      for (const k of kinds) {
+        const snap = await db.collection(k.collection)
+            .where("status", "==", "approved").get();
+        for (const d of snap.docs) {
+          if (d.id.startsWith("demo-")) continue;
+          // グループに入っている個人は対象外（L-4d）
+          if (k.kind === "person" && (d.data().groupIds ?? []).length > 0) continue;
+          const followed = await db.collection("users")
+              .where(k.field, "array-contains", d.id).limit(1).get();
+          if (followed.empty) continue;
+          targets.push({
+            kind: k.kind,
+            id: d.id,
+            lastMs: d.data().liveFetch?.finishedAt?.toMillis?.() ?? 0,
+          });
+        }
+      }
+      targets.sort((a, b) => a.lastMs - b.lastMs);
+
+      const counts = {};
+      let done = 0;
+      for (const t of targets.slice(0, DAILY_MAX_TARGETS)) {
+        if (Date.now() - startedMs > DAILY_TIME_BUDGET_MS) break;
+        try {
+          const r = await runLiveFetch(t.kind, t.id, {mode: "daily"});
+          counts[r.status] = (counts[r.status] ?? 0) + 1;
+        } catch (e) {
+          // 1件の失敗で全体を止めない
+          counts.error = (counts.error ?? 0) + 1;
+        }
+        done++;
+      }
+      logger.info(`毎日のライブ情報の取得: 対象 ${targets.length} 件、` +
+        `処理 ${done} 件、結果 ${JSON.stringify(counts)}`);
     },
 );

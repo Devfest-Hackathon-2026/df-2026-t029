@@ -21,6 +21,7 @@ import '../live_form/live_draft_to_models.dart' show formatYen;
 import '../calendar/calendar_add_sheet.dart';
 import '../travel/trip_sheet.dart';
 import '../travel/weather_line.dart';
+import '../live_fetch/ai_source_widgets.dart';
 import 'deadline_format.dart';
 import 'live_changes.dart';
 import 'live_list_entries.dart';
@@ -337,7 +338,7 @@ class _DetailView extends StatelessWidget {
       case HistoryCollection.performances:
         for (final p in detail.performances) {
           if (p.id == target.docId) {
-            return '公演 ${formatDateTime(p.startAt)} ${p.venue}';
+            return '公演 ${formatPerformanceStart(p)} ${p.venue}';
           }
         }
         return '公演';
@@ -383,6 +384,11 @@ class _DetailView extends StatelessWidget {
         if (url != null && url.isNotEmpty) ...[
           const SizedBox(height: 4),
           OfficialUrlLink(key: const Key('live_detail_official_url'), url: url),
+        ],
+        // AI が公式サイトから登録したライブ（add_L 5.3）
+        if (live.isAi) ...[
+          const SizedBox(height: 8),
+          AiSourceSection(live: live),
         ],
         const SizedBox(height: 12),
         // 操作のボタンは横に並べ、狭い幅では折り返す
@@ -432,6 +438,8 @@ class _DetailView extends StatelessWidget {
             liveId: live.id!,
             liveTitle: live.title,
             hasMemory: memoryIds?.contains(p.id),
+            // 人が登録したライブに AI が足した公演（add_L 5.3）
+            showAiBadge: p.isAi && !live.isAi,
           ),
           ?_markOf(HistoryCollection.performances, p.id),
         ],
@@ -451,6 +459,7 @@ class _DetailView extends StatelessWidget {
             onChangeStatus: (s) => onChangeStatus(r, s),
             inMine: inMine,
             mark: _markOf(HistoryCollection.receptions, r.id),
+            showAiBadge: r.isAi && !live.isAi,
           ),
         if (detail.hiddenReceptionCount > 0)
           Padding(
@@ -474,6 +483,7 @@ class _PerformanceTile extends ConsumerWidget {
     required this.liveId,
     required this.liveTitle,
     required this.hasMemory,
+    this.showAiBadge = false,
   });
 
   final Performance p;
@@ -485,6 +495,9 @@ class _PerformanceTile extends ConsumerWidget {
 
   /// 記録があれば true。記録の読み込み中なら null（ボタンを出さない）
   final bool? hasMemory;
+
+  /// AI が足した公演の札を出すか（add_L 5.3）
+  final bool showAiBadge;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -531,7 +544,9 @@ class _PerformanceTile extends ConsumerWidget {
         contentPadding: EdgeInsets.zero,
         leading: const Icon(Icons.calendar_today_outlined, size: 28),
         title: Text(
-          '${formatDateTime(p.startAt)} 開演$dayLabel',
+          p.startTimeUnknown
+              ? '${formatDateOnly(p.startAt)} 時間未定$dayLabel'
+              : '${formatDateTime(p.startAt)} 開演$dayLabel',
           style: HakoFonts.jp(
             size: 15,
             color: finished ? BrandColors.sub : BrandColors.ink,
@@ -541,6 +556,11 @@ class _PerformanceTile extends ConsumerWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (showAiBadge)
+              const Padding(
+                padding: EdgeInsets.only(top: 2, bottom: 2),
+                child: AiSourceBadge(),
+              ),
             Text(
               [
                 if (openAt != null) '${formatDateTime(openAt)} 開場',
@@ -691,6 +711,7 @@ class _ReceptionCard extends StatelessWidget {
     required this.onChangeStatus,
     required this.inMine,
     this.mark,
+    this.showAiBadge = false,
   });
 
   final Reception r;
@@ -700,6 +721,10 @@ class _ReceptionCard extends StatelessWidget {
 
   /// 「変更あり」の印（無ければ null）
   final Widget? mark;
+
+  /// AI が足した受付の札を出すか（add_L 5.3）
+  final bool showAiBadge;
+
   final DateTime now;
 
   /// 自分の申込状況（null は未申込）
@@ -741,6 +766,7 @@ class _ReceptionCard extends StatelessWidget {
                   '当選者のみ',
                   key: Key('live_detail_winners_only_${r.id}'),
                 ),
+              if (showAiBadge) const AiSourceBadge(),
             ],
           ),
           ?mark,

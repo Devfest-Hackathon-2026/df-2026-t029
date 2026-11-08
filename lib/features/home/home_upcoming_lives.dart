@@ -78,8 +78,9 @@ class _UpcomingLiveCard extends StatelessWidget {
         entry.performances.where((p) => p.startAt == next).firstOrNull?.venue ??
         '';
     final days = _daysUntil(now, next);
-    final time =
-        '${next.hour.toString().padLeft(2, '0')}:${next.minute.toString().padLeft(2, '0')}';
+    final time = entry.nextPerformance?.startTimeUnknown == true
+        ? '時間未定'
+        : '${next.hour.toString().padLeft(2, '0')}:${next.minute.toString().padLeft(2, '0')}';
     return Card(
       key: Key('home_upcoming_live_${entry.live.id}'),
       margin: EdgeInsets.zero,
