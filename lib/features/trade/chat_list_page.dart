@@ -1,3 +1,5 @@
+import '../../theme/hako_app_widgets.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,7 @@ import '../../models/trade_chat.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/trade_post_providers.dart';
 import '../live_form/date_time_field.dart';
+import '../common/user_avatar.dart';
 
 /// チャットの一覧（最後のメッセージの新しい順）。押すとチャット画面を開く
 class ChatListPage extends ConsumerWidget {
@@ -15,8 +18,10 @@ class ChatListPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final chats = ref.watch(myChatsProvider);
     final uid = ref.watch(currentUidProvider) ?? '';
-    return Scaffold(
-      appBar: AppBar(title: const Text('チャット')),
+    return HakoPageScaffold(
+      title: 'チャット',
+      showBack: true,
+      backFallback: '/trade',
       body: SafeArea(
         child: chats.when(
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -62,7 +67,11 @@ class _ChatTile extends StatelessWidget {
       leading: Badge(
         isLabelVisible: unread,
         smallSize: 10,
-        child: const Icon(Icons.chat_bubble_outline),
+        child: UserAvatar(
+          uid: chat.otherUid(me),
+          name: chat.otherName(me),
+          size: 36,
+        ),
       ),
       title: Text(
         summary == null ? chat.otherName(me) : '${chat.otherName(me)}　$summary',

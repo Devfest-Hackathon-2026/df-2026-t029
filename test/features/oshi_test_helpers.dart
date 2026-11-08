@@ -75,6 +75,21 @@ class FakeOshiRepository implements OshiRepository {
     if (requestError case final e?) throw e;
     return 'new-id';
   }
+
+  /// グループとメンバーの申請（group と memberNames を記録する）
+  final groupRequests = <(OshiRequest, List<String>)>[];
+
+  @override
+  Future<String> requestGroupWithMembers(
+    OshiRequest group,
+    List<String> memberNames, {
+    required String uid,
+  }) async {
+    groupRequests.add((group, memberNames));
+    await requestGate?.future;
+    if (requestError case final e?) throw e;
+    return 'new-group-id';
+  }
 }
 
 /// フォロー状態を覚えておく偽のリポジトリ
@@ -146,9 +161,12 @@ class FakeFollowRepository implements FollowRepository {
   }
 }
 
-/// 画面の幅をスマホ（360 x 640）にする
+/// 幅違いのテスト用。null でなければ、[usePhoneSize] がこの幅を使う
+double? phoneWidthOverride;
+
+/// 画面の幅をスマホ（360 x 640）にする（[phoneWidthOverride] があればその幅）
 void usePhoneSize(WidgetTester tester) {
-  tester.view.physicalSize = const Size(360, 640);
+  tester.view.physicalSize = Size(phoneWidthOverride ?? 360, 640);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 }
@@ -201,3 +219,6 @@ VoidCallback? onPressedOf(WidgetTester tester, Finder finder) {
   if (widget is IconButton) return widget.onPressed;
   throw StateError('ボタンではない: $widget');
 }
+
+/// 幅 320・360・390・720・1000 のそれぞれで [body] を実行する（はみ出しの確認用）
+const layoutWidths = [320.0, 360.0, 390.0, 720.0, 1000.0];

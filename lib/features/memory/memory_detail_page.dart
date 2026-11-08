@@ -3,8 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../models/live_memory.dart';
+import '../../theme/brand_colors.dart';
+import '../../theme/hako_app_widgets.dart';
+import '../../theme/hako_fonts.dart';
 import '../../providers/live_providers.dart';
 import '../../providers/memory_providers.dart';
+import '../common/photo_grid.dart';
 import '../live_form/date_time_field.dart';
 
 /// 記録の詳細（/memories/:performanceId）
@@ -17,30 +21,24 @@ class MemoryDetailPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final memory = ref.watch(memoryProvider(performanceId));
     final now = ref.watch(nowProvider);
-    final found = memory.value != null;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('記録'),
-        actions: [
-          if (found)
-            IconButton(
-              key: const Key('memory_detail_edit_button'),
-              tooltip: '編集',
-              onPressed: () => context.go('/memories/$performanceId/edit'),
-              icon: const Icon(Icons.edit),
-            ),
-        ],
-      ),
+    return HakoPageScaffold(
+      title: '記録',
+      showBack: true,
+      backFallback: '/memories',
       body: SafeArea(
         child: switch (memory) {
-          AsyncError() => const Center(
+          AsyncError() => const HakoEmpty(
+            '記録を読み込めませんでした',
             key: Key('memory_detail_error'),
-            child: Text('記録を読み込めませんでした'),
           ),
-          AsyncData(value: final m?) => _DetailView(memory: m, now: now),
-          AsyncData() => const Center(
+          AsyncData(value: final m?) => _DetailView(
+            memory: m,
+            now: now,
+            onEdit: () => context.go('/memories/$performanceId/edit'),
+          ),
+          AsyncData() => const HakoEmpty(
+            'この記録は見つかりませんでした',
             key: Key('memory_detail_not_found'),
-            child: Text('この記録は見つかりませんでした'),
           ),
           _ => const Center(
             key: Key('memory_detail_loading'),
@@ -53,47 +51,68 @@ class MemoryDetailPage extends ConsumerWidget {
 }
 
 class _DetailView extends StatelessWidget {
-  const _DetailView({required this.memory, required this.now});
+  const _DetailView({
+    required this.memory,
+    required this.now,
+    required this.onEdit,
+  });
 
   final LiveMemory memory;
+  final VoidCallback onEdit;
   final DateTime now;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final m = memory;
     final attended = m.isAttended(now);
     final seat = m.seat;
     final impression = m.impression;
-    final muted = TextStyle(color: theme.colorScheme.onSurfaceVariant);
+    final muted = HakoFonts.jp(size: 15, color: BrandColors.sub, height: 1.6);
 
     return ListView(
       key: const Key('memory_detail'),
-      padding: const EdgeInsets.all(16),
+      padding: HakoPageScaffold.padding(context),
       children: [
-        Text(m.liveTitle, style: theme.textTheme.titleLarge),
+        Text(
+          m.liveTitle,
+          style: HakoFonts.jp(size: 20, weight: FontWeight.w700, height: 1.4),
+        ),
         const SizedBox(height: 4),
-        Text('${formatDateTime(m.startAt)} 開演'),
-        Text(m.venue),
+        Text(
+          '${formatDateTime(m.startAt)} 開演',
+          style: HakoFonts.jp(size: 13, color: BrandColors.sub, height: 1.5),
+        ),
+        Text(
+          m.venue,
+          style: HakoFonts.jp(size: 13, color: BrandColors.sub, height: 1.5),
+        ),
         const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Container(
-            key: const Key('memory_detail_state'),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: attended
-                  ? theme.colorScheme.secondaryContainer
-                  : theme.colorScheme.tertiaryContainer,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            HakoTagChip(
               attended ? '参戦済み' : '参戦予定',
-              style: theme.textTheme.labelSmall,
+              key: const Key('memory_detail_state'),
+            ),
+            OutlinedButton.icon(
+              key: const Key('memory_detail_edit_button'),
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('編集'),
+            ),
+          ],
+        ),
+        // 写真は、あるときだけ出す（M-5 仕様書 6.3）
+        if (m.images.isNotEmpty)
+          _Section(
+            title: '写真',
+            child: PhotoGrid(
+              key: const Key('memory_detail_photos'),
+              paths: m.images,
             ),
           ),
-        ),
-        // TODO(M-5): 写真
         _Section(
           title: '座席',
           child: Text(
@@ -140,14 +159,10 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 24),
+      padding: const EdgeInsets.only(top: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          child,
-        ],
+        children: [HakoSectionHeader(title), child],
       ),
     );
   }

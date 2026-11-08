@@ -30,10 +30,12 @@ tradePosts/{postId}               交換・売買の投稿
   └ replies/{replyId}             返信
 chats/{chatId}                    個人チャット
   └ messages/{messageId}          メッセージ
+publicProfiles/{uid}              公開プロフィール（アイコン。add_I）
 users/{uid}                       ユーザー（個人データ）
   ├ applications/{receptionId}    申込状況
   ├ myLives/{liveId}              自分のライブ一覧
-  └ memories/{performanceId}      ライブの記録
+  ├ memories/{performanceId}      ライブの記録
+  └ settings/{name}               個人の設定（oshiColors・oshiEmojis・oshiImages など）
 ```
 
 ## 3. 各コレクションの項目
@@ -135,6 +137,7 @@ users/{uid}                       ユーザー（個人データ）
 | followingGroupIds | array | | フォロー中のグループの ID（string の配列） |
 | followingOshiIds | array | | フォロー中の推し（個人）の ID（string の配列） |
 | createdAt | timestamp | ○ | 登録日時 |
+| themeColor | number | | テーマカラー（色の ARGB の32ビット値。例：`0xFFE91E63`）。未設定なら初期の色を使う。本人がプロフィールの編集画面で選ぶ（ホームのデザイン D-6） |
 
 ### 3.8 users/{uid}/applications/{receptionId}（申込状況）
 
@@ -315,12 +318,38 @@ tradePosts/p1
 | seat | string | | 座席（100文字まで） |
 | setlist | array | | 曲名（string の配列。100曲まで、各100文字まで） |
 | impression | string | | 感想（2,000文字まで） |
-| images | array | ○ | 写真（Storage のパスの配列。8枚まで）。M-5 までは空 |
+| images | array | ○ | 写真（Storage のパス `users/{uid}/memories/{performanceId}/{ファイル名}` の配列。8枚まで。1枚目が表紙） |
 | createdAt | timestamp | ○ | 作成日時 |
 | updatedAt | timestamp | ○ | 更新日時 |
 
 「参戦予定」「参戦済み」の状態は保存せず、`startAt` と現在時刻から判定する。
 写真の保存先は `users/{uid}/memories/{performanceId}/{ファイル名}` とする（M-5）。
+
+
+### 3.15 users/{uid}/settings（推しの色・絵文字・画像。個人の設定）
+
+キーはどれも「推しの色のキー」（`group:{groupId}`・`person:{oshiId}`）。本人だけが読み書きできる。
+
+| ドキュメント | フィールド | 型 | 内容 |
+|---|---|---|---|
+| oshiColors | colors | map | キー → 色（ARGB の数。Fc） |
+| oshiEmojis | emojis | map | キー → 絵文字1文字（add_I） |
+| oshiImages | images | map | キー → Storage のパス `users/{uid}/oshiIcons/{ファイル名}`（add_I。本人にしか見えない） |
+| oshiDays | startDates | map | キー → 推し始めた日（`YYYY-MM-DD`。add_O） |
+| oshiDays | birthdays | map | キー → 誕生日（グループは結成日。`MM-DD`。add_O） |
+| （共通） | updatedAt | timestamp | 更新日時 |
+
+### 3.16 publicProfiles/{uid}（公開プロフィール）
+
+ログイン済みなら誰でも読める。書くのは本人だけ（add_I）。
+
+| フィールド | 型 | 必須 | 内容 |
+|---|---|---|---|
+| displayName | string | | ハンドルネーム（プロフィールの保存のときに書く。100文字まで） |
+| iconPath | string | | アイコンの Storage のパス `userIcons/{uid}/{ファイル名}` |
+| updatedAt | timestamp | ○ | 更新日時 |
+
+投稿・返信・チャットにはアイコンを複製せず、uid からこのドキュメントを読む。
 
 ## 4. 値の定義
 
@@ -449,5 +478,5 @@ tradePosts/p1
 
 - **共通データを更新できる範囲**：当面はログイン済みユーザー全員とし、誤った更新は履歴から戻す。照合・更新機能の開発時に確定する。
 - **申込の席種・枚数・支払額**：費用管理（P3）の開発時に、`applications` に追加する。
-- **写真の保存先（Cloud Storage のパス構成）**：グッズ交換の G-0-6 で追記する。
+- **写真の保存先（Cloud Storage のパス構成）**：決定（11/7）。メモリーは `users/{uid}/memories/{performanceId}/{ファイル名}`（本人だけが読み書き）、グッズ交換は `tradePhotos/{uid}/{ファイル名}`（ログイン済みなら読める。作成・削除は本人だけ）。どちらも 5MB 未満の画像だけ。ルールは `storage.rules`。
 - **遠征・通知（FCM トークンなど）**：各機能の開発時に追加する。

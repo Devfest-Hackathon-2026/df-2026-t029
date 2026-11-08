@@ -630,12 +630,13 @@ void main() {
       expect(find.text('変更あり'), findsOneWidget);
       expect(find.textContaining('申込期限'), findsWidgets);
       expect(find.textContaining('2時間前'), findsWidgets);
+      // 編集ボタンは上にあるので、履歴までスクロールする前に確認する
+      expect(_key('live_detail_edit_button'), findsOneWidget);
       await tester.scrollUntilVisible(
         _key('live_detail_history_entry_h1'),
         200,
       );
       expect(find.textContaining('ほかのユーザー'), findsOneWidget);
-      expect(_key('live_detail_edit_button'), findsOneWidget);
     });
 
     testWidgets('履歴が無ければ「変更はまだありません」で印も無い', (tester) async {

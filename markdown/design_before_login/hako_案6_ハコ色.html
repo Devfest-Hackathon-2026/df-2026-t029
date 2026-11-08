@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>おしあし 案6 ハコ色</title>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Archivo:wdth,wght@62..125,500..900&family=Roboto:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#FBF6EA;--ink:#121212;--c1:#E8452C;--c2:#FF9F1C;--c3:#F2D21B;--c4:#2DBE7E;--c5:#4A9BEF;--c6:#F07BAE;--bg:#D9D3C4}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:400 16px/1.75 "BIZ UDPGothic",sans-serif}
+.phone{max-width:430px;margin:0 auto;background:var(--paper);overflow:hidden}
+.en{font-family:Archivo,sans-serif;font-stretch:125%;font-weight:800;letter-spacing:.02em}
+.strip{display:flex;height:10px}.strip i{flex:1}
+.strip i:nth-child(1){background:var(--c1)}.strip i:nth-child(2){background:var(--c2)}.strip i:nth-child(3){background:var(--c3)}
+.strip i:nth-child(4){background:var(--c4)}.strip i:nth-child(5){background:var(--c5)}.strip i:nth-child(6){background:var(--c6)}
+/* 紹介ページ */
+.top{display:flex;justify-content:space-between;align-items:center;padding:16px 20px}
+.brand{font-weight:700;font-size:22px}
+.login{min-height:44px;display:inline-flex;align-items:center;padding:0 18px;border:2px solid var(--ink);border-radius:99px;font-weight:700;font-size:14px;color:var(--ink);text-decoration:none}
+.hero{padding:28px 20px 36px}
+.hero h1{font-weight:700;font-size:40px;line-height:1.25;letter-spacing:-.02em}
+.hero h1 em{font-style:normal;box-shadow:inset 0 -.34em 0 var(--c3);padding:0 2px}
+.hero p.lead{margin-top:16px;font-size:15px;max-width:22em}
+.board{margin-top:28px;background:var(--ink);color:#fff;padding:14px 16px 6px}
+.board h2{font:800 12px Archivo,sans-serif;font-stretch:125%;letter-spacing:.14em;color:var(--c3);padding-bottom:8px;border-bottom:1px solid #555}
+.board li{list-style:none;display:grid;grid-template-columns:62px 54px 1fr;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #333;font-size:14px;line-height:1.4}
+.board li:last-child{border:0}
+.board time{font:700 15px Archivo,sans-serif;font-stretch:110%}
+.chip{display:inline-block;text-align:center;color:var(--ink);font-weight:700;font-size:12px;padding:2px 0;border-radius:2px}
+.chip.a{background:var(--c1)}.chip.b{background:var(--c3)}.chip.c{background:var(--c4)}
+/* ハコ（機能） */
+.hall{display:block;padding:26px 20px 28px;color:var(--ink);position:relative;text-decoration:none}
+.hall small{display:flex;justify-content:space-between;font:800 12px Archivo,sans-serif;font-stretch:125%;letter-spacing:.14em}
+.hall h3{font-weight:700;font-size:30px;line-height:1.25;margin:10px 0 6px;position:relative}
+.hall p{font-size:15px;max-width:20em;position:relative}
+.hall .go{display:inline-block;margin-top:14px;border:2px solid var(--ink);border-radius:99px;padding:3px 14px;font-weight:700;font-size:13px}
+.hall.h1{background:var(--c1);padding-top:40px;padding-bottom:44px}
+.hall.h2{background:var(--c2)}
+.hall.h3{background:var(--c3);padding-bottom:40px}.hall.h3 h3{font-size:34px}
+.hall.h4{background:var(--c4)}
+.hall.h5{background:var(--c5);padding-top:20px;padding-bottom:20px}.hall.h5 h3{font-size:26px}
+.hall.h6{background:var(--c6);padding-bottom:40px}
+.hall .big{position:absolute;right:16px;bottom:6px;font:900 84px/1 Archivo,sans-serif;font-stretch:125%;opacity:.18}
+/* CTA */
+.cta{background:var(--ink);color:#fff;padding:40px 20px 36px}
+.cta p{font-size:14px;color:#ddd}
+.btn{display:flex;justify-content:space-between;align-items:center;margin-top:14px;min-height:76px;padding:0 24px;background:var(--c3);color:var(--ink);font-weight:700;font-size:34px;text-decoration:none;border-radius:4px;box-shadow:6px 6px 0 var(--c1);animation:nudge 2.4s ease-in-out infinite}
+@keyframes nudge{50%{transform:translate(-2px,-2px)}}
+/* ログイン */
+.login-s{padding:28px 20px 44px}
+.login-s h2{font-weight:700;font-size:30px;line-height:1.3}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:18px 0 20px}
+.seg button{min-height:48px;border:2px solid var(--ink);border-radius:4px;background:#fff;font:700 16px "BIZ UDPGothic",sans-serif;color:var(--ink)}
+.seg .on{background:var(--ink);color:#fff}
+.g{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:48px;background:#fff;border:1px solid #747775;border-radius:4px;font:500 14px Roboto,"BIZ UDPGothic",sans-serif;color:#1F1F1F}
+.g svg{width:20px;height:20px}
+.or{display:flex;align-items:center;gap:10px;margin:18px 0 6px;font-size:13px}
+.or::before,.or::after{content:"";flex:1;height:2px;background:var(--ink)}
+label{display:block;margin-top:14px;font-weight:700;font-size:14px}
+input{width:100%;min-height:48px;margin-top:4px;padding:0 12px;border:2px solid var(--ink);border-radius:4px;background:#fff;font:400 16px "BIZ UDPGothic",sans-serif;color:var(--ink)}
+input:focus{outline:4px solid var(--c5);outline-offset:1px}
+.sub{display:block;width:100%;min-height:54px;margin-top:22px;border:0;border-radius:4px;background:var(--ink);color:var(--c3);font:700 18px "BIZ UDPGothic",sans-serif}
+.fg{display:inline-block;margin-top:16px;color:var(--ink);font-size:14px}
+.note{margin-top:22px;font-size:12px;line-height:1.7}
+.note2{margin-top:8px;font-size:12px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<main class="phone">
+<div class="strip" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+<header class="top"><span class="brand">おしあし</span><a class="login" href="#login">ログイン</a></header>
+<section class="hero" aria-label="紹介ページ">
+  <h1>推し活の予定を、<br><em>もう逃さない。</em></h1>
+  <p class="lead">申込、当落、入金。ばらばらの締切を、ひとつの掲示板にまとめます。</p>
+  <div class="board">
+    <h2>TODAY'S 締切</h2>
+    <ul>
+      <li><time>11.20</time><span class="chip c">入金</span><span>「ひかりの夜」東京公演</span></li>
+      <li><time>11.24</time><span class="chip a">申込</span><span>「ミナト・ツアー」大阪</span></li>
+      <li><time>11.30</time><span class="chip b">当落</span><span>「ひかりの夜」追加公演</span></li>
+    </ul>
+  </div>
+</section>
+
+<section aria-label="6つの機能">
+  <a class="hall h1" href="#"><small><span>HALL 01</span><span>FOLLOW</span></small><h3>推しをフォロー</h3><p>推しを探してフォロー。見つからなければ追加を申請できます。</p><span class="go">くわしく →</span><b class="big" aria-hidden="true">01</b></a>
+  <a class="hall h2" href="#"><small><span>HALL 02</span><span>SCAN</span></small><h3>スクショから読み取り</h3><p>告知画像やチケットサイトのスクショから、日程・申込期限・入金期限を AI が読み取ります。</p><b class="big" aria-hidden="true">02</b></a>
+  <a class="hall h3" href="#"><small><span>HALL 03</span><span>DUE</span></small><h3>次の締切が、ひと目で</h3><p>申込 → 当落 → 入金。次にやることの期限が分かります。</p><span class="go">くわしく →</span><b class="big" aria-hidden="true">03</b></a>
+  <a class="hall h4" href="#"><small><span>HALL 04</span><span>SHARE</span></small><h3>みんなで共有</h3><p>同じ推しのファンが登録したライブを、自分の一覧に追加できます。</p><b class="big" aria-hidden="true">04</b></a>
+  <a class="hall h5" href="#"><small><span>HALL 05</span><span>CALENDAR</span></small><h3>Google カレンダーに追加</h3><b class="big" aria-hidden="true">05</b></a>
+  <a class="hall h6" href="#"><small><span>HALL 06</span><span>TRADE</span></small><h3>グッズ交換</h3><p>「譲」「求」を登録すると、交換できる相手が見つかります。</p><b class="big" aria-hidden="true">06</b></a>
+</section>
+
+<section class="cta">
+  <p>6つのハコ、まとめて入場。</p>
+  <a class="btn" href="#login"><span>始める</span><span class="en" aria-hidden="true">→</span></a>
+</section>
+<div class="strip" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+<section class="login-s" id="login" aria-label="ログイン画面">
+  <h2>おかえりなさい。<br>入口はこちら。</h2>
+  <div class="seg" role="tablist"><button class="on" role="tab" aria-selected="true">ログイン</button><button role="tab" aria-selected="false">新規登録</button></div>
+  <button class="g" type="button">
+    <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+    Google で続ける</button>
+  <div class="or"><span>またはメールで</span></div>
+  <label for="m">メールアドレス</label><input id="m" type="email" autocomplete="email">
+  <label for="p">パスワード</label><input id="p" type="password" autocomplete="current-password">
+  <p class="note2">※ 新規登録のときは「パスワード（確認）」の欄が増えます。</p>
+  <button class="sub" type="button">ログイン</button>
+  <a class="fg" href="#">パスワードを忘れた方</a>
+  <p class="note">このサイトは reCAPTCHA で保護されており、Google のプライバシーポリシーと利用規約が適用されます。</p>
+</section>
+<div class="strip" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+</main>
+</body>
+</html>

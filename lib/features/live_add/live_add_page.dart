@@ -6,6 +6,9 @@ import '../../models/oshi.dart';
 import '../../providers/live_providers.dart';
 import '../../repositories/live_repository.dart' show FollowTargets;
 import '../../providers/oshi_providers.dart';
+import '../../theme/brand_colors.dart';
+import '../../theme/hako_app_widgets.dart';
+import '../../theme/hako_fonts.dart';
 import '../../utils/deadline.dart';
 import '../calendar/calendar_add_sheet.dart';
 import '../live/live_list_entries.dart' show PerformerNames;
@@ -94,8 +97,11 @@ class _LiveAddPageState extends ConsumerState<LiveAddPage> {
         ? _selectedKey
         : (chips.isEmpty ? null : chips.first.key);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('ライブを追加する')),
+    final pad = HakoPageScaffold.padding(context);
+    return HakoPageScaffold(
+      title: 'ライブを追加する',
+      showBack: true,
+      backFallback: '/lives',
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('live_add_register_fab'),
         onPressed: () => context.push('/register'),
@@ -106,7 +112,7 @@ class _LiveAddPageState extends ConsumerState<LiveAddPage> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              padding: EdgeInsets.fromLTRB(pad.left, pad.top, pad.right, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -118,7 +124,7 @@ class _LiveAddPageState extends ConsumerState<LiveAddPage> {
                   else
                     Wrap(
                       spacing: 8,
-                      runSpacing: 4,
+                      runSpacing: 8,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         for (final o in chips)
@@ -141,10 +147,16 @@ class _LiveAddPageState extends ConsumerState<LiveAddPage> {
                   TextField(
                     key: const Key('live_add_query_field'),
                     controller: _queryController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'ライブ名（空でもOK）',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+                      floatingLabelBehavior: FloatingLabelBehavior.never,
+                      prefixIcon: const Icon(Icons.search),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      border: _searchBorder(2),
+                      enabledBorder: _searchBorder(2),
+                      focusedBorder: _searchBorder(3),
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
@@ -176,6 +188,11 @@ class _LiveAddPageState extends ConsumerState<LiveAddPage> {
     );
   }
 }
+
+OutlineInputBorder _searchBorder(double width) => OutlineInputBorder(
+  borderRadius: BorderRadius.circular(10),
+  borderSide: BorderSide(color: BrandColors.ink, width: width),
+);
 
 class _NoOshiView extends StatelessWidget {
   const _NoOshiView();
@@ -254,18 +271,17 @@ class _Results extends ConsumerWidget {
       ),
       AsyncValue(value: final r?) when r.isEmpty => const Center(
         key: Key('live_add_empty'),
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Text(
-            '見つかりませんでした。右下の「ライブを登録する」から登録できます',
-            textAlign: TextAlign.center,
-          ),
-        ),
+        child: HakoEmpty('見つかりませんでした。右下の「ライブを登録する」から登録できます'),
       ),
       AsyncValue(value: final r?) => ListView(
         key: const Key('live_add_results'),
         // 右下のボタンに隠れないように余白をとる
-        padding: const EdgeInsets.only(bottom: 88),
+        padding: EdgeInsets.fromLTRB(
+          HakoPageScaffold.padding(context).left,
+          0,
+          HakoPageScaffold.padding(context).right,
+          72,
+        ),
         children: [
           for (final e in r)
             _ResultTile(
@@ -321,23 +337,71 @@ class _ResultTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final live = entry.live;
     final p = performers.join('、');
-    return ListTile(
+    return InkWell(
       key: Key('live_add_tile_${live.id}'),
-      title: Text(live.title),
-      subtitle: Text([if (p.isNotEmpty) p, _dateLine()].join('\n')),
-      isThreeLine: p.isNotEmpty,
-      trailing: isAdded
-          ? OutlinedButton(
-              key: Key('live_add_remove_button_${live.id}'),
-              onPressed: isBusy ? null : onToggle,
-              child: const Text('追加済み'),
-            )
-          : FilledButton(
-              key: Key('live_add_add_button_${live.id}'),
-              onPressed: isBusy ? null : onToggle,
-              child: const Text('追加'),
-            ),
       onTap: () => context.push('/lives/${live.id}'),
+      overlayColor: WidgetStatePropertyAll(
+        BrandColors.ink.withValues(alpha: 0.10),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: const BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: BrandColors.rowLine, width: 1.5),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(live.title, style: HakoFonts.jp(size: 15, height: 1.5)),
+                  if (p.isNotEmpty)
+                    Text(
+                      p,
+                      style: HakoFonts.jp(
+                        size: 12,
+                        color: BrandColors.sub,
+                        height: 1.5,
+                      ),
+                    ),
+                  Text(
+                    _dateLine(),
+                    style: HakoFonts.jp(
+                      size: 12,
+                      color: BrandColors.sub,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 14),
+            if (isAdded)
+              OutlinedButton(
+                key: Key('live_add_remove_button_${live.id}'),
+                onPressed: isBusy ? null : onToggle,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                ),
+                child: const Text('追加済み'),
+              )
+            else
+              FilledButton(
+                key: Key('live_add_add_button_${live.id}'),
+                onPressed: isBusy ? null : onToggle,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                ),
+                child: const Text('追加'),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

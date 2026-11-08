@@ -2,14 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../common/empty_state.dart';
+import '../common/user_avatar.dart';
 import '../../models/oshi.dart';
 import '../../models/trade_post.dart';
+import '../../models/goods.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/trade_post_providers.dart';
+import '../../providers/oshi_color_providers.dart';
+import '../../theme/brand_colors.dart';
+import '../../theme/hako_app_widgets.dart';
 import '../../utils/trade_board.dart';
 import 'board_filter_sheet.dart';
 import 'trade_post_summary.dart';
 import 'trade_post_summary_lines.dart';
+import 'trade_post_thumb.dart';
 
 /// 交換の掲示板（交換トップの「掲示板」タブ）。
 /// 推しを選び、募集中の投稿を更新日時の新しい順に出す
@@ -35,46 +42,56 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final following = ref.watch(followingOshisProvider);
-    final target = ref.watch(boardTargetProvider);
+    
+      final following = ref.watch(followingOshisProvider);
+    // null は「フォロー中すべて」（最初はこれ。Fc 5.1）。
+    // 選んでいた推しのフォローを外したときも「フォロー中すべて」として扱う
+    final selected = ref.watch(boardTargetProvider);
+    final target =
+        (following.value?.any((o) => o.key == selected?.key) ?? false)
+        ? selected
+        : null;
 
+    final pad = HakoPageScaffold.padding(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          padding: EdgeInsets.fromLTRB(pad.left, 16, pad.right, 0),
           child: following.when(
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => Text('推しを読み込めませんでした: $e'),
-            data: (oshis) => Row(
-              children: [
-                Expanded(
-                  child: _OshiSelector(
-                    oshis: oshis,
-                    selected: target,
-                    onChanged: (oshi) {
-                      // 推しを変えたら、件数を最初に戻す
-                      // （絞り込みの条件はプロバイダ側で外れる）
-                      setState(() {
-                        _limit = boardPageSize;
-                        _last = null;
-                      });
-                      ref.read(boardTargetProvider.notifier).select(oshi);
-                    },
+            data: (oshis) => oshis.isEmpty
+                ? const SizedBox.shrink()
+                : Row(
+                    children: [
+                      Expanded(
+                        child: _OshiSelector(
+                          oshis: oshis,
+                          selected: target,
+                          onChanged: (oshi) {
+                            // 推しを変えたら、件数を最初に戻す
+                            // （絞り込みの条件はプロバイダ側で外れる）
+                            setState(() {
+                              _limit = boardPageSize;
+                              _last = null;
+                            });
+                            ref.read(boardTargetProvider.notifier).select(oshi);
+                          },
+                        ),
+                      ),
+                      _filterButton(target),
+                    ],
                   ),
-                ),
-                if (target != null) _filterButton(target),
-              ],
-            ),
           ),
         ),
-        if (target != null) _filterChips(),
+        _filterChips(),
         Expanded(child: _buildResults(target)),
       ],
     );
   }
 
-  Widget _filterButton(OshiSummary target) {
+  Widget _filterButton(OshiSummary? target) {
     final count = ref.watch(boardFilterProvider).count;
     return IconButton(
       key: const Key('trade_board_filter'),
@@ -107,7 +124,12 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
         ? goodsName
         : '$goodsName（${filter.side.label}）';
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: EdgeInsets.fromLTRB(
+        HakoPageScaffold.padding(context).left,
+        8,
+        HakoPageScaffold.padding(context).right,
+        0,
+      ),
       child: Wrap(
         spacing: 6,
         runSpacing: 4,
@@ -118,6 +140,17 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
               key: const Key('board_chip_goods'),
               label: Text(goods),
               onDeleted: () => notifier.set(filter.withoutGoods()),
+            ),
+          if (filter.categories.isNotEmpty)
+            InputChip(
+              key: const Key('board_chip_categories'),
+              label: Text(
+                [
+                  for (final c in GoodsCategory.values)
+                    if (filter.categories.contains(c)) c.label,
+                ].join('・'),
+              ),
+              onDeleted: () => notifier.set(filter.withoutCategories()),
             ),
           if (filter.tags.isNotEmpty)
             InputChip(
@@ -150,12 +183,30 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
   }
 
   Widget _buildResults(OshiSummary? target) {
-    if (target == null) {
-      return const Center(child: Text('推しを選んでください'));
+    // フォロー中の推しが0件なら、推しを探す案内を出す
+    final noOshi = ref.watch(followingOshisProvider).value?.isEmpty ?? false;
+    if (target == null && noOshi) {
+      return EmptyState(
+        key: const Key('trade_board_no_oshi'),
+        icon: Icons.favorite_outline,
+        title: '推しをフォローすると、交換の投稿が見られます',
+        action: FilledButton.icon(
+          key: const Key('trade_board_find_oshi_button'),
+          onPressed: () => context.push('/oshi/search'),
+          icon: const Icon(Icons.search),
+          label: const Text('推しを探す'),
+        ),
+      );
     }
-    final board = ref.watch(
-      tradeBoardProvider((kind: target.kind, id: target.id, limit: _limit)),
-    );
+    final board = target == null
+        ? ref.watch(tradeFeedProvider(_limit))
+        : ref.watch(
+            tradeBoardProvider((
+              kind: target.kind,
+              id: target.id,
+              limit: _limit,
+            )),
+          );
     final all = ref.watch(allOshisProvider).value ?? const <OshiSummary>[];
     final uid = ref.watch(currentUidProvider);
 
@@ -165,17 +216,29 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
     final value = board.hasValue ? board.value : (loading ? _last : null);
     if (value == null) {
       return board.hasError
-          ? Center(child: Text('投稿を読み込めませんでした: ${board.error}'))
+          ? HakoEmpty('投稿を読み込めませんでした: ${board.error}')
           : const Center(child: CircularProgressIndicator());
     }
     if (value.posts.isEmpty) {
-      return const Center(child: Text('募集中の投稿はまだありません'));
+      return const HakoEmpty('募集中の投稿はまだありません');
     }
     final filter = ref.watch(boardFilterProvider);
-    final posts = value.posts.where(filter.matches).toList();
+    // 種別で絞り込むときだけ、グッズの種別を読む（Fc 5.1）
+    final categoryOf = filter.categories.isEmpty
+        ? const <String, GoodsCategory>{}
+        : ref.watch(boardGoodsCategoriesProvider);
+    final posts = [
+      for (final p in value.posts)
+        if (filter.matches(p, categoryOf: categoryOf)) p,
+    ];
     return ListView(
       // 右下のボタンで最後の投稿が隠れないようにする
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+      padding: EdgeInsets.fromLTRB(
+        HakoPageScaffold.padding(context).left,
+        16,
+        HakoPageScaffold.padding(context).right,
+        88,
+      ),
       children: [
         if (!filter.isEmpty)
           Padding(
@@ -188,11 +251,7 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
-        if (posts.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
-            child: Center(child: Text('条件に合う投稿はありません')),
-          ),
+        if (posts.isEmpty) const HakoEmpty('条件に合う投稿はありません'),
         for (final p in posts)
           _BoardCard(post: p, all: all, isMine: p.uid == uid),
         if (value.hasMore)
@@ -210,7 +269,7 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
   }
 }
 
-/// フォロー中の推しから1つ選ぶ
+/// 推しの選択。先頭は「フォロー中すべて」（null。Fc 5.1）、その下にフォロー中の推し
 class _OshiSelector extends StatelessWidget {
   const _OshiSelector({
     required this.oshis,
@@ -218,37 +277,50 @@ class _OshiSelector extends StatelessWidget {
     required this.onChanged,
   });
 
+  /// 「フォロー中すべて」を表す値（推しのキーと重ならない）
+  static const String _allKey = '';
+
   final List<OshiSummary> oshis;
   final OshiSummary? selected;
   final ValueChanged<OshiSummary?> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    if (oshis.isEmpty) {
-      return const Text('フォロー中の推しがいません。先に推しをフォローしてください');
-    }
     // 承認などで中身が変わっても同じ推しとして扱えるよう、key で選ぶ
     final byKey = {for (final o in oshis) o.key: o};
-    final selectedKey = byKey.containsKey(selected?.key) ? selected!.key : null;
-    return DropdownButton<String>(
-      key: const Key('trade_board_oshi'),
-      isExpanded: true,
-      value: selectedKey,
-      hint: const Text('推しを選ぶ'),
-      items: [
-        for (final o in oshis)
-          DropdownMenuItem(
-            value: o.key,
-            child: Text('${o.name}（${o.kind.label}）'),
-          ),
-      ],
-      onChanged: (key) => onChanged(byKey[key]),
+    final selectedKey = byKey.containsKey(selected?.key)
+        ? selected!.key
+        : _allKey;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 52),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: BrandColors.ink, width: 2)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          key: const Key('trade_board_oshi'),
+          isExpanded: true,
+          value: selectedKey,
+          items: [
+            const DropdownMenuItem(
+              value: _allKey,
+              child: Text('フォロー中すべて'),
+            ),
+            for (final o in oshis)
+              DropdownMenuItem(
+                value: o.key,
+                child: Text('${o.name}（${o.kind.label}）'),
+              ),
+          ],
+          onChanged: (key) => onChanged(byKey[key]),
+        ),
+      ),
     );
   }
 }
 
-/// 掲示板の投稿1件（詳細画面は G-5-1 で作るため、まだタップできない）
-class _BoardCard extends StatelessWidget {
+/// 掲示板の投稿1件。対象の推しに色があれば、左端に 4px の帯を出す（Fc 5.3）
+class _BoardCard extends ConsumerWidget {
   const _BoardCard({
     required this.post,
     required this.all,
@@ -260,49 +332,65 @@ class _BoardCard extends StatelessWidget {
   final bool isMine;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final targets = targetNames(post, all);
+    final color = resolvePostColor(
+      post,
+      ref.watch(oshiColorsProvider).value ?? const {},
+      all,
+    );
     return Card(
       key: Key('trade_board_post_${post.id}'),
       margin: const EdgeInsets.symmetric(vertical: 6),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => context.push('/trade/${post.id}'),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      post.displayName,
-                      style: theme.textTheme.titleSmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (isMine) ...[
-                    const SizedBox(width: 8),
-                    const Chip(
-                      label: Text('自分'),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ],
-                ],
-              ),
-              if (targets.isNotEmpty)
-                Text(
-                  targets,
-                  style: theme.textTheme.bodySmall,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+        child: Container(
+          decoration: color == null
+              ? null
+              : BoxDecoration(
+                  border: Border(left: BorderSide(color: color, width: 4)),
                 ),
-              const SizedBox(height: 4),
-              TradePostSummaryLines(post: post, showHandover: true),
-            ],
+          padding: const EdgeInsets.all(12),
+          // 写真があれば右に1枚目を出す（G-7）
+          child: TradePostWithThumb(
+            post: post,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    UserAvatar(uid: post.uid, name: post.displayName),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        post.displayName,
+                        style: theme.textTheme.titleSmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isMine) ...[
+                      const SizedBox(width: 8),
+                      const Chip(
+                        label: Text('自分'),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  ],
+                ),
+                if (targets.isNotEmpty)
+                  Text(
+                    targets,
+                    style: theme.textTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                const SizedBox(height: 4),
+                TradePostSummaryLines(post: post, showHandover: true),
+              ],
+            ),
           ),
         ),
       ),

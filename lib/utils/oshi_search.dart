@@ -92,3 +92,59 @@ int _byName(OshiSummary a, OshiSummary b) {
   if (byKind != 0) return byKind;
   return a.id.compareTo(b.id);
 }
+
+/// 推しを探すの1行（Fc 4.3）
+sealed class OshiSearchEntry {
+  const OshiSearchEntry();
+}
+
+/// グループの行。[hitMemberKeys] は、検索でヒットしたこのグループのメンバー
+/// （OshiSummary.key）
+class GroupSearchEntry extends OshiSearchEntry {
+  GroupSearchEntry(this.group);
+
+  final OshiSummary group;
+  final Set<String> hitMemberKeys = {};
+}
+
+/// 所属グループの無い個人の行
+class PersonSearchEntry extends OshiSearchEntry {
+  const PersonSearchEntry(this.person);
+
+  final OshiSummary person;
+}
+
+/// [searchOshis] の結果を入れ子にする（Fc 4.3）。
+///
+/// - グループはグループの行にする。
+/// - 所属グループのある個人は単独の行にせず、所属グループの行を作って
+///   [GroupSearchEntry.hitMemberKeys] に入れる（所属が複数ならそれぞれに）。
+///   所属グループは [all] から探す（検索でヒットしていなくてもよい）。
+/// - 所属グループが見つからない個人は、個人の行にする。
+/// - 並びは [results] の順で、最初に出てきた位置に置く。
+List<OshiSearchEntry> nestOshiResults(
+  List<OshiSummary> results,
+  List<OshiSummary> all,
+) {
+  final groups = {
+    for (final o in all)
+      if (o.kind == OshiKind.group) o.id: o,
+  };
+  final entries = <String, OshiSearchEntry>{};
+  for (final o in results) {
+    if (o.kind == OshiKind.group) {
+      entries.putIfAbsent(o.key, () => GroupSearchEntry(o));
+      continue;
+    }
+    final own = [for (final id in o.groupIds) ?groups[id]];
+    if (own.isEmpty) {
+      entries.putIfAbsent(o.key, () => PersonSearchEntry(o));
+      continue;
+    }
+    for (final g in own) {
+      final entry = entries.putIfAbsent(g.key, () => GroupSearchEntry(g));
+      (entry as GroupSearchEntry).hitMemberKeys.add(o.key);
+    }
+  }
+  return entries.values.toList();
+}

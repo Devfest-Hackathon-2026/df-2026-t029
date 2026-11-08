@@ -165,7 +165,7 @@ void main() {
         ..tags.add(TradeTag.sell)
         ..priceType = PriceType.below
         ..xAccount = '';
-      final p = d.toPost(base: base);
+      final p = d.toPost(base: base, uploaded: const {});
       expect(p.id, 'post1');
       expect([for (final s in p.gives) s.toMap()], [give.toMap()]);
       expect([for (final s in p.wants) s.toMap()], [want.toMap()]);

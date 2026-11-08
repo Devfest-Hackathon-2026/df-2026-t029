@@ -6,6 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../services/gemini_service.dart';
+import '../../theme/brand_colors.dart';
+import '../../theme/hako_app_widgets.dart';
+import '../../theme/hako_fonts.dart';
 import '../live_form/live_draft.dart';
 
 /// ライブの登録方法を選ぶ画面（スクショから読み取る／手入力する）
@@ -47,20 +50,22 @@ class _ScanPageState extends ConsumerState<ScanPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('ライブを登録')),
+    return HakoPageScaffold(
+      title: 'ライブを登録',
+      showBack: true,
+      backFallback: '/lives/add',
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: HakoPageScaffold.padding(context),
         children: [
           _MethodCard(
-            icon: Icons.document_scanner,
+            icon: Icons.document_scanner_outlined,
             title: 'スクショから読み取る',
             description: '告知画像やチケットサイトのスクリーンショットから、日程や期限を自動で読み取ります',
             onTap: _loading ? null : _pickAndExtract,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           _MethodCard(
-            icon: Icons.edit_note,
+            icon: Icons.edit_note_outlined,
             title: '手入力する',
             description: 'ライブ名・公演・受付を自分で入力します',
             onTap: _loading ? null : () => context.push('/live-form'),
@@ -89,7 +94,11 @@ class _ScanPageState extends ConsumerState<ScanPage> {
               padding: const EdgeInsets.only(top: 16),
               child: Text(
                 _error,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+                style: HakoFonts.jp(
+                  size: 12,
+                  weight: FontWeight.w700,
+                  color: BrandColors.errorText,
+                ),
               ),
             ),
         ],
@@ -113,14 +122,58 @@ class _MethodCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: Icon(icon, size: 40),
-        title: Text(title),
-        subtitle: Text(description),
-        enabled: onTap != null,
-        onTap: onTap,
+    return Opacity(
+      opacity: onTap == null ? 0.5 : 1,
+      child: HakoHardShadow(
+        radius: 14,
+        child: Material(
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: BrandColors.ink, width: 2),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 44,
+                    child: Icon(icon, size: 36, color: BrandColors.ink),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: HakoFonts.jp(
+                            size: 16,
+                            weight: FontWeight.w700,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          description,
+                          style: HakoFonts.jp(
+                            size: 13,
+                            color: BrandColors.sub,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

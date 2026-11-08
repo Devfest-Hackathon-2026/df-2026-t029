@@ -2,15 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:oshiashi/features/home/home_page.dart';
+import 'package:oshiashi/features/oshi/oshi_page.dart';
 import 'package:oshiashi/models/oshi.dart';
 
 import 'oshi_test_helpers.dart';
 
 Finder _key(String k) => find.byKey(Key(k));
 
-/// ホームはボタンが増えて縦に長いので、フォロー中の一覧まで描画される高さにする
-/// （ListView は画面外の項目を作らないため）
+/// 推しの画面（タブの「推し」。ホームから移したフォロー中の一覧）のテスト。
+/// 縦に長い一覧まで描画される高さにする（ListView は画面外の項目を作らないため）
 void _useTallScreen(WidgetTester tester) {
   tester.view.physicalSize = const Size(800, 2000);
   tester.view.devicePixelRatio = 1;
@@ -22,36 +22,20 @@ void main() {
     _useTallScreen(tester);
     await pumpPage(
       tester,
-      const HomePage(),
+      const OshiPage(),
       oshiRepo: FakeOshiRepository(),
       followRepo: FakeFollowRepository(),
       settle: false,
     );
     expect(_key('home_following_loading'), findsOneWidget);
-    expect(_key('home_search_button'), findsOneWidget);
-  });
-
-  testWidgets('ライブを追加するボタンは右下の1つだけ', (tester) async {
-    _useTallScreen(tester);
-    await pumpPage(
-      tester,
-      const HomePage(),
-      oshiRepo: FakeOshiRepository(),
-      followRepo: FakeFollowRepository(),
-      settle: false,
-    );
-    expect(_key('home_add_live_fab'), findsOneWidget);
-    expect(find.byType(FloatingActionButton), findsOneWidget);
-    expect(find.text('ライブを追加する'), findsOneWidget);
-    expect(find.text('スクショから登録'), findsNothing);
-    expect(_key('home_live_list_button'), findsOneWidget);
+    expect(_key('oshi_search_button'), findsOneWidget);
   });
 
   testWidgets('0件: フォローしていない', (tester) async {
     _useTallScreen(tester);
     await pumpPage(
       tester,
-      const HomePage(),
+      const OshiPage(),
       oshiRepo: FakeOshiRepository([oshi('g1', 'A')]),
       followRepo: FakeFollowRepository(),
     );
@@ -63,7 +47,7 @@ void main() {
     _useTallScreen(tester);
     await pumpPage(
       tester,
-      const HomePage(),
+      const OshiPage(),
       oshiRepo: repo,
       followRepo: FakeFollowRepository(const FollowState(groupIds: {'g1'})),
     );
@@ -83,7 +67,7 @@ void main() {
     _useTallScreen(tester);
     await pumpPage(
       tester,
-      const HomePage(),
+      const OshiPage(),
       oshiRepo: FakeOshiRepository([
         oshi('g1', 'A'),
         oshi('g2', '申請中', status: OshiStatus.pending),
@@ -108,7 +92,7 @@ void main() {
     _useTallScreen(tester);
     await pumpPage(
       tester,
-      const HomePage(),
+      const OshiPage(),
       oshiRepo: FakeOshiRepository([oshi('g1', 'A')]),
       followRepo: follow,
     );
@@ -128,7 +112,7 @@ void main() {
     _useTallScreen(tester);
     await pumpPage(
       tester,
-      const HomePage(),
+      const OshiPage(),
       oshiRepo: FakeOshiRepository([oshi('g1', 'A')]),
       followRepo: follow,
     );
@@ -146,7 +130,7 @@ void main() {
     _useTallScreen(tester);
     await pumpPage(
       tester,
-      const HomePage(),
+      const OshiPage(),
       oshiRepo: FakeOshiRepository(list),
       followRepo: FakeFollowRepository(
         FollowState(groupIds: {for (final o in list) o.id}),
@@ -155,4 +139,24 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(_key('home_following_list'), findsOneWidget);
   });
+
+  for (final w in layoutWidths) {
+    testWidgets('幅 ${w.toInt()}・長い名前でもはみ出さない', (tester) async {
+      tester.view.physicalSize = Size(w, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpPage(
+        tester,
+        const OshiPage(),
+        oshiRepo: FakeOshiRepository([
+          oshi('g1', 'とても長いグループの名前' * 5),
+          oshi('g2', 'B'),
+        ]),
+        followRepo: FakeFollowRepository(
+          const FollowState(groupIds: {'g1', 'g2'}),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

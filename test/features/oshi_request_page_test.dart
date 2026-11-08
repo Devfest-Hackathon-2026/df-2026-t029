@@ -70,6 +70,17 @@ Future<void> _selectGenre(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
+/// 種別を切り替える（初期値は個人）
+Future<void> _selectKind(WidgetTester tester, String label) async {
+  await tester.scrollUntilVisible(
+    _key('oshi_request_kind'),
+    -200,
+    scrollable: listScrollable(),
+  );
+  await tester.tap(find.text(label));
+  await tester.pumpAndSettle();
+}
+
 Future<void> _tapSubmit(WidgetTester tester) async {
   await _scrollTo(tester, 'oshi_request_submit_button');
   await tester.tap(_key('oshi_request_submit_button'));
@@ -93,6 +104,7 @@ void main() {
         repo: FakeOshiRepository(_existing),
         name: 'ｻﾝﾌﾟﾙ ぐるーぷ',
       );
+      await _selectKind(tester, 'グループ');
       expect(_key('oshi_request_exact_card'), findsOneWidget);
       expect(_key('oshi_request_candidate_group_g1'), findsOneWidget);
       await _scrollTo(tester, 'oshi_request_submit_button');
@@ -119,6 +131,7 @@ void main() {
         repo: FakeOshiRepository(_existing),
         name: 'しんせいちゅうゆにっと',
       );
+      await _selectKind(tester, 'グループ');
       // 漢字はかなに変換しないので一致しない。カタカナ表記で確かめる
       expect(_key('oshi_request_exact_card'), findsNothing);
 
@@ -235,7 +248,7 @@ void main() {
 
       expect(repo.requests, hasLength(1));
       final r = repo.requests.single;
-      expect(r.kind, OshiKind.group);
+      expect(r.kind, OshiKind.person); // 初期値は個人（Fb-1）
       expect(r.trimmedName, 'あたらしい推し');
       expect(r.genre, OshiGenre.voiceActor);
       expect(r.xHandle, 'new_oshi');

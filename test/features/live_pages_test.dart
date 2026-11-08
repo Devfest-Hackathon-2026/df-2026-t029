@@ -219,13 +219,17 @@ void main() {
       expect(y('none'), lessThan(header));
       expect(header, lessThan(y('ended')));
 
+      // 出演者と日付は、別々の行（Text）で出る
+      expect(textIn('live_list_tile_far', 'グループ1'), findsOneWidget);
       expect(
-        textIn('live_list_tile_far', 'グループ1\n次の公演 2026/12/1(火) 18:00（全2公演）'),
+        textIn('live_list_tile_far', '次の公演 2026/12/1(火) 18:00（全2公演）'),
         findsOneWidget,
       );
-      expect(textIn('live_list_tile_none', '個人1\n公演の日程は未登録です'), findsOneWidget);
+      expect(textIn('live_list_tile_none', '個人1'), findsOneWidget);
+      expect(textIn('live_list_tile_none', '公演の日程は未登録です'), findsOneWidget);
+      expect(textIn('live_list_tile_ended', 'グループ1'), findsOneWidget);
       expect(
-        textIn('live_list_tile_ended', 'グループ1\n終了（最終公演 2026/11/4(水) 18:00）'),
+        textIn('live_list_tile_ended', '終了（最終公演 2026/11/4(水) 18:00）'),
         findsOneWidget,
       );
     });
@@ -279,8 +283,8 @@ void main() {
       await myRepo.add('u1', 'l1');
       await tester.pumpAndSettle();
       expect(_key('live_list_tile_l1'), findsOneWidget);
-      // 1件以上あるときは右下のボタンを出さない
-      expect(_key('live_list_register_fab'), findsNothing);
+      // Fa-3: 件数によらず「ライブを追加する」を出し続ける（1件以上でも消えない）
+      expect(_key('live_list_register_fab'), findsOneWidget);
     });
 
     testWidgets('スマホの幅（360px）で、長い名前でもはみ出さない', (tester) async {
@@ -420,6 +424,10 @@ void main() {
     });
 
     testWidgets('公演: 開演順、日単位のラベル（前日まで「（終了）」・当日「（本日）」・以降なし）', (tester) async {
+      // 本文が長く、一覧は画面外を作らないので、縦に長い画面にする
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       await pumpAt(tester, '/lives/l1', liveRepo: detailRepo());
       expect(
         textIn('live_detail_performance_past', '2026/11/4(水) 23:59 開演（終了）'),
@@ -799,5 +807,44 @@ void main() {
       expect(_key('live_detail_remove_mine_button'), findsNothing);
       expect(_key('live_detail_status_r1'), findsNothing);
     });
+  });
+
+  group('はみ出し（幅 320〜1000・文字 1.3 倍）', () {
+    FakeLiveRepository longRepo() => FakeLiveRepository(
+      lives: [
+        Live(
+          id: 'l1',
+          title: 'とても長いライブ名' * 8,
+          groupIds: const ['g1'],
+          oshiIds: const ['p1'],
+        ),
+      ],
+      performances: [
+        for (var i = 0; i < 6; i++)
+          perfOf('p$i', 'l1', DateTime(2026, 12, 1 + i, 18)),
+      ],
+      receptions: [
+        recOf(
+          'r1',
+          'l1',
+          applyEndAt: DateTime(2026, 11, 8, 23, 59),
+          resultAt: DateTime(2026, 11, 20, 12),
+          paymentDeadline: DateTime(2026, 11, 25, 23, 59),
+          name: '長い受付名' * 6,
+        ),
+      ],
+    );
+
+    for (final w in [320.0, 360.0, 390.0, 720.0, 1000.0]) {
+      for (final path in ['/lives', '/lives/l1']) {
+        testWidgets('$path 幅 ${w.toInt()}', (tester) async {
+          tester.view.physicalSize = Size(w, 800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          await pumpAt(tester, path, liveRepo: longRepo());
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
   });
 }

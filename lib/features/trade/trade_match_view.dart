@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../providers/trade_post_providers.dart';
 import '../../utils/trade_match.dart';
 import '../live_form/date_time_field.dart';
+import '../common/user_avatar.dart';
 import 'trade_post_summary.dart';
+import 'trade_post_thumb.dart';
 
 /// マッチ（交換トップの「マッチ」タブ）。
 /// 相互マッチ → 片方マッチの順に、一致した品目を中心に出す。
@@ -147,41 +149,53 @@ class _MatchCard extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      theirs.displayName,
-                      style: theme.textTheme.titleSmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+          // 相手の投稿に写真があれば右に1枚目を出す（G-7）
+          child: TradePostWithThumb(
+            post: theirs,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    UserAvatar(uid: theirs.uid, name: theirs.displayName),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        theirs.displayName,
+                        style: theme.textTheme.titleSmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
+                    const SizedBox(width: 8),
+                    Chip(
+                      label: Text(match.isMutual ? '相互' : '片方'),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                ),
+                Text(
+                  receive.isEmpty
+                      ? 'もらえるもの：あなたの求に合う品目があります'
+                      : 'もらえるもの：$receive',
+                ),
+                if (match.isMutual)
+                  Text(
+                    give.isEmpty ? '出せるもの：相手の求に合う品目があります' : '出せるもの：$give',
                   ),
-                  const SizedBox(width: 8),
-                  Chip(
-                    label: Text(match.isMutual ? '相互' : '片方'),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
-              Text(
-                receive.isEmpty ? 'もらえるもの：あなたの求に合う品目があります' : 'もらえるもの：$receive',
-              ),
-              if (match.isMutual)
-                Text(give.isEmpty ? '出せるもの：相手の求に合う品目があります' : '出せるもの：$give'),
-              if (match.pairs.length > 1)
-                Text('合うあなたの投稿：${match.pairs.length}件'),
-              Text(tagLine(theirs)),
-              Text('受け渡し：${theirs.handover.map((h) => h.label).join('・')}'),
-              const SizedBox(height: 4),
-              Text(
-                updatedAt == null ? '保存中…' : '更新：${formatDateTime(updatedAt)}',
-                style: theme.textTheme.bodySmall,
-              ),
-            ],
+                if (match.pairs.length > 1)
+                  Text('合うあなたの投稿：${match.pairs.length}件'),
+                Text(tagLine(theirs)),
+                Text('受け渡し：${theirs.handover.map((h) => h.label).join('・')}'),
+                const SizedBox(height: 4),
+                Text(
+                  updatedAt == null
+                      ? '保存中…'
+                      : '更新：${formatDateTime(updatedAt)}',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -3,97 +3,97 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/profile_providers.dart';
-import '../../repositories/auth_repository.dart';
+import '../../theme/hako_app_widgets.dart';
+import '../../theme/hako_fonts.dart';
+import '../../providers/oshi_providers.dart';
+import '../common/user_avatar.dart';
 import '../live/upcoming_deadlines_section.dart';
-import '../oshi/following_oshi_list.dart';
+
+import 'home_section_header.dart';
+import 'home_recent_memories.dart';
+import 'home_upcoming_lives.dart';
+import 'home_new_trades.dart';
+import 'home_expense_summary.dart';
+import 'home_next_trip.dart';
+import 'home_oshi_days.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // final user = ref.watch(authStateProvider).value;
     final profile = ref.watch(myProfileProvider).value;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('おしあし'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.account_circle),
-            tooltip: 'プロフィール',
-            onPressed: () => context.push('/profile'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'ログアウト',
-            onPressed: () => ref.read(authRepositoryProvider).signOut(),
-          ),
-        ],
-      ),
+    return HakoPageScaffold(
+      title: 'おしあし',
+      showDesktopTitle: false,
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          key: const Key('home_page'),
+          padding: HakoPageScaffold.padding(context),
           children: [
-            Text('ようこそ、${profile?.displayName ?? 'ゲスト'} さん'),
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton.icon(
-                key: const Key('home_search_button'),
-                onPressed: () => context.push('/oshi/search'),
-                icon: const Icon(Icons.search),
-                label: const Text('推しを探す'),
-              ),
+            _Greeting(
+              uid: ref.watch(currentUidProvider),
+              name: profile?.displayName ?? 'ゲスト',
             ),
-            const SizedBox(height: 8),
-            // ライブの登録は右下のボタン（登録方法を選ぶ画面）にまとめる
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                key: const Key('home_live_list_button'),
-                onPressed: () => context.push('/lives'),
-                icon: const Icon(Icons.event_note),
-                label: const Text('ライブ一覧'),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                key: const Key('home_trade_button'),
-                onPressed: () => context.push('/trade'),
-                icon: const Icon(Icons.swap_horiz),
-                label: const Text('グッズ交換'),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                key: const Key('home_memory_button'),
-                onPressed: () => context.push('/memories'),
-                icon: const Icon(Icons.photo_album),
-                label: const Text('メモリー'),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text('次の締切', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
+            // 推しの記念日（add_O 3.3）
+            const HomeOshiDays(),
+            const HomeSectionHeader(title: '次の締切'),
             const UpcomingDeadlinesSection(),
-            const SizedBox(height: 24),
-            Text('フォロー中の推し', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            const FollowingOshiList(),
+            const HomeUpcomingLives(),
+            // 次の遠征（add_E 6章）
+            const HomeNextTrip(),
+            const HomeNewTrades(),
+            // 今月の推し活費（H-3）
+            const HomeExpenseSummary(),
+            const HomeRecentMemories(),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        key: const Key('home_add_live_fab'),
-        onPressed: () => context.push('/lives/add'),
-        icon: const Icon(Icons.add),
-        label: const Text('ライブを追加する'),
-      ),
+    );
+  }
+}
+
+/// ① あいさつ（左にアイコン。add_I 3.3）と「行きたいライブを追加」
+class _Greeting extends StatelessWidget {
+  const _Greeting({required this.uid, required this.name});
+
+  final String? uid;
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = this.uid;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            if (uid != null) ...[
+              UserAvatar(uid: uid, name: name, size: 48),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Text(
+                'こんにちは、$nameさん',
+                key: const Key('home_greeting'),
+                style: HakoFonts.jp(
+                  size: 24,
+                  weight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          key: const Key('home_add_live_button'),
+          onPressed: () => context.push('/lives/add'),
+          icon: const Icon(Icons.add),
+          label: const Text('行きたいライブを追加'),
+        ),
+      ],
     );
   }
 }

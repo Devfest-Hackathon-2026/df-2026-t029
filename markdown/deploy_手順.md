@@ -15,10 +15,13 @@
 
 ```bash
 flutter pub get
-flutter build web --release --dart-define=APP_CHECK_SITE_KEY=<reCAPTCHA v3 のサイトキー>
+flutter build web --release \
+  --dart-define=APP_CHECK_SITE_KEY=<reCAPTCHA v3 のサイトキー> \
+  --dart-define=FCM_VAPID_KEY=<ウェブプッシュ証明書の鍵（2.7）>
 ```
 
 - サイトキーを渡さずにビルドすると、App Check は無効のまま動く（アプリ自体は動く）。
+- VAPID キーを渡さずにビルドすると、リマインド通知をオンにできない（「通知の設定がされていません」と出る。アプリ自体は動く）。
 - 出力は `build/web`。`firebase.json` の Hosting の設定がこのフォルダを公開する（すべてのパスを `/index.html` に書き換えるので、`/lives/xxx` を直接開いても表示される）。
 
 ### 1.2 まずプレビューに公開して確かめる
@@ -46,6 +49,27 @@ firebase deploy --only firestore:indexes
 - **Step7 では `firestore.rules` と `firestore.indexes.json` は変えていない**（監査の結果、重大な指摘が無かったため）。dev にほかの変更が入っていなければ、デプロイは不要。
 - `firestore.rules` は横山さんと共有なので、デプロイの前に一声かける。
 - インデックスは作成に数分かかる。コンソールの「Firestore → インデックス」で「有効」になるまで、該当の画面（グッズ交換の掲示板・マッチング・チャット一覧）がエラーになることがある。
+
+### 1.5 Cloud Functions（リマインド通知・天気。変えたときだけ）
+
+```bash
+firebase deploy --only functions
+```
+
+- `sendDeadlineReminders`（15分おき）と `getEventWeather`（公演の日の天気。Callable）が `asia-northeast1` にデプロイされる。Blaze プランが必要。
+- `getEventWeather` はシークレット `WEATHER_API_KEY` を使う（2.9）。シークレットを作る前にデプロイすると失敗する。
+- 初回は必要な API の有効化を聞かれるので進める。コンテナイメージの削除ポリシーは既定の日数でよい。
+- すぐに動かして確かめるときは、Google Cloud コンソール → Cloud Scheduler → `firebase-schedule-sendDeadlineReminders-...` →「強制実行」。結果は Firebase コンソール → Functions → ログで見る。
+
+### 1.6 Storage のルール（変えたときだけ）
+
+```bash
+firebase deploy --only storage
+```
+
+- `storage.rules`。メモリーの写真（`users/{uid}/memories/...`）は本人だけが読み書きでき、作成は 5MB 未満の画像だけ。
+- 推しの画像（`users/{uid}/oshiIcons/...`）は本人だけ、プロフィールのアイコン（`userIcons/{uid}/...`）はログイン済みなら読める。作成はどちらも 2MB 未満の画像だけ（add_I）。
+- add_I で `firestore.rules` に公開プロフィール（`publicProfiles`）も足したので、`firebase deploy --only firestore:rules,storage` でまとめて出す。
 
 ## 2. コンソールでの設定
 
@@ -95,10 +119,42 @@ Google Cloud コンソール → API とサービス → 認証情報 → `lib/f
   - `http://localhost:8080/*`
 - **API の制限**は、かけるなら Firebase が使う API（Identity Toolkit・Token Service・Cloud Firestore・Firebase Installations・Firebase App Check・Firebase AI Logic〔Generative Language〕など）をすべて含めること。足りないと、その機能だけが動かなくなる。まずはアプリケーションの制限だけにして、動作を確かめてから API の制限を検討する。
 - 設定は反映まで数分かかる。設定後に「3. 公開後の確認」をもう一度行う。
+- **API の制限**は、かけるなら Firebase が使う API（Identity Toolkit・Token Service・Cloud Firestore・Firebase Installations・Firebase App Check・Firebase AI Logic〔Generative Language〕・**Firebase Cloud Messaging・FCM Registration** など）をすべて含めること。足りないと、その機能だけが動かなくなる。まずはアプリケーションの制限だけにして、動作を確かめてから API の制限を検討する。
 
 ### 2.6 予算アラート
 
-- 今は Spark（無料）なので請求は発生しない。**Blaze に切り替えたとき**（Step6 の通知など）は、Google Cloud コンソール → お支払い → 予算とアラート で、少額（例: 1,000 円）の予算アラートを作る。
+- Blaze に切り替え済み（11/7。Google Cloud 無料トライアルの請求先アカウントを紐づけ）。Google Cloud コンソール → お支払い → 予算とアラート で、少額（例: 1,000 円）の予算アラートを作る。
+
+### 2.7 リマインド通知（Cloud Messaging）
+
+- Firebase コンソール → プロジェクトの設定 → Cloud Messaging で、「Firebase Cloud Messaging API（V1）」が有効なことを確かめる。
+- 同じ画面の「ウェブ構成」→「ウェブプッシュ証明書」で鍵ペアを生成し、公開鍵を 1.1 のビルドの `FCM_VAPID_KEY` に渡す。リポジトリには書かない。
+
+### 2.8 Cloud Storage（写真）
+
+- バケットは `oshiashi-test.firebasestorage.app`（場所は US-EAST1。Storage の無料枠の対象。後から変えられない）。11/7 に作成済み。
+- Flutter Web で写真を表示するため、バケットに CORS を設定してある。設定し直すときは、Google Cloud コンソールの Cloud Shell で次を1行ずつ実行する。
+
+```bash
+echo '[{"origin": ["*"], "method": ["GET"], "maxAgeSeconds": 3600}]' > cors.json
+gcloud storage buckets update gs://oshiashi-test.firebasestorage.app --cors-file=cors.json
+```
+
+- 確認は `gcloud storage buckets describe gs://oshiashi-test.firebasestorage.app --format="default(cors_config)"`。
+- API キーの「API の制限」をかけるときは、Cloud Storage for Firebase も含める（2.5）。
+
+### 2.9 天気（Weather API）
+
+- Google Cloud コンソール → API とサービス → ライブラリ で **Weather API** を有効にする（11/8 済み）。
+- 認証情報で Functions 用の API キーを作り、**API の制限を Weather API だけ**にする。アプリケーションの制限は付けない（サーバーから呼ぶため）。2.5 の Web 用の API キーとは別のキーにする。
+- キーは Secret Manager に保存する（リポジトリには書かない）。コマンドにはシークレットの名前だけを書き、キーは聞かれたところで貼り付ける（画面には出ない）。
+
+```bash
+firebase functions:secrets:set WEATHER_API_KEY
+```
+
+- キーを変えたときは、上のコマンドで新しい版を作り、`firebase deploy --only functions` をやり直す。
+- 無料枠は月1万回（Essentials）。Functions が都道府県ごとに3時間 `weatherCache` に置くので、同じ地域の公演では呼び出しが増えない。
 
 ## 3. 公開後の確認
 
@@ -115,6 +171,10 @@ Google Cloud コンソール → API とサービス → 認証情報 → `lib/f
 9. 更新: 公開し直した後、再読み込みで新しい版が出る（`index.html`・`main.dart.js` などはキャッシュしない設定）。
 10. App Check: App Check の API の画面に、公開したアプリからのリクエストが「検証済み」として数えられている。
 11. API キー: 許可していないサイトからは使えない（2.5 の設定が入っている）。
+12. リマインド通知: プロフィールで「リマインド通知」をオンにできる。期限が24時間以内の受付があると、15分以内に通知が届き、押すとライブ詳細が開く（Cloud Scheduler の強制実行ですぐ確かめられる）。PC か Android の Chrome で確かめる。
+13. メモリーの写真: 記録の編集で写真を追加・保存でき、詳細画面とアルバムのカードに表示される（表示されないときは 2.8 の CORS を確かめる）。
+14. 遠征: ライブ詳細の公演の行と遠征の一覧（`/trips`）に、9日後までの公演の天気予報が出る。ホームに「次の遠征」が出て、「すべて見る」で一覧が開く。「行き方」「周辺の宿」などが Google マップで開く。
+15. アイコン: 推しの札を押して、色・絵文字・画像を選べる（画像は自分にだけ見える）。プロフィールでアイコンを選ぶと、ホームのあいさつ・アカウントのボタン・自分の投稿と返信・チャット一覧（相手から見たとき）に出る。
 
 ## 4. デモ用データ（架空）
 

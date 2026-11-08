@@ -50,14 +50,14 @@ void main() {
     repo = FirestoreLiveRepository(db);
   });
 
-  test('ライブ3・公演5・受付5が、全件読める', () async {
+  test('ライブ15・公演29・受付23が、全件読める', () async {
     final ids = (data['lives'] as Map).keys.cast<String>().toSet();
     final lives = await repo.watchLivesByIds(ids).first;
     final perfs = await repo.watchPerformancesOfLives(ids).first;
     final recs = await repo.watchReceptionsOfLives(ids).first;
-    expect(lives.length, 3);
-    expect(perfs.length, 5);
-    expect(recs.length, 5);
+    expect(lives.length, 15);
+    expect(perfs.length, 29);
+    expect(recs.length, 23);
     expect(
       lives.every(
         (l) =>
@@ -72,7 +72,7 @@ void main() {
   test('受付の中身: アプグレは当選者のみ、料金・期限が読める', () async {
     final ids = (data['lives'] as Map).keys.cast<String>().toSet();
     final recs = await repo.watchReceptionsOfLives(ids).first;
-    final upg = recs.firstWhere((r) => r.id == 'demo-rec-tour-upgrade');
+    final upg = recs.firstWhere((r) => r.id == 'demo-rec-stella-tour-upgrade');
     expect(upg.winnersOnly, isTrue);
     expect(upg.type, ReceptionType.upgrade);
     expect(upg.prices, isNotEmpty);

@@ -35,21 +35,44 @@ class GoogleCalendarService {
 
     // final provider = GoogleAuthProvider()..addScope(_scope);
     // final result = await user.reauthenticateWithPopup(provider);
-    final provider = GoogleAuthProvider()
-      ..addScope(_scope)
-      // ポップアップで、ログイン中のアカウントを最初から選んだ状態にする
-      ..setCustomParameters({
-        if (user.email != null) 'login_hint': user.email!,
-      });
+    final hasGoogle = user.providerData.any(
+      (p) => p.providerId == 'google.com',
+    );
 
-    final UserCredential result;
-    try {
-      result = await user.reauthenticateWithPopup(provider);
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-mismatch') {
-        throw StateError('ログイン中のアカウント（${user.email}）を選んでください');
+    UserCredential result;
+    if (hasGoogle) {
+      final provider = GoogleAuthProvider()
+        ..addScope(_scope)
+        // ポップアップで、ログイン中のアカウントを最初から選んだ状態にする
+        ..setCustomParameters({
+          if (user.email != null) 'login_hint': user.email!,
+        });
+      try {
+        result = await user.reauthenticateWithPopup(provider);
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'user-mismatch') {
+          throw StateError('ログイン中のアカウント（${user.email}）を選んでください');
+        }
+        rethrow;
       }
-      rethrow;
+    } else {
+      // メールで登録した人: 初めて使うときに Google アカウントをつなぐ
+      final provider = GoogleAuthProvider()..addScope(_scope);
+      try {
+        result = await user.linkWithPopup(provider);
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'credential-already-in-use' ||
+            e.code == 'email-already-in-use') {
+          throw StateError(
+            'この Google アカウントは、別のおしあしのアカウントで使われています。別の Google アカウントを選んでください',
+          );
+        }
+        if (e.code == 'provider-already-linked') {
+          result = await user.reauthenticateWithPopup(provider);
+        } else {
+          rethrow;
+        }
+      }
     }
 
     final newToken = result.credential?.accessToken;

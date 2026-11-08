@@ -1,3 +1,4 @@
+import '../models/goods.dart';
 import '../models/trade_post.dart';
 
 /// 掲示板に出す投稿と、続きがあるか
@@ -55,6 +56,7 @@ class BoardFilter {
   const BoardFilter({
     this.goodsId,
     this.goodsName,
+    this.categories = const {},
     this.side = BoardSide.any,
     this.tags = const {},
     this.performanceId,
@@ -63,20 +65,23 @@ class BoardFilter {
 
   static const BoardFilter none = BoardFilter();
 
-  /// グッズ。null なら指定なし
+  /// グッズ。null なら指定なし（推しを1つ選んでいるときだけ使う）
   final String? goodsId;
 
   /// グッズ名（条件のチップの表示用）
   final String? goodsName;
 
-  /// グッズを選んだときは、そのグッズを譲・求のどちらに含むか。
-  /// グッズを選ばないときは、譲・求があるか
+  /// グッズの種別。どれかに当たるグッズを含む投稿を出す。空なら指定なし（Fc 5.1）
+  final Set<GoodsCategory> categories;
+
+  /// グッズ・種別を選んだときは、それを譲・求のどちらに含むか。
+  /// どちらも選ばないときは、譲・求があるか
   final BoardSide side;
 
   /// タグ。どれかを含む投稿を出す。空なら指定なし
   final Set<TradeTag> tags;
 
-  /// 手渡しの公演。null なら指定なし
+  /// 手渡しの公演。null なら指定なし（推しを1つ選んでいるときだけ使う）
   final String? performanceId;
 
   /// 公演の表示名（条件のチップの表示用）
@@ -84,6 +89,7 @@ class BoardFilter {
 
   bool get isEmpty =>
       goodsId == null &&
+      categories.isEmpty &&
       side == BoardSide.any &&
       tags.isEmpty &&
       performanceId == null;
@@ -91,10 +97,21 @@ class BoardFilter {
   /// 指定している条件の数（ボタンの表示用）
   int get count =>
       (goodsId != null || side != BoardSide.any ? 1 : 0) +
+      (categories.isNotEmpty ? 1 : 0) +
       (tags.isNotEmpty ? 1 : 0) +
       (performanceId != null ? 1 : 0);
 
   BoardFilter withoutGoods() => BoardFilter(
+    categories: categories,
+    tags: tags,
+    performanceId: performanceId,
+    performanceLabel: performanceLabel,
+  );
+
+  BoardFilter withoutCategories() => BoardFilter(
+    goodsId: goodsId,
+    goodsName: goodsName,
+    side: side,
     tags: tags,
     performanceId: performanceId,
     performanceLabel: performanceLabel,
@@ -103,6 +120,7 @@ class BoardFilter {
   BoardFilter withoutTags() => BoardFilter(
     goodsId: goodsId,
     goodsName: goodsName,
+    categories: categories,
     side: side,
     performanceId: performanceId,
     performanceLabel: performanceLabel,
@@ -111,13 +129,26 @@ class BoardFilter {
   BoardFilter withoutPerformance() => BoardFilter(
     goodsId: goodsId,
     goodsName: goodsName,
+    categories: categories,
     side: side,
     tags: tags,
   );
 
-  /// 投稿が条件に合うか
-  bool matches(TradePost p) {
-    if (!_matchesGoods(p)) return false;
+  /// 推しを決めないと使えない条件（グッズ・手渡しの公演）を外したもの。
+  /// 「フォロー中すべて」で使う（Fc 5.1）
+  BoardFilter withoutTargetOnly() => BoardFilter(
+    categories: categories,
+    side: side,
+    tags: tags,
+  );
+
+  /// 投稿が条件に合うか。[categoryOf] はグッズの ID → 種別
+  /// （種別で絞り込むときだけ要る。引けないグッズは種別に合わないとする）
+  bool matches(
+    TradePost p, {
+    Map<String, GoodsCategory> categoryOf = const {},
+  }) {
+    if (!_matchesGoods(p, categoryOf)) return false;
     if (tags.isNotEmpty && !p.tags.any(tags.contains)) return false;
     if (performanceId != null &&
         !(p.handover.contains(HandoverMethod.hand) &&
@@ -127,21 +158,34 @@ class BoardFilter {
     return true;
   }
 
-  bool _matchesGoods(TradePost p) {
-    final g = goodsId;
+  /// グッズ（と種別）の条件に合う品目か
+  bool _itemMatches(String? id, Map<String, GoodsCategory> categoryOf) =>
+      id != null &&
+      (goodsId == null || id == goodsId) &&
+      (categories.isEmpty || categories.contains(categoryOf[id]));
+
+  bool _matchesGoods(TradePost p, Map<String, GoodsCategory> categoryOf) {
+    if (goodsId == null && categories.isEmpty) {
+      // グッズ・種別を選ばないときは、譲・求があるか
+      return switch (side) {
+        BoardSide.give => p.gives.any((s) => s.items.isNotEmpty),
+        BoardSide.want => p.wants.any((s) => s.targets.isNotEmpty),
+        BoardSide.any => true,
+      };
+    }
     final inGives = p.gives.any(
-      (s) => s.items.any((i) => g == null || i.goodsId == g),
+      (s) => s.items.any((i) => _itemMatches(i.goodsId, categoryOf)),
     );
-    // メンバー指定の求は、グッズの絞り込みでは引っかけない
+    // メンバー指定の求は、グッズ・種別の絞り込みでは引っかけない
     final inWants = p.wants.any(
       (s) => s.targets.any(
-        (t) => g == null ? true : t.type != WantType.member && t.goodsId == g,
+        (t) => t.type != WantType.member && _itemMatches(t.goodsId, categoryOf),
       ),
     );
     return switch (side) {
       BoardSide.give => inGives,
       BoardSide.want => inWants,
-      BoardSide.any => g == null || inGives || inWants,
+      BoardSide.any => inGives || inWants,
     };
   }
 }

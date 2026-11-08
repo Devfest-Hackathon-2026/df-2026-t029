@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../providers/live_providers.dart';
 import '../../utils/deadline.dart';
+import '../../theme/hako_app_widgets.dart';
 import 'deadline_format.dart';
 
 /// ホームに出す「次の締切」の件数
@@ -132,38 +133,46 @@ class _DeadlineTile extends StatelessWidget {
   final DeadlineEntry entry;
   final DateTime now;
 
+  /// 締切の種類ごとのアイコン
+  static IconData _kindIcon(DeadlineKind kind) => switch (kind) {
+    DeadlineKind.apply => Icons.edit_calendar_outlined,
+    DeadlineKind.result => Icons.campaign_outlined,
+    DeadlineKind.payment => Icons.payments_outlined,
+  };
+
+  /// 締切の種類ごとのチップの色（申込＝赤・当落＝黄・入金＝緑）
+  static HakoChipKind _chipKind(DeadlineKind kind) => switch (kind) {
+    DeadlineKind.apply => HakoChipKind.apply,
+    DeadlineKind.result => HakoChipKind.draw,
+    DeadlineKind.payment => HakoChipKind.pay,
+  };
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final reception = entry.deadline.reception;
     final action = describeNextDeadline(entry.deadline, now);
-    final urgent = action.isUrgent;
     final opens = action.opensText;
+    final soon =
+        !action.isUrgent &&
+        entry.deadline.at.difference(now) <= const Duration(days: 7);
 
-    return ListTile(
+    return HakoRow(
       key: Key('home_deadline_tile_${reception.id}'),
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        urgent ? Icons.warning_amber_rounded : Icons.schedule,
-        color: urgent ? scheme.error : null,
+      // 急ぎ（24時間以内）は、色だけでなく警告のアイコンでも示す
+      icon: action.isUrgent
+          ? Icons.warning_amber_rounded
+          : _kindIcon(entry.deadline.kind),
+      title: entry.live.title,
+      subs: [
+        [reception.name, if (reception.winnersOnly) '【当選者のみ】'].join(' '),
+        ?opens,
+      ],
+      // 近い締切（7日以内）の目印キーは、チップに付けて残す
+      chip: HakoStatusChip(
+        action.text,
+        key: soon ? Key('home_deadline_soon_${reception.id}') : null,
+        kind: _chipKind(entry.deadline.kind),
       ),
-      title: Text(entry.live.title),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            [reception.name, if (reception.winnersOnly) '【当選者のみ】'].join(' '),
-          ),
-          Text(
-            action.text,
-            style: urgent
-                ? TextStyle(color: scheme.error, fontWeight: FontWeight.bold)
-                : null,
-          ),
-          if (opens != null) Text(opens),
-        ],
-      ),
-      trailing: const Icon(Icons.chevron_right),
       onTap: () => context.push('/lives/${entry.live.id}'),
     );
   }
