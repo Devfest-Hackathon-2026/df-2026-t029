@@ -381,22 +381,28 @@ class _BoardCard extends ConsumerWidget {
                 children: [
                   UserAvatar(uid: post.uid, name: post.displayName),
                   const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      post.displayName,
-                      style: theme.textTheme.titleSmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  // 名前（と「自分」）で残りの幅を使い、更新日を右端に寄せる
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            post.displayName,
+                            style: theme.textTheme.titleSmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isMine) ...[
+                          const SizedBox(width: 8),
+                          const Chip(
+                            label: Text('自分'),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  if (isMine) ...[
-                    const SizedBox(width: 8),
-                    const Chip(
-                      label: Text('自分'),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ],
-                  const Spacer(),
                   const SizedBox(width: 8),
                   Text(
                     updatedAt == null
