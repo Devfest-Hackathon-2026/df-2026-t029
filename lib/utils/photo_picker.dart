@@ -116,3 +116,34 @@ String? photoPickMessage(PhotoPickResult result) {
   ];
   return parts.isEmpty ? null : parts.join('。');
 }
+
+/// アイコン（推しの画像・プロフィールのアイコン）の長辺（px。add_I 3.1b・3.2）
+const iconMaxSide = 512.0;
+
+/// アイコン1枚の大きさの上限（Storage のルールと同じ）
+const maxIconBytes = 2 * 1024 * 1024;
+
+/// アイコンの写真を1枚選ぶ（add_I）。長辺 512px に縮小する。
+/// 何も選ばなかったときは photo が null・rejected が false。
+/// 大きすぎる・対応していない形式なら photo が null・rejected が true
+Future<({PickedPhoto? photo, bool rejected})> pickIconPhoto() async {
+  final file = await ImagePicker().pickImage(
+    source: ImageSource.gallery,
+    maxWidth: iconMaxSide,
+    maxHeight: iconMaxSide,
+    imageQuality: 85,
+  );
+  if (file == null) return (photo: null, rejected: false);
+  final type = _contentTypeOf(file);
+  if (type == null) return (photo: null, rejected: true);
+  final bytes = await file.readAsBytes();
+  if (bytes.length >= maxIconBytes) return (photo: null, rejected: true);
+  return (
+    photo: PickedPhoto(
+      bytes: bytes,
+      contentType: type,
+      extension: _extensionOf[type]!,
+    ),
+    rejected: false,
+  );
+}

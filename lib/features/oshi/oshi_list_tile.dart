@@ -7,6 +7,8 @@ import '../../theme/brand_colors.dart';
 import '../../theme/hako_app_widgets.dart';
 import '../../theme/hako_fonts.dart';
 import '../../providers/oshi_emoji_providers.dart';
+import '../../providers/oshi_image_providers.dart';
+import '../common/storage_image.dart';
 
 /// グループの ID → グループ名（個人の行に「所属：◯◯」を出すのに使う）
 Map<String, String> groupNamesById(List<OshiSummary> all) => {
@@ -19,10 +21,10 @@ List<String> groupNamesOf(OshiSummary oshi, Map<String, String> names) => [
   for (final id in oshi.groupIds) ?names[id],
 ];
 
-/// 推しの種別の札（Fc 4.3・5.3・add_I 3.1）。
+/// 推しの種別の札（Fc 4.3・5.3・add_I 3.1・3.1b）。
 /// グループは墨の丸に白（色があれば枠をその色にする）、
 /// 個人は白の丸に墨の枠（色があれば地をその色にする）。
-/// 絵文字があれば、人・グループのアイコンの代わりに絵文字を出す
+/// 中身は 画像 → 絵文字 → 人・グループのアイコン の順に優先する
 class OshiKindBadge extends ConsumerWidget {
   const OshiKindBadge({super.key, required this.oshi, this.size = 36});
 
@@ -39,8 +41,34 @@ class OshiKindBadge extends ConsumerWidget {
       oshi,
       ref.watch(oshiEmojisProvider).value ?? const {},
     );
+    final image = resolveOshiImage(
+      oshi,
+      ref.watch(oshiImagesProvider).value ?? const {},
+    );
     final isGroup = oshi.kind == OshiKind.group;
     final background = isGroup ? BrandColors.ink : (color ?? BrandColors.surface);
+    final border = Border.all(
+      color: isGroup ? (color ?? BrandColors.ink) : BrandColors.ink,
+      width: isGroup && color != null ? 3 : 2,
+    );
+
+    // 画像は丸く切り抜き、枠は画像の上に描く
+    if (image != null) {
+      return Semantics(
+        label: oshi.kind.label,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: background),
+          foregroundDecoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: border,
+          ),
+          child: ClipOval(child: StorageImage(path: image)),
+        ),
+      );
+    }
+
     return Container(
       width: size,
       height: size,
@@ -48,10 +76,7 @@ class OshiKindBadge extends ConsumerWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: background,
-        border: Border.all(
-          color: isGroup ? (color ?? BrandColors.ink) : BrandColors.ink,
-          width: isGroup && color != null ? 3 : 2,
-        ),
+        border: border,
       ),
       child: emoji != null
           ? Text(

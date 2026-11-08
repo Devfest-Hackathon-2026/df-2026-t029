@@ -4,9 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/oshi.dart';
 import '../../providers/oshi_color_providers.dart';
 import '../../providers/oshi_emoji_providers.dart';
+import '../../providers/oshi_image_providers.dart';
 import '../../providers/oshi_providers.dart';
+import '../../providers/photo_providers.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/hako_fonts.dart';
+import '../../utils/photo_picker.dart';
+import '../common/storage_image.dart';
 import '../profile/theme_color_picker.dart';
 
 /// 絵文字の候補（add_I 3.1）
@@ -15,7 +19,8 @@ const kOshiEmojiPresets = [
   '🐱', '🦊', '🐻', '🍓', '🍒', '🔥', '🌈', '✨', '👑', '🎤', '🎸', '🫶',
 ];
 
-/// 推しの色と絵文字を選ぶシート（Fc 5.3・add_I 3.1）。選ぶとすぐ保存して閉じる
+/// 推しの色・絵文字・画像を選ぶシート（Fc 5.3・add_I 3.1・3.1b）。
+/// 選ぶとすぐ保存して閉じる
 Future<void> showOshiColorSheet(BuildContext context, OshiSummary oshi) {
   return showModalBottomSheet<void>(
     context: context,
@@ -45,6 +50,12 @@ class _OshiColorSheetState extends ConsumerState<_OshiColorSheet> {
   void dispose() {
     _emojiInput.dispose();
     super.dispose();
+  }
+
+  void _showMessage(String text) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
   }
 
   /// 保存して閉じる。失敗したら知らせて、シートは開いたままにする
@@ -84,13 +95,37 @@ class _OshiColorSheetState extends ConsumerState<_OshiColorSheet> {
   void _submitInput() {
     final emoji = normalizeOshiEmoji(_emojiInput.text);
     if (emoji == null) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('絵文字を1文字入れてください')));
+      _showMessage('絵文字を1文字入れてください');
       return;
     }
     _saveEmoji(emoji);
   }
+
+  /// 画像を選んで、アップロードして保存する。前の画像は消す（add_I 3.1b）
+  Future<void> _pickImage() async {
+    if (_saving) return;
+    final picked = await pickIconPhoto();
+    if (!mounted) return;
+    if (picked.rejected) {
+      _showMessage('画像は 2MB 未満の JPEG・PNG・WebP・GIF にしてください');
+      return;
+    }
+    final photo = picked.photo;
+    if (photo == null) return;
+    final old = (ref.read(oshiImagesProvider).value ?? const {})[_key];
+    await _run((uid) async {
+      final photos = ref.read(photoRepositoryProvider);
+      final path = await photos.upload(oshiImageDir(uid), photo);
+      await ref.read(oshiImageRepositoryProvider).setImage(uid, _key, path);
+      if (old != null) await photos.deleteAll([old]);
+    }, '画像を保存できませんでした。もう一度お試しください');
+  }
+
+  /// 画像を外す（ファイルも消す）
+  Future<void> _removeImage(String old) => _run((uid) async {
+    await ref.read(oshiImageRepositoryProvider).setImage(uid, _key, null);
+    await ref.read(photoRepositoryProvider).deleteAll([old]);
+  }, '画像を外せませんでした。もう一度お試しください');
 
   @override
   Widget build(BuildContext context) {
@@ -99,6 +134,8 @@ class _OshiColorSheetState extends ConsumerState<_OshiColorSheet> {
     final own = colors[_key];
     final emojis = ref.watch(oshiEmojisProvider).value ?? const {};
     final ownEmoji = emojis[_key];
+    final images = ref.watch(oshiImagesProvider).value ?? const {};
+    final ownImage = images[_key];
     final heading = HakoFonts.jp(size: 14, weight: FontWeight.w700, height: 1.5);
     final note = HakoFonts.jp(size: 12, color: BrandColors.sub, height: 1.5);
 
@@ -238,6 +275,51 @@ class _OshiColorSheetState extends ConsumerState<_OshiColorSheet> {
               ),
             ],
           ),
+          const SizedBox(height: 24),
+          // 画像（add_I 3.1b）
+          Text('画像', style: heading),
+          Text('絵文字より優先して札に出ます。画像は自分にだけ見えます', style: note),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: BrandColors.surface,
+                  border: Border.all(color: BrandColors.ink, width: 2),
+                ),
+                child: ownImage == null
+                    ? const Icon(Icons.image_outlined, color: BrandColors.sub)
+                    : ClipOval(
+                        child: SizedBox.expand(
+                          child: StorageImage(path: ownImage),
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                key: const Key('oshi_image_pick'),
+                onPressed: _saving ? null : _pickImage,
+                icon: const Icon(Icons.photo_library_outlined, size: 18),
+                label: Text(ownImage == null ? '画像を選ぶ' : '画像を変える'),
+              ),
+              if (ownImage != null) ...[
+                const SizedBox(width: 8),
+                TextButton(
+                  key: const Key('oshi_image_remove'),
+                  onPressed: _saving ? null : () => _removeImage(ownImage),
+                  child: const Text('外す'),
+                ),
+              ],
+            ],
+          ),
+          if (_saving) ...[
+            const SizedBox(height: 12),
+            const LinearProgressIndicator(),
+          ],
         ],
       ),
     );
