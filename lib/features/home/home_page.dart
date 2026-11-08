@@ -15,6 +15,7 @@ import 'home_upcoming_lives.dart';
 import 'home_new_trades.dart';
 import 'home_expense_summary.dart';
 import 'home_next_trip.dart';
+import 'home_oshi_days.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -35,6 +36,8 @@ class HomePage extends ConsumerWidget {
               uid: ref.watch(currentUidProvider),
               name: profile?.displayName ?? 'ゲスト',
             ),
+            // 推しの記念日（add_O 3.3）
+            const HomeOshiDays(),
             const HomeSectionHeader(title: '次の締切'),
             const UpcomingDeadlinesSection(),
             const HomeUpcomingLives(),
