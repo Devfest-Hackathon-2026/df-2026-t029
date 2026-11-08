@@ -91,9 +91,27 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
     final groups = list.where((o) => o.kind == OshiKind.group).length;
     final persons = list.length - groups;
     final kind = _kind;
-    final shown = kind == null
-        ? list
-        : list.where((o) => o.kind == kind).toList();
+    // 「すべて」のとき、所属グループのどれかをフォローしている個人は
+    // 単独の行にせず、そのグループの ▼ の中に出す（Fd 5.4）
+    final followedGroupIds = {
+      for (final o in list)
+        if (o.kind == OshiKind.group) o.id,
+    };
+    final shown = switch (kind) {
+      null => [
+        for (final o in list)
+          if (o.kind == OshiKind.group ||
+              !o.groupIds.any(followedGroupIds.contains))
+            o,
+      ],
+      _ => list.where((o) => o.kind == kind).toList(),
+    };
+    // グループ ID → そのグループのメンバーのうちフォロー中の人数（Fd 5.4）
+    int followedMembersOf(OshiSummary group) => list
+        .where(
+          (o) => o.kind == OshiKind.person && o.groupIds.contains(group.id),
+        )
+        .length;
 
     return Column(
       key: const Key('home_following_list'),
@@ -180,6 +198,11 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
                 isFollowing: true,
                 onUnfollow: () => _unfollow(oshi),
               ),
+              // フォロー中のメンバーの人数（0人なら出さない。Fd 5.4）
+              extraChips: [
+                if (oshi.kind == OshiKind.group && followedMembersOf(oshi) > 0)
+                  'フォロー中のメンバー ${followedMembersOf(oshi)}人',
+              ],
             ),
             if (_expanded.contains(oshi.key))
               GroupMembersPanel(

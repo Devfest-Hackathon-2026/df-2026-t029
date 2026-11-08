@@ -128,6 +128,7 @@ class OshiListTile extends StatelessWidget {
     this.onBadgeTap,
     this.showFollowAll = false,
     this.menu = const [],
+    this.extraChips = const [],
   });
 
   final OshiSummary oshi;
@@ -165,6 +166,9 @@ class OshiListTile extends StatelessWidget {
 
   /// ⋮ のメニュー。空なら ⋮ を出さない（Fd 5.3）
   final List<OshiMenuItem> menu;
+
+  /// 名前の下に足すチップの文言（フォロー中のメンバーの人数など。Fd 5.4）
+  final List<String> extraChips;
 
   String get _keySuffix => '${oshi.kind.name}_${oshi.id}';
 
@@ -215,6 +219,7 @@ class OshiListTile extends StatelessWidget {
           '所属：${groupNames.join('・')}',
           key: ValueKey('oshi_affiliation_$_keySuffix'),
         ),
+      for (final c in extraChips) HakoTagChip(c),
       if (isPending)
         HakoTagChip(
           '申請中',
