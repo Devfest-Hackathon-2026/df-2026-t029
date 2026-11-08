@@ -44,6 +44,7 @@ import 'providers/profile_providers.dart';
 import 'providers/theme_providers.dart';
 
 import 'theme/app_theme.dart';
+import 'theme/hako_app_widgets.dart';
 
 import 'utils/auth_redirect.dart';
 
@@ -228,8 +229,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/chats/:id',
-            builder: (context, state) =>
-                ChatPage(chatId: state.pathParameters['id']!),
+            // PC で横に伸びすぎないように 960 で中央に置く（Fe 3.5）
+            builder: (context, state) => HakoCenteredPage(
+              child: ChatPage(chatId: state.pathParameters['id']!),
+            ),
           ),
           GoRoute(
             path: '/trade/new',
@@ -244,9 +247,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/trade/:id',
             // ?attach= は、返信に最初から添付しておく自分の投稿（マッチから開いたとき）
-            builder: (context, state) => TradePostDetailPage(
-              postId: state.pathParameters['id']!,
-              initialAttachId: state.uri.queryParameters['attach'],
+            // PC で横に伸びすぎないように 960 で中央に置く（Fe 3.5）
+            builder: (context, state) => HakoCenteredPage(
+              child: TradePostDetailPage(
+                postId: state.pathParameters['id']!,
+                initialAttachId: state.uri.queryParameters['attach'],
+              ),
             ),
           ),
         ],
@@ -261,6 +267,7 @@ class App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
+      debugShowCheckedModeBanner: false,
       title: 'おしあし',
       theme: buildAppTheme(ref.watch(themeSeedColorProvider)),
       scrollBehavior: const _AppScrollBehavior(),

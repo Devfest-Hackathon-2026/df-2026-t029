@@ -14,9 +14,9 @@ import '../help/help_topic.dart';
 /// この幅以上なら左に縦のタブ、未満なら下に横のタブを出す（紹介ページと同じ基準）
 const kShellWideBreakpoint = kHakoWideBreakpoint;
 
-/// PC の幅のとき、中身をこの幅までにする（第2段階の画面用。
-/// 第1段階の画面は HakoPageScaffold が 640 にする）
-const kShellMaxContentWidth = 960.0;
+/// PC の幅のとき、中身をこの幅までにする（Fe 3.4 で 960 → 1200）。
+/// HakoPageScaffold の画面は、それぞれの maxContentWidth（ふつうは 640）で止まる
+const kShellMaxContentWidth = 1200.0;
 
 /// 下のタブの高さ
 const kShellBottomBarHeight = 80.0;
@@ -135,11 +135,12 @@ class _AppShellState extends ConsumerState<AppShell> {
                     ),
                     // 「?」はアカウントのボタンの上に置く
                     const HelpButton(),
-                    // アカウントのボタンは、タブの一番下に置く
+                    // アカウントのボタンは、タブの一番下に置く（タブの丸より少し大きく。Fe 3.2）
                     const Padding(
                       padding: EdgeInsets.only(bottom: 16),
                       child: AccountMenuButton(
                         key: Key('shell_account_button'),
+                        avatarSize: 48,
                       ),
                     ),
                   ],
