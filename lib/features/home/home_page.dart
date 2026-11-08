@@ -10,6 +10,7 @@ import '../common/user_avatar.dart';
 import '../live/upcoming_deadlines_section.dart';
 
 import 'home_section_header.dart';
+import 'home_memory_banner.dart';
 import 'home_recent_memories.dart';
 import 'home_upcoming_lives.dart';
 import 'home_new_trades.dart';
@@ -75,6 +76,8 @@ class HomePage extends ConsumerWidget {
                 ),
                 // 推しの記念日（add_O 3.3）
                 const HomeOshiDays(),
+                // 新しい記録の投稿カード（メモリーの統合 4.9）。無いときは何も出ない
+                const HomeMemoryBanner(),
                 if (twoColumns)
                   Row(
                     key: const Key('home_two_columns'),

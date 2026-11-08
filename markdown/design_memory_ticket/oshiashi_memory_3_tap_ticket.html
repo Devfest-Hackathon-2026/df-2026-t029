@@ -1,0 +1,849 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>おしあし メモリー統合案3:チケットを直接タップ</title>
+<style>
+:root{--bg:#FBF6E9;--ink:#111;--muted:#4D4A42;--line:#C9C2AE;--yellow:#F5D31A;--yellow-s:#FBF0B4;--red:#EF4630;--blue:#3F8FE6;--blue-s:#D3E5FA;--pink:#F27CB1;--pink-s:#FADCE9;--green:#2DBE7E;--green-s:#CDEFDF;--red-s:#FBD6CE;--c:var(--green);--cs:var(--green-s);--err:#B3261E;--tb:80px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI","Yu Gothic",Meiryo,sans-serif;background:#E7E0CB;color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;word-break:auto-phrase;line-break:strict}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid #1D4ED8;outline-offset:2px}
+.stage{display:flex;gap:32px;justify-content:center;align-items:flex-start;padding:20px 16px;min-height:100vh}
+.left{display:flex;flex-direction:column;gap:12px;flex:none}
+.preview{display:flex;flex-direction:column;gap:8px;background:#fff;border:2px solid var(--ink);border-radius:12px;padding:8px 12px;font-size:13px;font-weight:700}
+.pv-row{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.seg{display:flex;border:2px solid var(--ink);border-radius:999px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:5px 12px;font-size:12.5px;font-weight:700;min-height:32px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.notes{width:350px;flex:none;position:sticky;top:20px;background:#fff;border:2px solid var(--ink);border-radius:14px;padding:18px 18px 16px;max-height:calc(100vh - 40px);overflow:auto;font-size:14px}
+.notes .tag-id{display:inline-block;background:var(--ink);color:#fff;font-weight:800;border-radius:6px;padding:1px 9px;font-size:13px}
+.notes h2{font-size:18px;margin:8px 0 4px}
+.notes h3{font-size:14px;margin:16px 0 6px;font-weight:800}
+.notes p{color:var(--muted);line-height:1.7}
+.notes ul{padding-left:1.2em;line-height:1.7}
+.notes li{margin:2px 0}
+.phone{position:relative;width:390px;height:min(844px,calc(100dvh - 120px));display:flex;flex-direction:column;background:var(--bg);border:2px solid var(--ink);border-radius:28px;overflow:hidden;box-shadow:8px 8px 0 rgba(17,17,17,.9)}
+.s-home{--c:var(--yellow);--cs:var(--yellow-s)}
+.ic{display:block;flex:none}
+.appbar{flex:none;display:flex;align-items:center;gap:6px;min-height:58px;padding:0 14px 0 8px;background:var(--c);border-bottom:2px solid var(--ink)}
+.appbar h1{font-size:20px;font-weight:600;flex:1;padding-left:10px}
+.appbar.nb h1{padding-left:12px}
+.iconbtn{width:44px;height:44px;border:0;background:none;display:grid;place-items:center;border-radius:50%}
+.main{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:16px 16px calc(var(--tb) + 24px)}
+.main.nobar{padding-bottom:24px}
+.sec{margin-top:26px}.sec:first-child{margin-top:0}
+.sec-title{display:inline-block;font-size:17px;font-weight:800;padding:0 3px;background:linear-gradient(transparent 62%,var(--c) 62%)}
+.sec-d{font-size:13px;color:var(--muted);line-height:1.65;margin-top:6px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 20px;border:2px solid var(--ink);border-radius:999px;background:var(--red);font-weight:700;font-size:15px}
+.btn.green{background:var(--c)}
+.btn.dark{background:var(--ink);color:#fff}
+.btn.out{background:var(--bg)}
+.btn.wide{width:100%}
+.btn.sm{min-height:40px;font-size:13px;padding:0 14px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.card{background:#fff;border:2px solid var(--ink);border-radius:14px;padding:12px 14px}
+.row{display:flex;gap:14px;align-items:flex-start;padding:14px 2px;border-bottom:1.5px solid var(--line);width:100%;background:none;border-top:0;border-left:0;border-right:0;text-align:left}
+.row .rt{font-size:16px;line-height:1.45}.row .rs{font-size:13px;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:4px;border:2px solid var(--ink);border-radius:8px;padding:0 8px;font-size:12px;font-weight:700;line-height:1.7;background:var(--yellow)}
+.chip.ai{background:#EADCFF}
+.chip.auto{background:var(--green-s)}
+.chip.you{background:var(--yellow-s)}
+.chip.wh{background:#fff}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.mcard{background:#fff;border:2px solid var(--ink);border-radius:14px;overflow:hidden;text-align:left;display:flex;flex-direction:column;width:100%}
+.mcard .mi{height:76px;background:var(--green);display:grid;place-items:center;border-bottom:2px solid var(--ink)}
+.mcard .mi.photo{background:linear-gradient(#2B1D63,#5B3FA6)}
+.mcard .mb{padding:10px 12px 12px;display:flex;flex-direction:column;gap:3px}
+.mcard .mt{font-size:14px;font-weight:700;line-height:1.45}.mcard .md{font-size:12.5px;color:var(--muted)}
+.draft{margin-top:12px;border:2px solid var(--ink);border-radius:14px;background:#fff;overflow:hidden;display:block;width:100%;text-align:left;box-shadow:4px 4px 0 var(--ink)}
+.draft .strip{display:grid;grid-template-columns:repeat(4,1fr);height:64px;border-bottom:2px solid var(--ink)}
+.draft .strip>*{overflow:hidden}
+.draft .db{padding:12px 14px}
+.draft .dt{font-size:15px;font-weight:800;line-height:1.45;margin-top:6px}
+.draft .dm{font-size:13px;color:var(--muted);margin-top:2px}
+.prog{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:13px;font-weight:700}
+.prog .bar{flex:1;height:10px;border:2px solid var(--ink);border-radius:6px;background:#fff;overflow:hidden}
+.prog .bar i{display:block;height:100%;background:var(--green);transition:width .3s}
+
+/* 写真 */
+.ph{position:relative;overflow:hidden;background:#222}
+.ph svg{display:block;width:100%;height:100%}
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.pitem{position:relative;aspect-ratio:1/1;border:2px solid var(--ink);border-radius:12px;overflow:hidden;padding:0;background:#222}
+.pitem .ph{position:absolute;inset:0}
+.pitem .x{position:absolute;top:4px;right:4px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.92);border:0;display:grid;place-items:center}
+.pitem .lab{position:absolute;left:0;right:0;bottom:0;background:rgba(17,17,17,.78);color:#fff;font-size:11px;padding:2px 6px;line-height:1.5}
+.pitem.off{opacity:.55}
+.pitem .plus{position:absolute;top:4px;right:4px;width:30px;height:30px;border-radius:50%;background:var(--green);border:2px solid var(--ink);display:grid;place-items:center}
+.pitem[aria-pressed="true"]{box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--c)}
+.pitem .ck{position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:50%;background:#fff;border:2px solid var(--ink);display:grid;place-items:center}
+.pitem[aria-pressed="true"] .ck{background:var(--c)}
+.ainote{display:flex;gap:8px;align-items:flex-start;background:#F3EAFF;border:2px solid var(--ink);border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.65;margin-top:10px}
+.skiplist{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.skip{display:flex;gap:10px;align-items:center;font-size:13px;border:1.5px dashed var(--ink);border-radius:10px;padding:6px 8px;background:#fff}
+.skip .ph{width:44px;height:44px;border-radius:8px;border:1.5px solid var(--ink);flex:none}
+.skip .why{flex:1;line-height:1.4}
+.linkbtn{border:0;background:none;font-weight:700;font-size:13px;text-decoration:underline;text-underline-offset:3px;min-height:40px;padding:0 4px}
+.loading{display:flex;gap:10px;align-items:center;justify-content:center;padding:26px 0;font-size:14px;font-weight:700}
+.spin{width:22px;height:22px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--ink);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.connect{border:2px dashed var(--ink);border-radius:14px;padding:16px;background:#fff;text-align:center;margin-top:10px}
+.connect p{font-size:13px;color:var(--muted);line-height:1.7;margin:6px 0 12px}
+
+/* 入力 */
+.field{margin-top:10px}
+.field .lb{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;margin-bottom:4px}
+.fin{display:block;width:100%;border:2px solid var(--ink);border-radius:12px;background:#fff;padding:10px 12px;font-size:16px;line-height:1.6}
+textarea.fin{min-height:120px;resize:vertical}
+.cnt{text-align:right;font-size:12px;color:var(--muted);margin-top:2px}
+.help{font-size:12.5px;color:var(--muted);line-height:1.65;margin-top:6px;display:flex;gap:6px;align-items:flex-start}
+.empty-note{font-size:12.5px;color:var(--muted)}
+.tgl{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1.5px solid var(--line)}
+.tgl .tx{flex:1}.tgl .t{font-size:15px;font-weight:600}.tgl .d{font-size:12px;color:var(--muted);line-height:1.6}
+.sw{flex:none;width:52px;height:30px;border:2px solid var(--ink);border-radius:15px;background:#EDE6CF;position:relative;padding:0}
+.sw i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--ink);transition:transform .15s}
+.sw[aria-checked="true"]{background:var(--c)}.sw[aria-checked="true"] i{transform:translateX(22px)}
+.stick{position:absolute;left:0;right:0;bottom:var(--tb);z-index:5;background:var(--bg);border-top:2px solid var(--ink);padding:10px 16px;display:flex;gap:10px}
+.stick .btn{flex:1}
+.stick.nb{bottom:0}
+
+/* 共有 */
+.sharebox .tabs{display:flex;gap:8px;margin-bottom:12px}
+.sharebox .tabs button{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;border:2px solid var(--ink);border-radius:12px;background:#fff;font-weight:800;font-size:15px}
+.sharebox .tabs button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.xmark{width:22px;height:22px;border-radius:6px;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:900}
+.tabs button[aria-pressed="true"] .xmark{background:#fff;color:var(--ink)}
+.fmt{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.fmt button,.tpl button{border:2px solid var(--ink);border-radius:999px;background:var(--bg);padding:0 12px;min-height:36px;font-size:13px;font-weight:700}
+.fmt button[aria-pressed="true"],.tpl button[aria-pressed="true"]{background:var(--c)}
+.tpl{display:flex;gap:6px;margin:12px 0;flex-wrap:wrap}
+.cardwrap{display:flex;justify-content:center;background:#E7E0CB;border:2px solid var(--ink);border-radius:14px;padding:14px}
+.cardprev{container-type:inline-size;width:100%;max-width:260px;border:2px solid var(--ink);background:#111;position:relative;overflow:hidden;box-shadow:4px 4px 0 rgba(17,17,17,.9)}
+.cardprev.wide{max-width:100%}
+.cardprev .brand{position:absolute;right:4cqw;top:3cqw;font-size:4cqw;font-weight:900;color:#fff;background:var(--ink);padding:.5cqw 2.4cqw;border-radius:2cqw;z-index:3}
+.tp0{display:block}
+.tp0 .bgph{position:absolute;inset:0}
+.tp0 .shade{position:absolute;inset:0;background:linear-gradient(transparent 35%,rgba(0,0,0,.85))}
+.tp0 .txt{position:absolute;left:5cqw;right:5cqw;bottom:5cqw;color:#fff;z-index:2}
+.tp0 .ttl{font-size:6.6cqw;font-weight:800;line-height:1.35}
+.tp0 .inf{font-size:4.2cqw;margin-top:1.6cqw;opacity:.95;line-height:1.5}
+.tp0 .ex{font-size:3.8cqw;margin-top:2cqw;line-height:1.55;background:rgba(255,255,255,.16);border-radius:2cqw;padding:1.6cqw 2.4cqw}
+.tp1{background:#FBF6E9;color:var(--ink);display:flex;flex-direction:column}
+.tp1 .tk{flex:1;display:flex;border-bottom:0}
+.tp1 .tl{flex:1;padding:5cqw;display:flex;flex-direction:column;gap:2cqw;min-width:0}
+.tp1 .ttl{font-size:5.8cqw;font-weight:800;line-height:1.35}
+.tp1 .inf{font-size:3.9cqw;line-height:1.55}
+.tp1 .ph1{flex:1;min-height:12cqw;border:.6cqw solid var(--ink);border-radius:2cqw;overflow:hidden;position:relative}
+.tp1 .tr{width:26%;border-left:.8cqw dashed var(--ink);padding:3cqw;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:1.4cqw;background:var(--c)}
+.tp1 .tr b{font-size:4cqw;line-height:1.35}.tp1 .tr small{font-size:3.1cqw}
+.tp1 .ex{font-size:3.6cqw;line-height:1.5;border-top:.6cqw solid var(--ink);padding:2.4cqw 5cqw;background:#fff}
+.tp2{background:var(--bg);color:var(--ink);display:flex;flex-direction:column}
+.tp2 .col{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:1.2cqw;padding:1.2cqw;background:var(--ink)}
+.tp2 .col .ph{border-radius:1.4cqw}
+.tp2 .cap{padding:3.4cqw 5cqw 4cqw;background:var(--bg);border-top:.6cqw solid var(--ink)}
+.tp2 .ttl{font-size:5cqw;font-weight:800;line-height:1.35}
+.tp2 .inf{font-size:3.7cqw;line-height:1.5;color:var(--muted)}
+.tp2 .ex{font-size:3.6cqw;margin-top:1cqw;line-height:1.5}
+.cardprev.wide .tp0 .ttl{font-size:4.4cqw}
+.cardprev.wide .tp0 .inf{font-size:3.2cqw;margin-top:.8cqw}
+.cardprev.wide .tp0 .ex{font-size:2.9cqw;margin-top:1.2cqw;padding:1cqw 2cqw;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cardprev.wide .tp0 .txt{bottom:3cqw}
+.cardprev.wide .brand{font-size:3cqw;top:2cqw;right:2.4cqw}
+.cardprev.wide .tp1 .ttl{font-size:4cqw}.cardprev.wide .tp1 .inf{font-size:3cqw}.cardprev.wide .tp1 .ex{font-size:2.8cqw;padding:1.2cqw 4cqw;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cardprev.wide .tp1 .tr b{font-size:3cqw}.cardprev.wide .tp1 .tr small{font-size:2.4cqw}.cardprev.wide .tp1 .tl{padding:3cqw;gap:1cqw}
+.cardprev.wide .tp2 .cap{padding:2cqw 3cqw}.cardprev.wide .tp2 .ttl{font-size:3.8cqw}.cardprev.wide .tp2 .inf{font-size:2.8cqw}.cardprev.wide .tp2 .ex{font-size:2.6cqw;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.cardprev.wide .tp2{flex-direction:row}.cardprev.wide .tp2 .col{flex:0 0 55%}.cardprev.wide .tp2 .cap{flex:1;border-top:0;border-left:.6cqw solid var(--ink);display:flex;flex-direction:column;justify-content:center}
+.inc{display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0 2px}
+.inc label{display:flex;align-items:center;gap:6px;font-size:14px;min-height:36px}
+.inc input{width:20px;height:20px;accent-color:#111}
+.warn{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;line-height:1.6;background:var(--yellow-s);border:2px solid var(--ink);border-radius:10px;padding:8px 10px;margin-top:8px}
+.steps3{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.steps3 .st{display:flex;gap:10px;align-items:center}
+.steps3 .st .n{flex:none;width:28px;height:28px;border-radius:50%;border:2px solid var(--ink);display:grid;place-items:center;font-weight:800;font-size:13px;background:#fff}
+.steps3 .st.ok .n{background:var(--c)}
+.steps3 .btn{flex:1}
+.backdrop{position:absolute;inset:0;background:rgba(17,17,17,.45);opacity:0;pointer-events:none;z-index:20;transition:opacity .2s}
+.backdrop.on{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:21;background:var(--bg);border:2px solid var(--ink);border-bottom:0;border-radius:22px 22px 0 0;padding:10px 18px 22px;transform:translateY(105%);transition:transform .25s ease;max-height:93%;overflow:auto;visibility:hidden}
+.sheet.on{transform:none;visibility:visible}
+.sheet .grab{width:44px;height:5px;border-radius:3px;background:var(--ink);opacity:.3;margin:0 auto 10px}
+.sheet .sh-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.sheet .sh-h h3{font-size:18px;font-weight:800}
+.modal{position:absolute;left:18px;right:18px;top:50%;transform:translateY(-50%) scale(.96);z-index:22;background:var(--bg);border:2px solid var(--ink);border-radius:18px;padding:18px;opacity:0;pointer-events:none;transition:.2s;box-shadow:6px 6px 0 var(--ink)}
+.modal.on{opacity:1;pointer-events:auto;transform:translateY(-50%)}
+.modal h3{font-size:18px;font-weight:800}
+.modal ul{margin:10px 0 14px;padding-left:1.2em;font-size:14px;line-height:1.8}
+.fullpage{position:absolute;inset:0;z-index:12;background:var(--bg);display:flex;flex-direction:column;transform:translateX(105%);transition:transform .25s;visibility:hidden}
+.fullpage.on{transform:none;visibility:visible}
+.toast{position:absolute;left:16px;right:16px;bottom:18px;z-index:40;background:var(--ink);color:#fff;border-radius:12px;padding:12px 16px;font-size:14px;font-weight:700;display:flex;gap:10px;align-items:center;transform:translateY(200%);transition:transform .25s}
+.toast.on{transform:none}
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:var(--tb);display:flex;background:var(--bg);border-top:2px solid var(--ink);z-index:6}
+.tab{position:relative;flex:1;min-width:0;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px 2px 8px;color:#2F2C25}
+.tab .tl{font-size:12px;line-height:1.2;white-space:nowrap}
+.tab .ti{width:44px;height:44px;border-radius:50%;border:2px solid var(--ink);display:grid;place-items:center;transition:transform .15s}
+.tab.on .ti{transform:translateY(-6px);box-shadow:0 3px 0 var(--ink)}
+.tab.on .tl{font-weight:800;transform:translateY(-4px)}
+.t-home .ti{background:var(--yellow-s)}.t-home.on .ti{background:var(--yellow)}
+.t-oshi .ti{background:var(--red-s)}.t-oshi.on .ti{background:var(--red)}
+.t-live .ti{background:var(--blue-s)}.t-live.on .ti{background:var(--blue)}
+.t-trade .ti{background:var(--pink-s)}.t-trade.on .ti{background:var(--pink)}
+.t-memory .ti{background:var(--green-s)}.t-memory.on .ti{background:var(--green)}
+.banner{display:block;width:100%;text-align:left;background:#fff;border:2px solid var(--ink);border-radius:14px;padding:12px 14px;box-shadow:4px 4px 0 var(--ink)}
+.banner .bt{font-weight:800;font-size:15px;display:flex;gap:8px;align-items:center}
+.banner .bd{font-size:13px;color:var(--muted);line-height:1.65;margin-top:4px}
+.hello{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.hello .av{width:50px;height:50px;border-radius:50%;border:2px solid var(--ink);background:radial-gradient(circle at 50% 36%,#EBCDB8 0 24%,transparent 25%),radial-gradient(ellipse at 50% 105%,#EBCDB8 0 36%,transparent 37%),#7C2228}
+.hello h2{font-size:22px;font-weight:600}
+/* 案C チケット */
+.ticket{background:#fff;border:2px solid var(--ink);border-radius:16px;overflow:hidden;position:relative;box-shadow:5px 5px 0 var(--ink)}
+.ticket .tphotos{display:grid;grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr;gap:2px;height:210px;background:var(--ink);border-bottom:2px solid var(--ink)}
+.ticket .tphotos>*:first-child{grid-row:1/3}
+.ticket .tphotos .ph{height:100%}
+.ticket .tbody{padding:14px 16px}
+.ticket .tt{font-size:19px;font-weight:800;line-height:1.4}
+.ticket .tm .ic{display:inline-block;vertical-align:-2px}
+.ticket .tm{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.6}
+.perf{position:relative;height:0;border-top:2.5px dashed var(--ink);margin:2px 0}
+.perf:before,.perf:after{content:"";position:absolute;top:-13px;width:24px;height:24px;border-radius:50%;background:var(--bg);border:2px solid var(--ink)}
+.perf:before{left:-14px}.perf:after{right:-14px}
+.stub{display:flex;gap:12px;align-items:center;padding:12px 16px;background:var(--green-s)}
+.stub .sl{font-size:11px;font-weight:800;letter-spacing:.08em}
+.stub .sv{font-size:17px;font-weight:800;line-height:1.4}
+.tlines{margin:0;padding:0}
+.tcol{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.blank{border:2px dashed var(--ink);border-radius:12px;background:#fff;padding:12px 14px;min-height:96px;text-align:left;width:100%;display:flex;flex-direction:column;gap:4px}
+.blank .bt{font-size:14px;font-weight:800;display:flex;align-items:center;gap:6px}
+.blank .bh{font-size:13px;color:var(--muted);line-height:1.6}
+.blank.filled{border-style:solid}
+.blank.filled .bv{font-size:14px;line-height:1.7;white-space:pre-wrap}
+@media (max-width:820px){
+  .stage{flex-direction:column;align-items:center;padding:8px 0 0}
+  .left{width:100%}
+  .preview{border-radius:0;border-width:0 0 2px 0}
+  .phone{width:100%;height:calc(100dvh - 120px);border:0;border-radius:0;box-shadow:none}
+  .notes{position:static;width:auto;max-width:560px;max-height:none;margin:20px 16px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* ===== 投稿画像 ===== */
+.cardwrap{display:flex;justify-content:center;background:#E7E0CB;border:2px solid var(--ink);border-radius:14px;padding:14px}
+.cardwrap.mini{border:0;background:transparent;padding:0}
+.shot{container-type:inline-size;width:100%;position:relative;background:var(--sb);overflow:hidden;border:2px solid var(--ink);border-radius:6px;box-shadow:4px 4px 0 rgba(17,17,17,.9)}
+.shot:not(.wide){max-width:270px}
+.shot [data-part]:hover,.shot [data-part]:focus-visible{outline:.7cqw dashed #1D4ED8;outline-offset:-.7cqw}
+.tkw{position:absolute;inset:5cqw;filter:drop-shadow(.5cqw 0 0 #111) drop-shadow(-.5cqw 0 0 #111) drop-shadow(0 .5cqw 0 #111) drop-shadow(0 -.5cqw 0 #111) drop-shadow(.9cqw 1.3cqw 0 rgba(0,0,0,.28))}
+.shot.wide .tkw{inset:4cqw}
+.tk{height:100%;background:#FFF9EA;color:#111;border-radius:2.2cqw;display:grid;overflow:hidden}
+.tkw.v .tk{grid-template-rows:auto var(--hh) 1fr var(--sh);-webkit-mask:radial-gradient(circle 3.4cqw at 0 calc(100% - var(--sh)),#0000 98%,#000),radial-gradient(circle 3.4cqw at 100% calc(100% - var(--sh)),#0000 98%,#000);-webkit-mask-composite:source-in;mask:radial-gradient(circle 3.4cqw at 0 calc(100% - var(--sh)),#0000 98%,#000),radial-gradient(circle 3.4cqw at 100% calc(100% - var(--sh)),#0000 98%,#000);mask-composite:intersect}
+.r45 .tkw.v .tk{--hh:30cqw;--sh:20cqw}
+.r11 .tkw.v .tk{--hh:25cqw;--sh:19cqw}
+.r916 .tkw.v .tk{--hh:54cqw;--sh:26cqw}
+.tkw.h .tk{grid-template-columns:1fr var(--sw);--sw:25cqw;-webkit-mask:radial-gradient(circle 3cqw at calc(100% - var(--sw)) 0,#0000 98%,#000),radial-gradient(circle 3cqw at calc(100% - var(--sw)) 100%,#0000 98%,#000);-webkit-mask-composite:source-in;mask:radial-gradient(circle 3cqw at calc(100% - var(--sw)) 0,#0000 98%,#000),radial-gradient(circle 3cqw at calc(100% - var(--sw)) 100%,#0000 98%,#000);mask-composite:intersect}
+.tk-top{display:flex;justify-content:space-between;align-items:center;padding:1.6cqw 3.4cqw;background:#111;color:#fff;font-size:2.6cqw;font-weight:800;letter-spacing:.14em}
+.tk-top em{font-style:normal;border:.4cqw solid #fff;border-radius:1cqw;padding:0 1.4cqw;letter-spacing:.05em;transform:rotate(-3deg)}
+.hero{display:grid;gap:.5cqw;background:#111;border-bottom:.5cqw solid #111;min-height:0;overflow:hidden}
+.hero .ph{height:100%;width:100%}
+.hero.n3{grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr}.hero.n3 .ph:first-child{grid-row:1/3}
+.hero.n2{grid-template-columns:1fr 1fr}.hero.n1{grid-template-columns:1fr}
+.hero.none{display:flex;flex-direction:column;justify-content:center;align-items:center;background:repeating-linear-gradient(45deg,var(--sa),var(--sa) 2cqw,rgba(255,255,255,.45) 2cqw,rgba(255,255,255,.45) 4cqw);color:#111;gap:1cqw;text-align:center}
+.hero.none b{font-size:5.4cqw;background:#fff;border:.5cqw solid #111;padding:0 2cqw}
+.hero.none span{font-size:2.8cqw;font-weight:800;letter-spacing:.2em}
+.tk-body{padding:2.4cqw 3.4cqw;display:flex;flex-direction:column;gap:2cqw;min-height:0;overflow:hidden}
+.tk-ttl{font-size:4.6cqw;font-weight:800;line-height:1.35}
+.blk .bl{font-size:2.3cqw;font-weight:800;letter-spacing:.16em;color:#555;border-bottom:.3cqw solid #111;padding-bottom:.4cqw;margin-bottom:1cqw}
+.sl{list-style:none;font-size:3.3cqw;line-height:1.5}
+.sl.two{column-count:2;column-gap:3cqw}
+.sl li{display:flex;gap:1.4cqw;break-inside:avoid}
+.sl li i{font-style:normal;font-weight:800;color:#555;flex:none}
+.more{font-size:2.8cqw;color:#555;margin-top:.6cqw}
+.mm{font-size:3.2cqw;line-height:1.55;background:#fff;border:.4cqw dashed #111;border-radius:1.4cqw;padding:1.4cqw 2cqw}
+.blk.empty{border:.4cqw dashed #111;border-radius:1.4cqw;padding:1.4cqw 2cqw;background:rgba(255,255,255,.7)}
+.blk.empty .ph-t{font-size:3.2cqw;font-weight:700}
+[data-part]{cursor:pointer}
+.stubx{display:flex;align-items:center;gap:2.4cqw;padding:0 3.4cqw;background:var(--sa);border-top:.5cqw dashed #111}
+.stubx .sd{display:flex;flex-direction:column;min-width:0;flex:1}
+.stubx .sd b{font-size:6.4cqw;line-height:1;font-weight:900}
+.stubx .sd span{font-size:2.7cqw;font-weight:700;margin-top:1cqw;line-height:1.3}
+.bars{height:55%;width:20cqw;flex:none;margin-left:auto;background:repeating-linear-gradient(90deg,#111 0 .5cqw,transparent .5cqw 1cqw,#111 1cqw 2cqw,transparent 2cqw 2.4cqw,#111 2.4cqw 2.7cqw,transparent 2.7cqw 3.6cqw)}
+.mk{font-size:2.6cqw;font-weight:900;background:#111;color:#fff;border-radius:1cqw;padding:.4cqw 1.6cqw;white-space:nowrap;align-self:flex-end;margin-bottom:2cqw}
+.tkw.h .tk-main{display:flex;flex-direction:column;min-width:0}
+.tkw.h .tk-row{flex:1;display:flex;min-height:0}
+.tkw.h .hero{width:34%;flex:none;border-bottom:0;border-right:.5cqw solid #111}
+.tkw.h .tk-top{font-size:2cqw;padding:1cqw 3cqw}
+.tkw.h .tk-body{padding:1.8cqw 2.4cqw;gap:1.2cqw;flex:1}
+.tkw.h .tk-ttl{font-size:3.3cqw}
+.tkw.h .sl{font-size:2.6cqw}.tkw.h .mm{font-size:2.5cqw;padding:1cqw 1.6cqw}.tkw.h .bl{font-size:1.8cqw}.tkw.h .more{font-size:2.2cqw}
+.tkw.h .stubx{flex-direction:column;justify-content:center;align-items:flex-start;border-top:0;border-left:.5cqw dashed #111;padding:2cqw 2.6cqw;gap:1.6cqw}
+.tkw.h .bars{height:6cqw;width:100%;margin:0}
+.tkw.h .sd b{font-size:4.6cqw}.tkw.h .sd span{font-size:2.3cqw}
+.tkw.h .mk{margin:0;font-size:2cqw;align-self:flex-start}
+.dz1{position:absolute;inset:0;color:#fff}
+.dz1 .bgp{position:absolute;inset:0}.dz1 .bgp .ph{height:100%}
+.dz1 .shade{position:absolute;inset:0;background:linear-gradient(transparent 30%,rgba(0,0,0,.88))}
+.dz1 .txt{position:absolute;left:5cqw;right:5cqw;bottom:5cqw}
+.dz1 .ttl{font-size:6cqw;font-weight:800;line-height:1.35}
+.dz1 .inf{font-size:3.6cqw;margin-top:1.4cqw}
+.dz1 .ex{font-size:3.3cqw;margin-top:2cqw;line-height:1.55;background:rgba(255,255,255,.18);border-radius:2cqw;padding:1.4cqw 2.4cqw}
+.mk.abs{position:absolute;top:3cqw;right:3cqw;margin:0}
+.dz2{position:absolute;inset:0;display:flex;flex-direction:column;background:#FBF6E9;color:#111}
+.dz2 .col{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:1cqw;padding:1cqw;background:#111;min-height:0}
+.dz2 .cap{padding:3cqw 4cqw;border-top:.5cqw solid #111;display:flex;flex-direction:column;gap:1cqw}
+.dz2 .ttl{font-size:4.4cqw;font-weight:800;line-height:1.35}.dz2 .inf{font-size:3.2cqw;color:#4d4a42}.dz2 .ex{font-size:3cqw;line-height:1.5}
+.dz2 .mk{align-self:flex-start;margin:1cqw 0 0}
+.shot.wide .dz1 .ttl{font-size:4cqw}.shot.wide .dz1 .inf{font-size:2.8cqw}.shot.wide .dz1 .ex{font-size:2.6cqw;padding:1cqw 2cqw}.shot.wide .dz1 .txt{bottom:3cqw}
+.shot.wide .dz2{flex-direction:row}.shot.wide .dz2 .col{flex:0 0 55%}.shot.wide .dz2 .cap{flex:1;border-top:0;border-left:.5cqw solid #111;justify-content:center}.shot.wide .dz2 .ttl{font-size:3.4cqw}.shot.wide .dz2 .inf{font-size:2.6cqw}.shot.wide .dz2 .ex{font-size:2.5cqw}
+/* ===== 編集画面 ===== */
+.grp{display:inline-block;font-size:17px;font-weight:800;margin:26px 0 8px;padding:0 3px;background:linear-gradient(transparent 62%,var(--c) 62%)}
+.pcard{background:#fff;border:2px solid var(--ink);border-radius:14px;padding:12px 14px;margin-top:12px}
+.pc-h{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.pc-h h3{font-size:16px;font-weight:800}
+.flags{display:flex;gap:12px}
+.flag{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700}
+.sw.sm{width:46px;height:28px;border-radius:14px}
+.sw.sm i{width:18px;height:18px;top:3px;left:3px}
+.sw.sm[aria-checked="true"] i{transform:translateX(18px)}
+details.look{margin-top:12px;border:2px solid var(--ink);border-radius:12px;background:#fff;padding:0 12px}
+details.look summary{display:flex;gap:8px;align-items:center;min-height:48px;font-weight:700;font-size:14px;cursor:pointer}
+details.look[open]{padding-bottom:12px}
+.bgrow{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;margin-top:6px}
+.bgsw{width:36px;height:36px;border-radius:50%;border:2px solid var(--ink);display:grid;place-items:center;color:#111;padding:0}
+.bgsw:last-child{color:#fff}
+.bgsw[aria-pressed="true"]{box-shadow:0 0 0 3px #fff,0 0 0 5px #111}
+.p2{flex:1;display:flex;flex-direction:column;min-height:0}
+.p2-top{flex:none;padding:10px 16px 8px;border-bottom:2px solid var(--ink);background:var(--bg)}
+.p2-top .tabs{margin-bottom:8px}
+.p2-top .tabs button{min-height:40px}
+.p2-top>.help{display:none}
+.pvfix .cardwrap{padding:8px}
+.ptabs{flex:none;display:flex;border-bottom:2px solid var(--ink);background:var(--bg)}
+.ptabs button{flex:1;min-height:48px;border:0;background:none;font-weight:700;font-size:14px;border-bottom:4px solid transparent}
+.ptabs button[aria-selected="true"]{border-bottom-color:var(--c);font-weight:800}
+.panel{flex:1;overflow:auto;padding:16px}
+.mx{width:100%;border-collapse:collapse}
+.mx th,.mx td{padding:8px 4px;border-bottom:1.5px solid var(--line);text-align:center;font-size:14px}
+.mx th[scope=row]{text-align:left;font-weight:700}
+.mx thead th{font-size:12.5px;color:var(--muted)}
+.mx .flag{justify-content:center}
+.na{color:#8a8574}
+.pchips{display:flex;flex-wrap:wrap;gap:8px}
+.pchip{display:inline-flex;border:2px solid var(--ink);border-radius:999px;background:#fff;overflow:hidden}
+.pchip.on{background:var(--c)}
+.pc-t{display:flex;align-items:center;gap:6px;border:0;background:none;padding:0 12px;min-height:44px;font-weight:700;font-size:14px}
+.pc-e{border:0;border-left:2px solid var(--ink);background:rgba(255,255,255,.6);width:40px;display:grid;place-items:center}
+.blankic{width:16px;height:16px;border:2px solid var(--ink);border-radius:50%;display:inline-block}
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tabs button{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;border:2px solid var(--ink);border-radius:12px;background:#fff;font-weight:800;font-size:15px}
+.tabs button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.tabs button[aria-pressed="true"] .xmark{background:#fff;color:var(--ink)}
+.fmt{display:flex;gap:6px;margin:12px 0 10px;flex-wrap:wrap}
+.tkw.v .mm{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;font-size:2.9cqw;line-height:1.45}
+.tkw.v .sl{font-size:3cqw;line-height:1.42}
+.tkw.v .tk-body{gap:1.4cqw;padding:2cqw 3.4cqw}
+
+</style>
+</head>
+<body class="v3">
+<div class="stage">
+  <div class="left">
+    <div class="preview" role="group" aria-label="デモの状態を切り替え">
+      <div class="pv-row"><span>Googleフォト</span><div class="seg"><button type="button" data-pv="gp" data-v="on" aria-pressed="true">連携済み</button><button type="button" data-pv="gp" data-v="off" aria-pressed="false">未連携</button></div></div>
+      <div class="pv-row"><span>予約の座席情報</span><div class="seg"><button type="button" data-pv="seat" data-v="got" aria-pressed="true">あり</button><button type="button" data-pv="seat" data-v="none" aria-pressed="false">なし(自由席など)</button></div></div>
+    </div>
+    <div class="phone s-memory" id="phone">
+      <header class="appbar" id="appbar"></header>
+      <main class="main" id="main"></main>
+      <div id="stickyslot"></div>
+      <nav class="tabbar" id="tabbar" aria-label="メインメニュー"></nav>
+      <section class="fullpage" id="full" aria-label=""></section>
+      <div class="backdrop" id="backdrop"></div>
+      <section class="sheet" id="sheet" role="dialog" aria-modal="true"></section>
+      <section class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mdT"></section>
+      <div class="toast" id="toast" role="status"></div>
+    </div>
+  </div>
+  <aside class="notes"> <span class="tag-id">案3</span><h2>チケットを直接タップして直す</h2>
+<p>プレビューのチケットそのものを<b>タップして編集</b>する案です。見た目のまま直せるので、いちばん直感的です。</p>
+<h3>特徴</h3>
+<ul>
+<li>チケットの写真・セトリ・感想をタップすると、下から編集シートが開く</li>
+<li>空の部分には「+ セトリを書く」「+ 感想を書く」の枠が出る(この枠は投稿画像には出ない)</li>
+<li>「画像にのせる部分」「文章にのせる部分」を、ボタン形式で分けて選ぶ</li>
+<li>画像の形・デザイン・背景色は、折りたたみの中にまとめる</li>
+</ul><h3>この3案の共通点</h3>
+<ul>
+<li><b>案Cのチケット風の記録画面</b>(座席は半券に表示)と、<b>案Dのホームからの投稿</b>を一本化</li>
+<li>ホームのカードから、<b>写真・セトリ・感想の編集、のせる部分の選択、文章、投稿までを1つの画面</b>で行える</li>
+<li>投稿用の「チケット」画像を、<b>切り取り線・半券・バーコード風</b>の本物のチケットらしい見た目に変更</li>
+<li>座席は<b>SNSには出さない</b>。かわりに<b>セトリと感想</b>をのせられる</li>
+<li>のせる部分を、<b>XとInstagramで別々</b>に、「画像に」「文章に」それぞれ選べる(初期設定は仮です)</li>
+<li>長いセトリ・感想は、画像に入る分だけ表示し、全文は文章にのせられる(その旨も画面に表示)</li>
+</ul>
+<h3>デモの使い方</h3>
+<ul>
+<li>ホームのカードの「Xに投稿」「Instagram」から編集画面へ。メモリー→チケットを開き、「まとめて編集して投稿」からも入れます</li>
+<li>先にセトリと感想を入れると、チケットと文章に反映されます</li>
+<li>画面上の切り替えで、Googleフォト未連携・座席情報なしの場合も確認できます</li>
+<li>写真は見本用のイラストです。「画像を保存」はデモ用の見せかけです</li>
+</ul>
+<h3>実装前に確認したいこと</h3>
+<ul>
+<li>Googleフォトの仕様:外部アプリが写真全体を自由に読めない方向に変わったと認識していますが、最新情報は未確認です。ユーザーが写真を選ぶ画面が必要か、公式情報で確認してください</li>
+<li>Instagramは投稿文を自動入力できないため「画像を保存→文章をコピー→開く」の3ステップ。Xは文章入りの投稿画面を開けますが、画像は自動で付きません</li>
+<li>チケット画像の生成方法(サーバー側で画像化するか、端末で作るか)は未決定です</li>
+</ul></aside>
+</div>
+<script>
+const VARIANT='3';
+const $=s=>document.querySelector(s);
+const P={
+ home:'<path d="M3.500 11 12 3.800 20.500 11"/><path d="M5.500 9.800V20h4.500v-5.500h4V20h4.500V9.800"/>',
+ heart:'<path d="M12 20.500s-8-4.900-8-10.600C4 6.900 6.200 5 8.600 5c1.400 0 2.700.7 3.400 1.800C12.700 5.700 14 5 15.400 5 17.800 5 20 6.900 20 9.900c0 5.700-8 10.600-8 10.600z"/>',
+ list:'<rect x="4" y="3" width="16" height="18" rx="2.500"/><path d="M8 8h1M8 12h1M8 16h1M12 8h5M12 12h5M12 16h5"/>',
+ swap:'<path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/>',
+ book:'<rect x="7" y="3" width="13" height="15" rx="2"/><path d="M4 7v13a1 1 0 0 0 1 1h12M11 3v7l2-1.500 2 1.500V3"/>',
+ back:'<path d="m15 5-7 7 7 7"/>',
+ chev:'<path d="m9 5 7 7-7 7"/>',
+ check:'<path d="m5 12.500 4.500 4.500L19 7.500"/>',
+ close:'<path d="M6 6l12 12M18 6 6 18"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ spark:'<path d="M11 3l1.900 5.600L18.500 10.500 12.900 12.400 11 18l-1.900-5.600L3.500 10.500l5.600-1.900z"/><path d="M19 15v5M16.500 17.500h5"/>',
+ cam:'<path d="M4 8h3l1.500-2.500h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.500"/>',
+ pen:'<path d="m14 5 5 5L9 20H4v-5z"/>',
+ cal:'<rect x="4" y="5" width="16" height="15" rx="2.500"/><path d="M4 10h16M8 3v4M16 3v4"/>',
+ seat:'<path d="M7 4h7a2 2 0 0 1 2 2v7H7z"/><path d="M5 13h14v3a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2zM8 18v3M16 18v3"/>',
+ share:'<path d="M12 15V4M8 8l4-4 4 4"/><path d="M5 13v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6"/>',
+ copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+ dl:'<path d="M12 4v11M8 11l4 4 4-4M5 19h14"/>',
+ info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5.500M12 7.500h.01"/>',
+ lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+ bell:'<path d="M6 17V11a6 6 0 0 1 12 0v6l1.500 2h-15zM10 21h4"/>',
+ ext:'<path d="M14 4h6v6M20 4l-9 9M18 14v4.500a1.500 1.500 0 0 1-1.500 1.500h-11A1.500 1.500 0 0 1 4 18.500v-11A1.500 1.500 0 0 1 5.500 6H10"/>',
+ clock:'<circle cx="12" cy="12" r="8.500"/><path d="M12 7.500V12l3 2"/>',
+ note:'<path d="M9 18V5.500l11-2V16"/><circle cx="6.500" cy="18" r="2.500"/><circle cx="17.500" cy="16" r="2.500"/>',
+ pin:'<path d="M12 21s-6.500-5.800-6.500-11a6.500 6.500 0 0 1 13 0c0 5.200-6.500 11-6.500 11z"/><circle cx="12" cy="10" r="2.400"/>',
+ undo:'<path d="M9 7 4 12l5 5M4 12h11a5 5 0 0 1 0 10h-3" />'
+};
+const ic=(n,s=22,sw=2)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+
+/* ===== データ ===== */
+const LIVE={title:'ステラノート 全国ツアー 2026「ひかりの旋律」',artist:'ステラノート',date:'2026/12/19(土) 18:00 開演',dshort:'2026/12/19(土)',venue:'東京ドリームホール',seat:'アリーナ C3ブロック 8列 21番',tags:['ステラノート','ひかりの旋律']};
+const PH=[
+ {k:'stage',l:'ステージ全景',t:'19:02',pick:1,why:'ステージ全体が写っていて、ピントも合っています'},
+ {k:'beams',l:'ライトの演出',t:'19:41',pick:1,why:'ライトの光がきれいに写った1枚です'},
+ {k:'crowd',l:'客席のペンライト',t:'20:12',pick:1,why:'会場の盛り上がりが伝わります'},
+ {k:'gate',l:'会場の入口',t:'17:12',pick:1,why:'開演前の思い出として選びました'},
+ {k:'goods',l:'購入したグッズ',t:'17:40',pick:0,why:'ほかの候補です'},
+ {k:'stage2',l:'ステージ全景(2)',t:'19:02',skip:'「ステージ全景」と似ているため、1枚にまとめました'},
+ {k:'stage3',l:'ステージ全景(3)',t:'19:03',skip:'「ステージ全景」と似ているため、1枚にまとめました'},
+ {k:'blur',l:'ピンぼけ',t:'20:30',skip:'ピントがずれているため外しました'},
+ {k:'shot',l:'スクリーンショット',t:'18:05',skip:'スクリーンショットのため外しました'}
+];
+const DEFAULT_PICKS=['stage','beams','crowd','gate'];
+const phOf=k=>PH.find(p=>p.k===k);
+function photoSvg(k){
+  const W=120,H=90;
+  const wrap=(inner,extra='')=>`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true" ${extra}>${inner}</svg>`;
+  const defs=id=>`<defs><linearGradient id="g${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B1240"/><stop offset="1" stop-color="#5B3FA6"/></linearGradient></defs>`;
+  if(k==='stage'||k==='stage2'||k==='stage3'){
+    const o=k==='stage2'?2:k==='stage3'?-2:0;
+    return wrap(`${defs(k)}<rect width="120" height="90" fill="url(#g${k})"/><polygon points="${50+o},0 60,50 ${70+o},0" fill="#fff" opacity=".18"/><polygon points="${20+o},0 55,52 40,0" fill="#7AD7FF" opacity=".22"/><polygon points="${100+o},0 65,52 80,0" fill="#FF7FD0" opacity=".22"/><rect x="18" y="52" width="84" height="9" fill="#2A2150"/><rect x="30" y="46" width="60" height="6" fill="#3B2F72"/><g fill="#FFD9B8"><circle cx="45" cy="40" r="2.4"/><circle cx="55" cy="38" r="2.4"/><circle cx="65" cy="38" r="2.4"/><circle cx="75" cy="40" r="2.4"/></g><g fill="#FF5FA8"><rect x="43" y="42" width="4" height="9" rx="1"/><rect x="53" y="40" width="4" height="11" rx="1"/></g><g fill="#6FD3FF"><rect x="63" y="40" width="4" height="11" rx="1"/><rect x="73" y="42" width="4" height="9" rx="1"/></g><rect y="64" width="120" height="26" fill="#0C0820"/>`);
+  }
+  if(k==='beams'){
+    return wrap(`<rect width="120" height="90" fill="#0D0A24"/>${[8,26,44,62,80,98].map((x,i)=>`<polygon points="${x},0 60,70 ${x+14},0" fill="${['#FF5FA8','#6FD3FF','#FFE066','#B28CFF','#6FD3FF','#FF5FA8'][i]}" opacity=".35"/>`).join('')}<circle cx="60" cy="62" r="14" fill="#fff" opacity=".35"/><circle cx="60" cy="62" r="6" fill="#fff" opacity=".8"/><rect y="70" width="120" height="20" fill="#080618"/>`);
+  }
+  if(k==='crowd'){
+    let d='';for(let r=0;r<4;r++)for(let c=0;c<14;c++){const x=6+c*8.4+(r%2)*4,y=58+r*8;const col=['#FF5FA8','#6FD3FF','#FFE066','#7CFFB2'][(c+r)%4];d+=`<rect x="${x}" y="${y-5}" width="1.8" height="7" fill="${col}"/><circle cx="${x+.9}" cy="${y+4}" r="3" fill="#050312"/>`}
+    return wrap(`${defs(k)}<rect width="120" height="90" fill="url(#g${k})"/><ellipse cx="60" cy="28" rx="42" ry="16" fill="#FF8AD8" opacity=".35"/><rect y="52" width="120" height="38" fill="#0A0720"/>${d}`);
+  }
+  if(k==='gate'){
+    return wrap(`<rect width="120" height="90" fill="#BFE3F7"/><rect y="62" width="120" height="28" fill="#C9C1B0"/><rect x="14" y="20" width="92" height="44" fill="#F1ECE0"/><rect x="14" y="20" width="92" height="9" fill="#3F8FE6"/><rect x="26" y="36" width="20" height="28" fill="#6E6A60"/><rect x="52" y="36" width="20" height="28" fill="#6E6A60"/><rect x="78" y="36" width="20" height="28" fill="#6E6A60"/><rect x="34" y="12" width="52" height="10" rx="2" fill="#111"/><text x="60" y="20" font-size="7" font-weight="700" text-anchor="middle" fill="#fff">DREAM HALL</text>`);
+  }
+  if(k==='goods'){
+    return wrap(`<rect width="120" height="90" fill="#F3E9D2"/><rect x="10" y="48" width="100" height="30" fill="#D8C6A0"/>${[16,40,64,88].map((x,i)=>`<rect x="${x}" y="${22+i%2*6}" width="18" height="${26-i%2*6}" rx="2" fill="${['#FF7FB0','#6FD3FF','#FFE066','#9BE3B8'][i]}" stroke="#111" stroke-width="1"/>`).join('')}<circle cx="30" cy="62" r="7" fill="#fff" stroke="#111" stroke-width="1"/><circle cx="60" cy="62" r="7" fill="#fff" stroke="#111" stroke-width="1"/><circle cx="90" cy="62" r="7" fill="#fff" stroke="#111" stroke-width="1"/>`);
+  }
+  if(k==='blur'){
+    return wrap(`${defs('b')}<g style="filter:blur(3px)"><rect width="120" height="90" fill="url(#gb)"/><polygon points="50,0 60,50 70,0" fill="#fff" opacity=".3"/><rect x="18" y="52" width="84" height="9" fill="#2A2150"/><circle cx="60" cy="40" r="6" fill="#FFD9B8"/></g>`);
+  }
+  if(k==='shot'){
+    return wrap(`<rect width="120" height="90" fill="#EEF0F3"/><rect x="0" y="0" width="120" height="12" fill="#fff"/><rect x="8" y="20" width="70" height="6" rx="3" fill="#C8CDD4"/><rect x="8" y="32" width="104" height="14" rx="3" fill="#fff"/><rect x="8" y="52" width="104" height="14" rx="3" fill="#fff"/><rect x="8" y="72" width="60" height="8" rx="4" fill="#3F8FE6"/>`);
+  }
+  return wrap('<rect width="120" height="90" fill="#555"/>');
+}
+const thumb=(k,cls='')=>`<div class="ph ${cls}" role="img" aria-label="${phOf(k)?phOf(k).l:''}">${photoSvg(k)}</div>`;
+
+Object.assign(P,{
+ eye:'<path d="M2.500 12S6 5.500 12 5.500 21.500 12 21.500 12 18 18.500 12 18.500 2.500 12 2.500 12z"/><circle cx="12" cy="12" r="2.800"/>',
+ tune:'<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>'
+});
+/* ===== 状態 ===== */
+const PARTS=[
+ {k:'photo',l:'写真',img:1,cap:0},
+ {k:'info',l:'日付・会場',img:1,cap:1},
+ {k:'setlist',l:'セトリ',img:1,cap:1},
+ {k:'memo',l:'感想',img:1,cap:1},
+ {k:'tags',l:'ハッシュタグ',img:0,cap:1},
+ {k:'mark',l:'「おしあし」マーク',img:1,cap:0}];
+const DEF={x:{photo:{img:1},info:{img:1,cap:1},setlist:{img:1},memo:{cap:1},tags:{cap:1},mark:{img:1}},
+ ig:{photo:{img:1},info:{img:1,cap:1},setlist:{img:1},memo:{img:1},tags:{cap:1},mark:{img:1}}};
+const clone=o=>JSON.parse(JSON.stringify(o));
+const BGS=[['きいろ','#F5D31A'],['みどり','#2DBE7E'],['ピンク','#F27CB1'],['くろ','#1A1A1A']];
+const FMT={x:[['横長 16:9','16/9'],['正方形 1:1','1/1']],ig:[['フィード 4:5','4/5'],['ストーリー 9:16','9/16']]};
+const LIM={x:[{set:3,memo:36},{set:4,memo:44}],ig:[{set:6,memo:72},{set:10,memo:150}]};
+const DESIGNS=['チケット','写真メイン','コラージュ'];
+const DS='12.19 SAT';
+const st={tab:'memory',page:'list',gp:'on',seat:'got',sel:[],seatText:'',setlist:'',memo:'',saved:false,
+  pub:false,pubSeat:false,loading:false,showSkipped:false,full:'',
+  target:'x',cfg:{x:clone(DEF.x),ig:clone(DEF.ig)},fmt:{x:0,ig:0},design:{x:0,ig:0},bg:0,
+  cap:{x:{text:'',edited:false},ig:{text:'',edited:false}},did:{save:false,copy:false},ptab:0,edit:''};
+function initPickState(){st.sel=st.gp==='on'?DEFAULT_PICKS.slice():[];st.seatText=st.seat==='got'?LIVE.seat:''}
+initPickState();
+const done=()=>[st.sel.length>0,!!st.seatText.trim(),!!st.setlist.trim(),!!st.memo.trim()];
+const doneN=()=>done().filter(Boolean).length;
+const flag=(t,k,kind)=>!!(st.cfg[t][k]&&st.cfg[t][k][kind]);
+const setItems=()=>st.setlist.split('\n').map(s=>s.trim().replace(/^\d+\s*[\.．\)）、:]\s*/,'')).filter(Boolean);
+const memoText=()=>st.memo.trim().replace(/\s*\n+\s*/g,' ');
+const tagList=()=>LIVE.tags.map(x=>'#'+x).concat(['#おしあし']);
+
+/* ===== 部品 ===== */
+function toast(t){const e=$('#toast');e.innerHTML=ic('check',20,3)+'<span>'+t+'</span>';e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('on'),2600)}
+function progress(){const n=doneN();return `<div class="prog" aria-label="記録の完成度 ${n}/4"><span>${n}/4 入力済み</span><div class="bar"><i style="width:${n*25}%"></i></div></div>`}
+function photosBlock(){
+  if(st.loading)return `<div class="loading"><span class="spin"></span>Googleフォトから写真を選んでいます…</div>`;
+  if(st.gp==='off'&&st.sel.length===0){
+    return `<div class="connect"><b style="font-size:15px">Googleフォトとつなぐと、写真を自動で選べます</b><p>公演の日時と会場の近くで撮った写真だけを、おしあしが候補にします。</p><button class="btn green sm" type="button" data-a="connect">${ic('cam',18)}Googleフォトとつなぐ</button><div style="margin-top:6px"><button class="linkbtn" type="button" data-a="addphoto">つながずに、写真を自分で追加する</button></div></div>`;
+  }
+  const cand=PH.filter(p=>!p.skip&&!st.sel.includes(p.k));
+  const skipped=PH.filter(p=>p.skip);
+  return `${st.gp==='on'?`<div class="ainote">${ic('spark',20)}<span><b>おしあしが選びました。</b>Googleフォトの中から、この公演の日時・会場の近くで撮った写真を${st.sel.length}枚えらんでいます。入れ替えもできます。</span></div>`:''}
+  <div class="pgrid" role="list">${st.sel.map(k=>`<div class="pitem" role="listitem">${thumb(k)}<span class="lab">${phOf(k).l}</span><button class="x" type="button" data-a="unpick" data-k="${k}" aria-label="${phOf(k).l}を外す">${ic('close',16,2.6)}</button></div>`).join('')}</div>
+  ${cand.length?`<div class="sec-d" style="margin-top:12px"><b>ほかの候補</b>(タップで追加)</div><div class="pgrid">${cand.map(p=>`<button class="pitem off" type="button" data-a="pick" data-k="${p.k}" aria-label="${p.l}を追加">${thumb(p.k)}<span class="lab">${p.l}</span><span class="plus">${ic('plus',16,3)}</span></button>`).join('')}</div>`:''}
+  ${st.gp==='on'?`<button class="linkbtn" type="button" data-a="skipped" aria-expanded="${st.showSkipped}" style="margin-top:6px">${st.showSkipped?'選ばなかった写真をとじる':`選ばなかった写真(${skipped.length}枚)と理由を見る`}</button>
+  ${st.showSkipped?`<div class="skiplist">${skipped.map(p=>`<div class="skip">${thumb(p.k)}<span class="why">${p.skip}</span><button class="linkbtn" type="button" data-a="pick" data-k="${p.k}">戻す</button></div>`).join('')}</div>`:''}`:''}`;
+}
+function seatBlock(){
+  const got=st.seat==='got'&&st.seatText===LIVE.seat;
+  return `<div class="field"><label class="lb" for="fSeat">${got?'<span class="chip auto">'+ic('check',12,3)+'予約情報から自動入力</span>':'<span class="chip you">'+ic('pen',12,2.4)+'あなたが入力</span>'}</label>
+   <input class="fin" id="fSeat" value="${st.seatText}" placeholder="例)アリーナ C3ブロック 8列 21番 / 自由席" aria-label="座席"></div>
+   <p class="help">${ic('info',16)}<span>${st.seat==='none'&&!st.seatText?'参戦予定に座席が登録されていなかったので、空欄にしています。':'参戦予定に登録した座席から入れました。違っていれば書き換えられます。'}座席は、SNSには出ません。</span></p>`;
+}
+function setlistBlock(pre='f'){return `<div class="field"><label class="lb" for="${pre}Set"><span class="chip you">${ic('pen',12,2.4)}公演のあとに書く</span></label><textarea class="fin" id="${pre}Set" placeholder="覚えている曲から、1行に1曲ずつ書けます。\n例)\n1. 曲名\n2. 曲名" aria-label="セトリ">${st.setlist}</textarea></div>`}
+function memoBlock(pre='f'){return `<div class="field"><label class="lb" for="${pre}Memo"><span class="chip you">${ic('pen',12,2.4)}公演のあとに書く</span></label><textarea class="fin" id="${pre}Memo" maxlength="2000" placeholder="いちばん心に残ったこと、うれしかったこと、MCの話など。\n思い出したときに、少しずつでも大丈夫です。" aria-label="感想">${st.memo}</textarea><div class="cnt"><span id="${pre}MemoCnt">${st.memo.length}</span>/2000</div></div>`}
+function pubBlock(){return `<div class="tgl"><div class="tx"><div class="t">同じ推しのファンに公開する</div><div class="d">フォロー中の推しが同じ人の「みんなのメモリー」に出ます</div></div><button class="sw" type="button" role="switch" data-a="pub" aria-checked="${st.pub}" aria-label="同じ推しのファンに公開する"><i></i></button></div>
+ <div class="tgl" style="${st.pub?'':'opacity:.5'}"><div class="tx"><div class="t">座席も公開する</div></div><button class="sw" type="button" role="switch" data-a="pubseat" ${st.pub?'':'disabled'} aria-checked="${st.pubSeat}" aria-label="座席も公開する"><i></i></button></div>`}
+
+/* ===== 文章 ===== */
+function captionAuto(t){
+  let s=`【参戦記録】${LIVE.title}`;
+  if(flag(t,'info','cap'))s+=`\n${LIVE.dshort} @ ${LIVE.venue}`;
+  const it=setItems();
+  if(flag(t,'setlist','cap')&&it.length)s+=`\nセトリ:${it.join(' / ')}`;
+  if(flag(t,'memo','cap')&&memoText())s+=`\n\n${memoText()}`;
+  if(flag(t,'tags','cap'))s+=`\n\n${tagList().join(' ')}`;
+  return s;
+}
+function currentCaption(t=st.target){const c=st.cap[t];if(!c.edited)c.text=captionAuto(t);return c.text}
+
+/* ===== シェア画像(本物のチケット風) ===== */
+function shotHTML(t,o={}){
+  const fi=st.fmt[t],fmt=FMT[t][fi][1],lim=LIM[t][fi],d=st.design[t],wide=fmt==='16/9';
+  const img=k=>flag(t,k,'img');
+  const photos=img('photo')?st.sel.slice(0,3):[];
+  const items=setItems(),mt=memoText();
+  const hint=!!o.hints;
+  const showSet=img('setlist')&&(items.length>0||hint),showMemo=img('memo')&&(mt.length>0||hint);
+  const setShown=items.slice(0,lim.set),setMore=items.length-setShown.length;
+  const memoShown=mt.length>lim.memo?mt.slice(0,lim.memo)+'…':mt;
+  const mk=img('mark')?'<span class="mk">おしあし</span>':'';
+  const bg=BGS[st.bg][1];
+  const [ra,rb]=fmt.split('/').map(Number);
+  let style=`aspect-ratio:${fmt};--sb:${bg};--sa:${bg==='#1A1A1A'?'#F5D31A':bg};`;
+  if(o.maxh&&!wide)style+=`max-width:${Math.round(o.maxh*ra/rb)}px;`;
+  if(o.maxw)style+=`max-width:${o.maxw}px;`;
+  const part=(k)=>hint?` data-part="${k}" role="button" tabindex="0" aria-label="${k==='setlist'?'セトリ':k==='memo'?'感想':'写真'}を直す"`:'';
+  const hero=photos.length?`<div class="hero n${photos.length}"${part('photo')}>${photos.map(k=>thumb(k)).join('')}</div>`:`<div class="hero none"${part('photo')}><b>${LIVE.artist}</b><span>${hint?'写真を選ぶ':'LIVE'}</span></div>`;
+  const setHTML=showSet?(items.length?`<div class="blk"${part('setlist')}><div class="bl">SET LIST</div><ol class="sl ${setShown.length>4?'two':''}">${setShown.map((s,i)=>`<li><i>${String(i+1).padStart(2,'0')}</i><span>${s}</span></li>`).join('')}</ol>${setMore>0?`<div class="more">ほか${setMore}曲</div>`:''}</div>`:`<div class="blk empty"${part('setlist')}><div class="bl">SET LIST</div><div class="ph-t">+ セトリを書く</div></div>`):'';
+  const memoHTML=showMemo?(mt?`<div class="blk"${part('memo')}><div class="bl">MEMO</div><p class="mm">${memoShown}</p></div>`:`<div class="blk empty"${part('memo')}><div class="bl">MEMO</div><div class="ph-t">+ 感想を書く</div></div>`):'';
+  const stub=`<div class="stubx">${img('info')?`<div class="sd"><b>${DS}</b><span>${LIVE.venue}</span></div>`:''}<div class="bars" aria-hidden="true"></div>${mk}</div>`;
+  let inner='';
+  if(d===0){
+    const top=`<div class="tk-top"><span>LIVE TICKET</span><em>参戦済み</em></div>`;
+    if(wide){
+      inner=`<div class="tkw h"><div class="tk"><div class="tk-main">${top}<div class="tk-row">${hero}<div class="tk-body"><div class="tk-ttl">${LIVE.title}</div>${setHTML}${memoHTML}</div></div></div>${stub}</div></div>`;
+    }else{
+      inner=`<div class="tkw v"><div class="tk">${top}${hero}<div class="tk-body"><div class="tk-ttl">${LIVE.title}</div>${setHTML}${memoHTML}</div>${stub}</div></div>`;
+    }
+  }else if(d===1){
+    inner=`<div class="dz1"><div class="bgp">${photos[0]?thumb(photos[0]):`<div class="ph" style="background:#2B1D63"></div>`}</div><div class="shade"></div>${mk?`<span class="mk abs">おしあし</span>`:''}<div class="txt"><div class="ttl">${LIVE.title}</div>${img('info')?`<div class="inf">${LIVE.dshort}・${LIVE.venue}</div>`:''}${showSet&&items.length?`<div class="ex">SET: ${setShown.join(' / ')}${setMore>0?` ほか${setMore}曲`:''}</div>`:''}${showMemo&&mt?`<div class="ex">${memoShown}</div>`:''}</div></div>`;
+  }else{
+    inner=`<div class="dz2"><div class="col">${[0,1,2,3].map(n=>photos[n]||st.sel[n]&&img('photo')?thumb((photos[n]||st.sel[n])):`<div class="ph" style="background:#d8d2bf"></div>`).join('')}</div><div class="cap"><div class="ttl">${LIVE.title}</div>${img('info')?`<div class="inf">${LIVE.dshort}・${LIVE.venue}</div>`:''}${showSet&&items.length?`<div class="ex">SET: ${setShown.join(' / ')}${setMore>0?` ほか${setMore}曲`:''}</div>`:''}${showMemo&&mt?`<div class="ex">${memoShown}</div>`:''}${mk}</div></div>`;
+  }
+  return `<div class="cardwrap ${o.mini?'mini':''}"><div class="shot ${wide?'wide':''} r${fmt.replace('/','')}" style="${style}" role="img" aria-label="投稿する画像のプレビュー">${inner}</div></div>`;
+}
+function pvBlock(o={}){
+  const t=st.target,lim=LIM[t][st.fmt[t]],notes=[];
+  if(flag(t,'setlist','img')&&setItems().length>lim.set)notes.push(`セトリは、画像には先頭${lim.set}曲まで入ります。全曲は文章にのせられます。`);
+  if(flag(t,'memo','img')&&memoText().length>lim.memo)notes.push(`感想は、画像には${lim.memo}文字までです。全文は文章にのせられます。`);
+  return shotHTML(t,o)+(notes.length?`<p class="help" style="margin-top:8px">${ic('info',16)}<span>${notes.join('<br>')}</span></p>`:'');
+}
+
+/* ===== 編集画面の共通パーツ ===== */
+function snsTabs(){
+  const t=st.target;
+  return `<div class="tabs" role="group" aria-label="投稿先"><button type="button" data-a="target" data-v="x" aria-pressed="${t==='x'}"><span class="xmark">X</span>X</button><button type="button" data-a="target" data-v="ig" aria-pressed="${t==='ig'}">${ic('cam',22)}Instagram</button></div>
+  <p class="help" style="margin:-4px 0 10px">${ic('info',16)}<span>のせる内容は、XとInstagramで別々に決められます。いまは<b>${t==='x'?'X':'Instagram'}</b>の設定です。</span></p>`;
+}
+function lookBlock(){
+  const t=st.target;
+  return `<div class="fmt" role="group" aria-label="画像の形">${FMT[t].map((f,i)=>`<button type="button" data-a="fmt" data-v="${i}" aria-pressed="${st.fmt[t]===i}">${f[0]}</button>`).join('')}</div>
+  <div class="tpl" role="group" aria-label="デザイン">${DESIGNS.map((n,i)=>`<button type="button" data-a="design" data-v="${i}" aria-pressed="${st.design[t]===i}">${n}</button>`).join('')}</div>
+  <div class="bgrow" role="group" aria-label="背景の色"><span>背景</span>${BGS.map((b,i)=>`<button type="button" class="bgsw" data-a="bg" data-v="${i}" aria-pressed="${st.bg===i}" aria-label="背景 ${b[0]}" style="background:${b[1]}">${st.bg===i?ic('check',16,3.2):''}</button>`).join('')}</div>`;
+}
+function flagSw(p,kind,label){
+  const on=flag(st.target,p,kind),nm=PARTS.find(x=>x.k===p).l;
+  return `<span class="flag"><span>${label}</span><button class="sw sm" type="button" role="switch" data-a="cfg" data-p="${p}" data-kd="${kind}" aria-checked="${on}" aria-label="${nm}を${label}にのせる"><i></i></button></span>`;
+}
+function capBlock(){
+  const t=st.target,cap=currentCaption(t),limit=t==='x'?280:2200,over=cap.length>limit;
+  return `<div class="field"><label class="lb" for="fCap">投稿の文章(自由に直せます)</label><textarea class="fin" id="fCap" style="min-height:150px;font-size:14px">${cap}</textarea>
+   <div class="cnt" id="capCntBox" style="${over?'color:var(--err);font-weight:700':''}"><span id="capCnt">${cap.length}</span>/${limit}${over?'(文字数が多すぎます)':''}</div>
+   ${st.cap[t].edited?`<button class="linkbtn" type="button" data-a="capreset">自動で作った文章に戻す</button>`:''}</div>`;
+}
+function actionsBlock(){
+  const t=st.target,over=currentCaption(t).length>(t==='x'?280:2200);
+  return t==='x'?`<button class="btn dark wide" type="button" data-a="postx" ${over?'disabled':''}><span class="xmark" style="background:#fff;color:#111">X</span>Xで投稿画面を開く</button>
+     <p class="help">${ic('info',16)}<span>文章が入った状態でXの投稿画面が開きます。画像は「画像を保存」してから、投稿画面で追加してください。</span></p>
+     <button class="btn out wide" type="button" data-a="saveimg" style="margin-top:8px">${ic('dl',20)}画像を保存</button>`
+   :`<div class="steps3"><div class="st ${st.did.save?'ok':''}"><span class="n">1</span><button class="btn out" type="button" data-a="saveimg">${ic('dl',20)}画像を保存</button></div>
+     <div class="st ${st.did.copy?'ok':''}"><span class="n">2</span><button class="btn out" type="button" data-a="copycap">${ic('copy',20)}文章をコピー</button></div>
+     <div class="st"><span class="n">3</span><button class="btn dark" type="button" data-a="openig">${ic('cam',20)}Instagramを開く</button></div></div>
+     <p class="help">${ic('info',16)}<span>Instagramは、文章を自動で入れられません。画像を保存し、文章をコピーしてから、Instagramの投稿画面で貼り付けてください。</span></p>`;
+}
+const infoBlock=()=>`<p class="sec-d" style="font-size:14px;margin:0">${LIVE.dshort} ／ ${LIVE.venue}<br><span style="font-size:12.5px">ライブの情報から自動で入ります。座席は、SNSには出ません。</span></p>`;
+
+/* --- 案1:縦に並べて、項目ごとにスイッチ --- */
+function post1(){
+  const card=p=>{
+    const P0=PARTS.find(x=>x.k===p);
+    const body=p==='photo'?photosBlock():p==='info'?infoBlock():p==='setlist'?setlistBlock('e'):memoBlock('e');
+    return `<section class="pcard"><div class="pc-h"><h3>${P0.l}</h3><div class="flags">${P0.img?flagSw(p,'img','画像'):''}${P0.cap?flagSw(p,'cap','文章'):''}</div></div>${body}</section>`;
+  };
+  return `<div class="main nobar sc" style="padding-bottom:30px"><div class="stk">${snsTabs()}</div>
+   <div id="pv">${pvBlock()}</div>
+   <details class="look"><summary>${ic('tune',18)}画像の形・デザイン・背景色を変える</summary>${lookBlock()}</details>
+   <h2 class="grp">中身を直して、のせる先を選ぶ</h2>
+   <p class="sec-d" style="margin:0 0 4px">各項目の右上のスイッチで、「画像」「文章」にのせるかを選べます。</p>
+   ${['photo','info','setlist','memo'].map(card).join('')}
+   <section class="pcard"><div class="pc-h"><h3>ハッシュタグ</h3><div class="flags">${flagSw('tags','cap','文章')}</div></div><p class="sec-d" style="margin:0">${tagList().join(' ')}</p></section>
+   <section class="pcard"><div class="pc-h"><h3>「おしあし」マーク</h3><div class="flags">${flagSw('mark','img','画像')}</div></div><p class="sec-d" style="margin:0">画像の隅に、小さなロゴを入れます。</p></section>
+   <h2 class="grp">投稿の文章</h2>${capBlock()}
+   <h2 class="grp">投稿する</h2>${actionsBlock()}</div>`;
+}
+/* --- 案2:プレビュー固定+タブ --- */
+function post2(){
+  const t=st.target,tabs=['中身を直す','のせる部分','文章・投稿'];
+  let panel='';
+  if(st.ptab===0){
+    panel=`<h3 class="sec-title" style="margin-top:2px">写真</h3>${photosBlock()}<h3 class="sec-title" style="margin-top:20px">セトリ</h3>${setlistBlock('e')}<h3 class="sec-title" style="margin-top:20px">感想</h3>${memoBlock('e')}`;
+  }else if(st.ptab===1){
+    panel=`<p class="sec-d" style="margin:0 0 8px">${t==='x'?'X':'Instagram'}の画像と文章に、どの部分をのせるかを選びます。</p>
+    <table class="mx"><thead><tr><th scope="col">部分</th><th scope="col">画像に</th><th scope="col">文章に</th></tr></thead><tbody>${PARTS.map(p=>`<tr><th scope="row">${p.l}</th><td>${p.img?flagSw(p.k,'img','').replace('<span></span>',''):'<span class="na">—</span>'}</td><td>${p.cap?flagSw(p.k,'cap','').replace('<span></span>',''):'<span class="na">—</span>'}</td></tr>`).join('')}</tbody></table>
+    <h3 class="sec-title" style="margin-top:20px">画像の見た目</h3>${lookBlock()}`;
+  }else{
+    panel=`${capBlock()}${actionsBlock()}`;
+  }
+  return `<div class="p2"><div class="p2-top">${snsTabs()}<div id="pv" class="pvfix">${pvBlock({maxh:215})}</div></div>
+   <div class="ptabs" role="tablist">${tabs.map((n,i)=>`<button type="button" role="tab" data-a="ptab" data-v="${i}" aria-selected="${st.ptab===i}">${n}</button>`).join('')}</div>
+   <div class="panel sc" role="tabpanel">${panel}</div></div>`;
+}
+/* --- 案3:チケットを直接タップ --- */
+function post3(){
+  const t=st.target;
+  const chips=(kind,list)=>list.map(p=>{const P0=PARTS.find(x=>x.k===p),on=flag(t,p,kind);return `<span class="pchip ${on?'on':''}"><button type="button" class="pc-t" data-a="cfg" data-p="${p}" data-kd="${kind}" aria-pressed="${on}">${on?ic('check',16,3.2):'<span class="blankic"></span>'}${P0.l}</button>${(p==='photo'||p==='setlist'||p==='memo')&&kind==='img'?`<button type="button" class="pc-e" data-a="editpart" data-p="${p}" aria-label="${P0.l}を直す">${ic('pen',14,2.4)}</button>`:''}</span>`}).join('');
+  return `<div class="main nobar sc" style="padding-bottom:30px"><div class="stk">${snsTabs()}</div>
+   <p class="help" style="margin:0 0 8px">${ic('pen',16)}<span>チケットの写真・セトリ・感想を<b>タップ</b>すると、その場で直せます。</span></p>
+   <div id="pv">${pvBlock({hints:true})}</div>
+   <h2 class="grp">画像にのせる部分</h2><div class="pchips" role="group" aria-label="画像にのせる部分">${chips('img',['photo','info','setlist','memo','mark'])}</div>
+   <h2 class="grp">文章にのせる部分</h2><div class="pchips" role="group" aria-label="文章にのせる部分">${chips('cap',['info','setlist','memo','tags'])}</div>
+   <details class="look"><summary>${ic('tune',18)}画像の形・デザイン・背景色を変える</summary>${lookBlock()}</details>
+   <h2 class="grp">投稿の文章</h2>${capBlock()}
+   <h2 class="grp">投稿する</h2>${actionsBlock()}</div>`;
+}
+function postBody(){return VARIANT==='1'?post1():VARIANT==='2'?post2():post3()}
+
+/* ===== 記録ページ(案Cのチケット) ===== */
+function recordHeadBadge(){return st.saved?'<span class="chip wh">参戦済み</span>':'<span class="chip ai">'+ic('spark',12,2.2)+'下書き(自動作成)</span>'}
+function recordC(){
+  const top=st.sel.slice(0,3);
+  const photos=top.length?`<div class="tphotos">${top.map(k=>thumb(k)).join('')}${top.length<3?'<div class="ph" style="background:#d8d2bf"></div>'.repeat(3-top.length):''}</div>`:`<div style="height:120px;display:grid;place-items:center;background:var(--green-s);border-bottom:2px solid var(--ink);text-align:center;padding:12px"><div><div style="font-weight:800;font-size:14px">写真はまだありません</div><button class="btn green sm" type="button" data-a="${st.gp==='off'?'connect':'addphoto'}" style="margin-top:8px">${ic('cam',18)}${st.gp==='off'?'Googleフォトとつなぐ':'写真を追加'}</button></div></div>`;
+  const editable=(key,label,val,hint)=>val.trim()?`<button class="blank filled" type="button" data-a="edit" data-k="${key}"><span class="bt">${label}<span class="chip wh">${ic('pen',12,2.4)}直す</span></span><span class="bv">${val}</span></button>`:`<button class="blank" type="button" data-a="edit" data-k="${key}"><span class="bt">${ic('pen',16,2.4)}${label}を書く</span><span class="bh">${hint}</span></button>`;
+  return `<div class="ticket">${photos}<div class="tbody"><div style="display:flex;gap:6px;flex-wrap:wrap">${recordHeadBadge()}${top.length&&st.gp==='on'?'<span class="chip ai">'+ic('spark',12,2.2)+'写真をおまかせ</span>':''}</div><div class="tt" style="margin-top:8px">${LIVE.title}</div><div class="tm">${ic('cal',14)} ${LIVE.date}<br>${ic('pin',14)} ${LIVE.venue}</div></div>
+   <div class="perf"></div>
+   <div class="stub"><div style="flex:1"><div class="sl">SEAT / 座席</div><div class="sv">${st.seatText.trim()||'未入力'}</div>${st.seatText===LIVE.seat?'<span class="chip auto" style="margin-top:4px">'+ic('check',12,3)+'予約情報から自動入力</span>':''}</div><button class="btn out sm" type="button" data-a="edit" data-k="seat" aria-label="座席を直す">${ic('pen',16,2.4)}直す</button></div></div>
+   <div style="display:flex;flex-direction:column;gap:12px;margin-top:18px">
+    ${editable('setlist','セトリ',st.setlist,'公演のあとに、覚えている曲から書けます')}
+    ${editable('memo','感想',st.memo,'心に残ったことを、自由に書いてください')}</div>
+   <div id="inlineEdit"></div>
+   <p class="help" style="margin-top:12px">${ic('info',16)}<span>座席は、この記録だけに表示されます。SNSの画像と文章には出ません。</span></p>
+   ${progress()}
+   <section class="sec"><h3 class="sec-title">公開</h3>${pubBlock()}</section>`;
+}
+
+/* ===== 一覧・ホーム ===== */
+function doneCards(){return [['空野カナタ アコースティックライブ「ことのは」','2026/11/6(金) 19:00','金沢ことのはホール',1],['ミッドナイト・トレイン ワンマン「夜明け前」','2026/11/1(日) 19:00','東京ネオンホール',0],['ステラノート 1st ライブ「はじまりの夜」','2026/10/20(火) 18:00','横浜ハーバーホール',0]].map(m=>`<button class="mcard" type="button" data-a="stub"><div class="mi ${m[3]?'photo':''}">${m[3]?'':ic('note',30)}</div><div class="mb"><div class="mt">${m[0]}</div><div class="md">${m[1]}</div><div class="md">${m[2]}</div></div></button>`).join('')}
+function draftCard(){
+  const strip=st.sel.slice(0,4);
+  return `<button class="draft" type="button" data-a="record">
+   <div class="strip">${strip.length?strip.map(k=>thumb(k)).join(''):'<div style="grid-column:1/-1;background:var(--green-s);display:grid;place-items:center;font-size:13px;font-weight:700">写真は、これから入れます</div>'}</div>
+   <div class="db"><div style="display:flex;gap:6px;flex-wrap:wrap">${recordHeadBadge()}${!st.saved?'<span class="chip">NEW</span>':''}</div>
+   <div class="dt">${LIVE.title}</div><div class="dm">${LIVE.dshort} ・ ${LIVE.venue}</div>${progress()}
+   <div class="dm" style="margin-top:8px;color:var(--ink);font-weight:700;display:flex;align-items:center;gap:4px">チケットを開いて、セトリと感想を書く${ic('chev',16,2.6)}</div></div></button>`;
+}
+function listPage(){
+  return `<section class="sec"><h2 class="sec-title">参戦予定</h2>
+   <button class="row" type="button" data-a="stub"><span>${ic('cal',24)}</span><span style="flex:1"><div class="rt">ほしぞらフェス 2026</div><div class="rs">2026/12/9(水) 12:00 開演</div><div class="rs">静岡ほしぞら公園 特設ステージ</div></span><span style="align-self:center">${ic('chev',20)}</span></button></section>
+   <section class="sec"><h2 class="sec-title">参戦済み</h2>${st.saved?'':`<p class="sec-d">参戦が終わったライブは、チケット風の記録が自動で作られます。</p>`}
+   ${draftCard()}<div class="mgrid">${doneCards()}</div></section>`;
+}
+function homePage(){
+  const card=`<div class="banner" style="padding:0;overflow:hidden"><div style="padding:14px 14px 4px;background:#E7E0CB;border-bottom:2px solid var(--ink)">${shotHTML(st.target==='x'?'ig':st.target,{mini:true,maxw:190})}</div>
+     <div style="padding:12px 14px"><div class="bt">${ic('spark',20)}ライブお疲れさまでした!</div><div class="bd"><b>${LIVE.title}</b>の記録と、投稿用のチケットができています。そのままでも、まとめて直してからでも投稿できます。</div>
+     <div style="display:flex;gap:8px;margin-top:12px"><button class="btn dark sm" type="button" data-a="sharex" style="flex:1"><span class="xmark" style="background:#fff;color:#111;width:18px;height:18px;font-size:11px">X</span>Xに投稿</button><button class="btn out sm" type="button" data-a="shareig" style="flex:1">${ic('cam',18)}Instagram</button></div>
+     <button class="linkbtn" type="button" data-a="record" style="margin-top:6px">記録を見る・セトリと感想を書く</button></div></div>`;
+  return `<div class="hello"><span class="av"></span><h2>こんにちは、けんさん</h2></div>${card}
+   <section class="sec"><h2 class="sec-title">次の締切</h2>
+   ${[['ルミナス☆ガーデン 秋のワンマン「花ひらく」','FC先行','入金期限あと1日','#2DBE7E'],['ステラノート 全国ツアー 2026「ひかりの旋律」','アップグレード(当選者のみ)','申込期限あと2日','#EF4630']].map(r=>`<button class="row" type="button" data-a="stub"><span style="flex:1"><div class="rt">${r[0]}</div><div class="rs">${r[1]}</div><span class="chip" style="background:${r[3]};margin-top:8px">${r[2]}</span></span></button>`).join('')}</section>`;
+}
+
+/* ===== オーバーレイ ===== */
+function openSheet(kind){st.sheetKind=kind;renderSheet();$('#sheet').classList.add('on');$('#backdrop').classList.add('on')}
+function closeSheet(){$('#sheet').classList.remove('on');$('#backdrop').classList.remove('on');$('#modal').classList.remove('on');st.sheetKind='';st.edit='';setTimeout(()=>{if(!st.sheetKind)$('#sheet').innerHTML=''},300)}
+function renderSheet(){
+  if(st.sheetKind==='edit'){
+    const p=st.edit,nm={photo:'写真',setlist:'セトリ',memo:'感想'}[p];
+    const body=p==='photo'?photosBlock():p==='setlist'?setlistBlock('e'):memoBlock('e');
+    $('#sheet').setAttribute('aria-label',nm+'を直す');
+    $('#sheet').innerHTML=`<div class="grab"></div><div class="sh-h"><h3>${nm}を直す</h3><button class="iconbtn" type="button" data-a="closesheet" aria-label="とじる">${ic('close',22,2.4)}</button></div>${body}<button class="btn green wide" type="button" data-a="closesheet" style="margin-top:14px">${ic('check',20,3)}決定</button>`;
+  }
+}
+function openFull(){st.full='post';renderFull();$('#full').classList.add('on')}
+function closeFull(){st.full='';$('#full').classList.remove('on');setTimeout(()=>{if(!st.full)$('#full').innerHTML=''},300);render(true)}
+function renderFull(){
+  const f=$('#full');
+  if(st.full==='post'){f.setAttribute('aria-label','投稿をまとめて編集');f.innerHTML=`<header class="appbar nb"><button class="iconbtn" type="button" data-a="closefull" aria-label="戻る">${ic('back',24,2.4)}</button><h1>投稿をまとめて編集</h1></header>${postBody()}`}
+}
+function renderFullKeep(){
+  if(!st.full)return;
+  const y=Array.from(document.querySelectorAll('#full .sc')).map(e=>e.scrollTop);
+  renderFull();
+  document.querySelectorAll('#full .sc').forEach((e,i)=>e.scrollTop=y[i]||0);
+  if(st.sheetKind==='edit')renderSheet();
+}
+function refreshPreview(){
+  const pv=$('#pv');if(pv)pv.innerHTML=VARIANT==='2'?pvBlock({maxh:215}):VARIANT==='3'?pvBlock({hints:true}):pvBlock();
+  const c=$('#fCap');if(c&&!st.cap[st.target].edited){c.value=currentCaption();const n=$('#capCnt');if(n)n.textContent=c.value.length}
+  const hp=$('#homePv');
+}
+function openConsent(){
+  $('#modal').innerHTML=`<h3 id="mdT">Googleフォトとつなぎますか?</h3><ul><li>写真を読み取るだけです。変更や削除はしません。</li><li>公演の日時と会場の近くで撮った写真だけを、候補にします。</li><li>つなぐのをやめたいときは、設定からいつでも解除できます。</li></ul>
+  <div style="display:flex;gap:8px"><button class="btn out" type="button" data-a="consentno" style="flex:1;padding:0 8px">今はしない</button><button class="btn green" type="button" data-a="consentyes" style="flex:1;padding:0 8px">つなぐ</button></div>`;
+  $('#backdrop').classList.add('on');$('#modal').classList.add('on');
+  setTimeout(()=>{const b=document.querySelector('[data-a=consentyes]');b&&b.focus()},50);
+}
+
+/* ===== 描画 ===== */
+function tabbar(){
+  const T=[['home','ホーム','home'],['oshi','推し','heart'],['live','ライブ一覧','list'],['trade','グッズ交換','swap'],['memory','メモリー','book']];
+  $('#tabbar').innerHTML=T.map(t=>`<button class="tab t-${t[0]} ${t[0]===st.tab?'on':''}" type="button" data-tab="${t[0]}" ${t[0]===st.tab?'aria-current="page"':''}><span class="ti">${ic(t[2],22,2.2)}</span><span class="tl">${t[1]}</span></button>`).join('');
+}
+function render(keepScroll){
+  const main=$('#main'),y=main.scrollTop;
+  $('#phone').className='phone '+(st.tab==='home'?'s-home':'s-memory');
+  const inRecord=st.tab==='memory'&&st.page==='record';
+  $('#appbar').innerHTML=inRecord?`<button class="iconbtn" type="button" data-a="backlist" aria-label="戻る">${ic('back',24,2.4)}</button><h1>記録</h1>`:`<h1 style="padding-left:12px">${st.tab==='home'?'おしあし':'メモリー'}</h1>`;
+  main.innerHTML=st.tab==='home'?homePage():st.page==='record'?recordC():listPage();
+  main.scrollTop=keepScroll?y:0;
+  const stick=$('#stickyslot');
+  if(inRecord){
+    stick.innerHTML=`<div class="stick">${st.saved?'':`<button class="btn out" type="button" data-a="savedraft" style="flex:0 0 38%;padding:0 8px">保存して完成</button>`}<button class="btn dark" type="button" data-a="share" style="padding:0 8px">${ic('share',20)}まとめて編集して投稿</button></div>`;
+    main.style.paddingBottom='calc(var(--tb) + 96px)';
+  }else{stick.innerHTML='';main.style.paddingBottom=''}
+  tabbar();
+}
+
+/* ===== イベント ===== */
+function rerenderKeep(){render(true);renderFullKeep()}
+document.addEventListener('click',e=>{
+  const pv=e.target.closest('[data-pv]');
+  if(pv){const k=pv.dataset.pv;st[k]=pv.dataset.v;document.querySelectorAll(`[data-pv="${k}"]`).forEach(b=>b.setAttribute('aria-pressed',b===pv));
+    initPickState();st.cap.x.edited=false;st.cap.ig.edited=false;st.showSkipped=false;rerenderKeep();return}
+  const tab=e.target.closest('[data-tab]');
+  if(tab){const t=tab.dataset.tab;if(t==='home'||t==='memory'){st.tab=t;st.page='list';if(st.full){st.full='';$('#full').classList.remove('on');$('#full').innerHTML=''}closeSheet();render(false)}else toast('このデモでは、ホームとメモリーだけ動きます');return}
+  const part=e.target.closest('[data-part]');
+  if(part&&VARIANT==='3'){st.edit=part.dataset.part;openSheet('edit');return}
+  const a=e.target.closest('[data-a]');
+  if(!a)return;
+  const k=a.dataset.k,v=a.dataset.v;
+  switch(a.dataset.a){
+    case 'stub':toast('このデモでは省略しています');break;
+    case 'record':if(st.full){st.full='';$('#full').classList.remove('on');$('#full').innerHTML=''}st.tab='memory';st.page='record';render(false);break;
+    case 'backlist':st.page='list';render(false);break;
+    case 'savedraft':st.saved=true;render(true);toast('記録を保存しました');break;
+    case 'share':st.fmt[st.target]=0;openFull();break;
+    case 'sharex':st.target='x';openFull();break;
+    case 'shareig':st.target='ig';openFull();break;
+    case 'closesheet':{const had=st.sheetKind;closeSheet();if(had==='edit'){render(true);renderFullKeep()}break}
+    case 'closefull':closeFull();break;
+    case 'connect':openConsent();break;
+    case 'consentno':closeSheet();break;
+    case 'consentyes':closeSheet();st.gp='on';document.querySelectorAll('[data-pv="gp"]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v==='on'));st.loading=true;rerenderKeep();
+      setTimeout(()=>{st.loading=false;st.sel=DEFAULT_PICKS.slice();rerenderKeep();if(st.sheetKind==='edit')renderSheet()},1300);break;
+    case 'addphoto':st.sel=['goods'];rerenderKeep();toast('写真を追加しました(デモ)');break;
+    case 'pick':if(st.sel.length<8)st.sel.push(k);rerenderKeep();if(st.sheetKind==='edit')renderSheet();break;
+    case 'unpick':st.sel=st.sel.filter(x=>x!==k);rerenderKeep();if(st.sheetKind==='edit')renderSheet();break;
+    case 'skipped':st.showSkipped=!st.showSkipped;rerenderKeep();if(st.sheetKind==='edit')renderSheet();break;
+    case 'pub':st.pub=!st.pub;if(!st.pub)st.pubSeat=false;render(true);break;
+    case 'pubseat':st.pubSeat=!st.pubSeat;render(true);break;
+    case 'target':st.target=v;renderFullKeep();break;
+    case 'fmt':st.fmt[st.target]=+v;renderFullKeep();break;
+    case 'design':st.design[st.target]=+v;renderFullKeep();break;
+    case 'bg':st.bg=+v;renderFullKeep();break;
+    case 'ptab':st.ptab=+v;renderFull();break;
+    case 'cfg':{const o=st.cfg[st.target];const p=a.dataset.p,kd=a.dataset.kd;o[p]=o[p]||{};o[p][kd]=o[p][kd]?0:1;st.cap[st.target].edited=false;renderFullKeep();break}
+    case 'editpart':st.edit=a.dataset.p;openSheet('edit');break;
+    case 'capreset':st.cap[st.target].edited=false;renderFullKeep();break;
+    case 'saveimg':st.did.save=true;toast('画像を保存しました(デモ)');renderFullKeep();break;
+    case 'copycap':try{navigator.clipboard.writeText(currentCaption())}catch(err){}st.did.copy=true;toast('文章をコピーしました');renderFullKeep();break;
+    case 'openig':window.open('https://www.instagram.com/','_blank','noopener');break;
+    case 'postx':window.open('https://x.com/intent/post?text='+encodeURIComponent(currentCaption('x')),'_blank','noopener');break;
+    case 'edit':startInlineEdit(k);break;
+    case 'saveedit':render(true);break;
+  }
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){if(st.sheetKind){const had=st.sheetKind;closeSheet();if(had==='edit'){render(true);renderFullKeep()}}else if(st.full)closeFull()}
+  if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('[data-part]')){e.preventDefault();st.edit=e.target.dataset.part;openSheet('edit')}
+});
+document.addEventListener('input',e=>{
+  const t=e.target,id=t.id;
+  if(id==='fSeat')st.seatText=t.value;
+  if(id==='fSet'||id==='eSet'){st.setlist=t.value;st.cap.x.edited=st.cap.x.edited;refreshPreview()}
+  if(id==='fMemo'||id==='eMemo'){st.memo=t.value;['fMemoCnt','eMemoCnt'].forEach(i=>{const c=document.getElementById(i);if(c)c.textContent=t.value.length});refreshPreview()}
+  if(id==='fCap'){st.cap[st.target].edited=true;st.cap[st.target].text=t.value;const c=$('#capCnt');if(c)c.textContent=t.value.length}
+  if(['fSeat','fSet','fMemo','eSet','eMemo'].includes(id))updateProgress();
+});
+function updateProgress(){const n=doneN();document.querySelectorAll('.prog').forEach(p=>{p.querySelector('span').textContent=n+'/4 入力済み';p.querySelector('i').style.width=n*25+'%'})}
+$('#backdrop').addEventListener('click',()=>{const had=st.sheetKind;closeSheet();if(had==='edit'){render(true);renderFullKeep()}});
+function startInlineEdit(k){
+  const label={setlist:'セトリ',memo:'感想',seat:'座席'}[k];
+  const slot=$('#inlineEdit');
+  const body=k==='seat'?`<input class="fin" id="fSeat" value="${st.seatText}" placeholder="例)アリーナ C3ブロック 8列 21番 / 自由席" aria-label="座席">`:k==='setlist'?`<textarea class="fin" id="fSet" placeholder="覚えている曲から、1行に1曲ずつ" aria-label="セトリ">${st.setlist}</textarea>`:`<textarea class="fin" id="fMemo" maxlength="2000" placeholder="心に残ったことを、自由に" aria-label="感想">${st.memo}</textarea>`;
+  slot.innerHTML=`<div class="card" style="margin-top:14px;box-shadow:4px 4px 0 var(--ink)"><b style="font-size:15px">${label}を書く</b><div style="margin-top:8px">${body}</div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn green sm" type="button" data-a="saveedit" style="flex:1">${ic('check',18,3)}決定</button></div></div>`;
+  const mm=$('#main');mm.scrollTop+=slot.getBoundingClientRect().top-mm.getBoundingClientRect().top-120;
+  const f=slot.querySelector('textarea,input');f&&f.focus();
+}
+render(false);
+</script>
+</body>
+</html>

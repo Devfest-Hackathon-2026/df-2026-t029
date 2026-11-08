@@ -16,6 +16,10 @@ abstract class MemoryRepository {
 
   /// 記録を削除する
   Future<void> delete(String uid, String performanceId);
+
+  /// SNS に投稿する操作をした印（`postedAt`）をサーバー時刻で書く。
+  /// `updatedAt` は変えない
+  Future<void> markPosted(String uid, String performanceId);
 }
 
 /// Firestore 版の [MemoryRepository]
@@ -58,4 +62,10 @@ class FirestoreMemoryRepository implements MemoryRepository {
   @override
   Future<void> delete(String uid, String performanceId) =>
       _memories(uid).doc(performanceId).delete();
+
+  @override
+  Future<void> markPosted(String uid, String performanceId) =>
+      _memories(uid)
+          .doc(performanceId)
+          .update({'postedAt': FieldValue.serverTimestamp()});
 }

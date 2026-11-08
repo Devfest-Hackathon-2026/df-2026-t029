@@ -11,7 +11,10 @@ import '../../utils/memory_album.dart';
 import '../live_form/date_time_field.dart';
 import '../common/empty_state.dart';
 
+import '../../providers/live_providers.dart';
+import '../../utils/memory_ticket.dart';
 import 'memory_album_card.dart';
+import 'ticket/recent_memory_card.dart';
 import 'shared_memories_view.dart';
 
 /// メモリー一覧（/memories）。「自分のメモリー」と「みんなのメモリー」のタブ（add_K 6.1）。
@@ -81,7 +84,10 @@ class _MineTab extends ConsumerWidget {
           title: '参戦したライブを記録すると、ここに並びます',
           message: 'ライブの詳細の公演から「記録する」で残せます',
         ),
-      AsyncData(:final value) => _AlbumView(album: value),
+      AsyncData(:final value) => _AlbumView(
+        album: value,
+        now: ref.watch(nowProvider),
+      ),
       _ => const Center(
         key: Key('memory_list_loading'),
         child: CircularProgressIndicator(),
@@ -122,9 +128,10 @@ class _Message extends StatelessWidget {
 }
 
 class _AlbumView extends StatelessWidget {
-  const _AlbumView({required this.album});
+  const _AlbumView({required this.album, required this.now});
 
   final MemoryAlbum album;
+  final DateTime now;
 
   /// この幅以上なら2列にする（Fc 5.2）
   static const double _twoColumnWidth = 900;
@@ -170,10 +177,23 @@ class _AlbumView extends StatelessWidget {
         ),
     ];
 
+    // 新しい記録（開演から7日以内で、投稿していないもの）は、先頭に大きいカードで出す
+    final recent = recentUnpostedMemory(album.attended, now);
+    final rest = [
+      for (final m in album.attended)
+        if (m.performanceId != recent?.performanceId) m,
+    ];
+
     // 参戦済み（カードのグリッド）
     final attended = <Widget>[
       header('参戦済み'),
-      hint('行ったライブの思い出です。', 'hint_memory_done'),
+      // 参戦済みが0件のときだけ、「記録する」で記録が作られることを伝える（計画書 4.0）
+      hint(
+        album.attended.isEmpty
+            ? '参戦が終わったライブは、「記録する」を押すと、チケット風の記録が作られます。'
+            : '行ったライブの思い出です。',
+        'hint_memory_done',
+      ),
       if (album.attended.isEmpty)
         const SliverToBoxAdapter(
           child: EmptyState(
@@ -182,7 +202,18 @@ class _AlbumView extends StatelessWidget {
             title: '参戦したライブを記録すると、ここに並びます',
           ),
         )
-      else
+      else ...[
+        if (recent != null)
+          SliverPadding(
+            padding: EdgeInsets.symmetric(horizontal: pad.left),
+            sliver: SliverToBoxAdapter(
+              child: RecentMemoryCard(
+                key: const Key('memory_list_recent_card'),
+                memory: recent,
+                onTap: () => context.go('/memories/${recent.performanceId}'),
+              ),
+            ),
+          ),
         SliverPadding(
           padding: EdgeInsets.fromLTRB(pad.left, 8, pad.right, pad.bottom),
           sliver: SliverGrid.builder(
@@ -193,9 +224,9 @@ class _AlbumView extends StatelessWidget {
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
             ),
-            itemCount: album.attended.length,
+            itemCount: rest.length,
             itemBuilder: (context, i) {
-              final m = album.attended[i];
+              final m = rest[i];
               return MemoryAlbumCard(
                 key: Key('memory_list_attended_${m.performanceId}'),
                 memory: m,
@@ -204,6 +235,7 @@ class _AlbumView extends StatelessWidget {
             },
           ),
         ),
+      ],
     ];
 
     return LayoutBuilder(
