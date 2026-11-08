@@ -11,6 +11,7 @@ import 'oshi_list_tile.dart';
 import 'oshi_color_sheet.dart';
 // import 'group_members_sheet.dart';
 import 'group_members_panel.dart';
+import 'oshi_menu.dart';
 
 /// 推しページに出す、フォロー中の推しの一覧。
 /// グループ／個人の絞り込み（Fc 3.1）と、最推しの星（Fc 3.2）を持つ。
@@ -171,8 +172,21 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
               ),
               // 札を押すと色を選ぶ（Fc 5.3）
               onBadgeTap: () => showOshiColorSheet(context, oshi),
+              // まとめてフォローと ⋮（Fd 5.1・5.3）
+              showFollowAll: oshi.kind == OshiKind.group,
+              menu: oshiMenuItems(
+                context,
+                oshi,
+                isFollowing: true,
+                onUnfollow: () => _unfollow(oshi),
+              ),
             ),
-            if (_expanded.contains(oshi.key)) GroupMembersPanel(group: oshi),
+            if (_expanded.contains(oshi.key))
+              GroupMembersPanel(
+                group: oshi,
+                showFollowAllButton: false,
+                withActions: true,
+              ),
           ],
       ],
     );

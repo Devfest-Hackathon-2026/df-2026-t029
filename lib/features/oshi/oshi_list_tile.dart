@@ -9,6 +9,7 @@ import '../../theme/hako_fonts.dart';
 import '../../providers/oshi_emoji_providers.dart';
 import '../../providers/oshi_image_providers.dart';
 import '../common/storage_image.dart';
+import 'group_members_panel.dart' show FollowAllMembersButton;
 
 /// グループの ID → グループ名（個人の行に「所属：◯◯」を出すのに使う）
 Map<String, String> groupNamesById(List<OshiSummary> all) => {
@@ -20,6 +21,12 @@ Map<String, String> groupNamesById(List<OshiSummary> all) => {
 List<String> groupNamesOf(OshiSummary oshi, Map<String, String> names) => [
   for (final id in oshi.groupIds) ?names[id],
 ];
+
+/// ⋮ のメニューの1項目（Fd 5.3）
+typedef OshiMenuItem = ({String label, IconData icon, VoidCallback onSelected});
+
+/// 行の幅がこれ未満なら、☆・ボタン類・⋮ を名前の下の行に並べる（Fd 5.1）
+const double _narrowTileWidth = 560;
 
 /// 推しの種別の札（Fc 4.3・5.3・add_I 3.1・3.1b）。
 /// グループは墨の丸に白（色があれば枠をその色にする）、
@@ -96,13 +103,14 @@ class OshiKindBadge extends ConsumerWidget {
   }
 }
 
-/// 検索結果・フォロー一覧・メンバー一覧の1行
+/// 検索結果・フォロー一覧・メンバー一覧の1行（Fd 5.1）
 ///
-/// 種別の札・申請中バッジ・フォロー／解除ボタンを出す。
+/// 左に札（グループで開閉できる形なら、その下に ▼／▲）。
+/// 名前の上にジャンルのチップ、下に所属・申請中のチップ。
+/// 右に ☆（[onToggleFavorite] があるとき）・フォローのボタン・
+/// メンバーをまとめてフォロー（[showFollowAll] のグループ）・⋮（[menu] が空でないとき）。
+/// 行の幅が 560 未満なら、右のものは名前の下の行に右寄せで並べる。
 /// 申請中の推しはフォローボタンを押せない。
-/// [onTap] があれば行を押せる（グループの行で、メンバーを出すのに使う）。
-/// [onToggleFavorite] があれば、フォローのボタンの左に最推しの星を出す（Fc 3.2）。
-/// [onBadgeTap] があれば、札を押せる（色を選ぶ。Fc 5.3）。
 class OshiListTile extends StatelessWidget {
   const OshiListTile({
     super.key,
@@ -118,6 +126,8 @@ class OshiListTile extends StatelessWidget {
     this.membersExpanded,
     this.highlight = false,
     this.onBadgeTap,
+    this.showFollowAll = false,
+    this.menu = const [],
   });
 
   final OshiSummary oshi;
@@ -137,7 +147,7 @@ class OshiListTile extends StatelessWidget {
   /// 最推しか（[onToggleFavorite] があるときだけ使う）
   final bool isFavorite;
 
-  /// 星を押したとき。null なら星を出さない（フォロー中の一覧だけで渡す）
+  /// 星を押したとき。null なら星を出さない
   final VoidCallback? onToggleFavorite;
 
   /// グループの行をその場で開く形のとき、開いているか（Fc 4.1）。
@@ -150,12 +160,136 @@ class OshiListTile extends StatelessWidget {
   /// 札を押したとき（色を選ぶ。フォロー中の一覧だけで渡す。Fc 5.3）
   final VoidCallback? onBadgeTap;
 
+  /// グループの行に「メンバーをまとめてフォロー」を出すか（Fd 5.1）
+  final bool showFollowAll;
+
+  /// ⋮ のメニュー。空なら ⋮ を出さない（Fd 5.3）
+  final List<OshiMenuItem> menu;
+
   String get _keySuffix => '${oshi.kind.name}_${oshi.id}';
 
   @override
   Widget build(BuildContext context) {
     final isPending = !oshi.isApproved;
     final badge = OshiKindBadge(oshi: oshi);
+    final canToggle =
+        oshi.kind == OshiKind.group && onTap != null && membersExpanded != null;
+
+    // 左：札（押せるなら色のシート）＋ グループなら ▼／▲
+    final left = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (onBadgeTap == null)
+          badge
+        else
+          Tooltip(
+            message: '色・絵文字・記念日',
+            child: InkWell(
+              key: ValueKey('oshi_color_button_$_keySuffix'),
+              customBorder: const CircleBorder(),
+              onTap: onBadgeTap,
+              child: badge,
+            ),
+          ),
+        if (canToggle)
+          IconButton(
+            key: ValueKey('oshi_members_toggle_$_keySuffix'),
+            tooltip: membersExpanded! ? 'メンバーを閉じる' : 'メンバーを開く',
+            onPressed: onTap,
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 32),
+            icon: Icon(
+              membersExpanded! ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+              color: BrandColors.ink,
+              size: 28,
+            ),
+          ),
+      ],
+    );
+
+    // 名前の上下のチップ
+    final lowerChips = <Widget>[
+      if (groupNames.isNotEmpty)
+        HakoTagChip(
+          '所属：${groupNames.join('・')}',
+          key: ValueKey('oshi_affiliation_$_keySuffix'),
+        ),
+      if (isPending)
+        HakoTagChip(
+          '申請中',
+          key: ValueKey('oshi_pending_badge_$_keySuffix'),
+          link: true,
+        ),
+      // シートで開く形のグループだけ、今までどおりのチップ
+      if (onTap != null && membersExpanded == null)
+        HakoTagChip(
+          'メンバーを見る ›',
+          key: ValueKey('oshi_members_label_$_keySuffix'),
+          link: true,
+        ),
+    ];
+    final info = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        HakoTagChip(
+          oshi.genre.label,
+          key: ValueKey('oshi_genre_$_keySuffix'),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          oshi.name,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: HakoFonts.jp(
+            size: 16,
+            height: 1.5,
+            weight: highlight ? FontWeight.w700 : FontWeight.w400,
+          ),
+        ),
+        if (lowerChips.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Wrap(spacing: 6, runSpacing: 4, children: lowerChips),
+        ],
+      ],
+    );
+
+    // 右：☆・フォロー・まとめてフォロー・⋮
+    final actions = <Widget>[
+      if (onToggleFavorite != null)
+        IconButton(
+          key: ValueKey('oshi_favorite_button_$_keySuffix'),
+          tooltip: isFavorite ? '最推しを外す' : '最推しにする',
+          onPressed: isBusy ? null : onToggleFavorite,
+          icon: Icon(
+            isFavorite ? Icons.star : Icons.star_border,
+            color: isFavorite ? BrandColors.hall2 : BrandColors.ink,
+          ),
+        ),
+      _buildButton(isPending),
+      if (showFollowAll && oshi.kind == OshiKind.group)
+        FollowAllMembersButton(group: oshi),
+      if (menu.isNotEmpty)
+        PopupMenuButton<int>(
+          key: ValueKey('oshi_menu_button_$_keySuffix'),
+          tooltip: 'その他',
+          icon: const Icon(Icons.more_vert, color: BrandColors.ink),
+          onSelected: (i) => menu[i].onSelected(),
+          itemBuilder: (_) => [
+            for (var i = 0; i < menu.length; i++)
+              PopupMenuItem<int>(
+                value: i,
+                child: Row(
+                  children: [
+                    Icon(menu[i].icon, size: 20, color: BrandColors.ink),
+                    const SizedBox(width: 12),
+                    Text(menu[i].label),
+                  ],
+                ),
+              ),
+          ],
+        ),
+    ];
 
     return InkWell(
       key: ValueKey('oshi_tile_$_keySuffix'),
@@ -170,84 +304,53 @@ class OshiListTile extends StatelessWidget {
             bottom: BorderSide(color: BrandColors.rowLine, width: 1.5),
           ),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (onBadgeTap == null)
-              badge
-            else
-              Tooltip(
-                message: '色・絵文字・記念日',
-                child: InkWell(
-                  key: ValueKey('oshi_color_button_$_keySuffix'),
-                  customBorder: const CircleBorder(),
-                  onTap: onBadgeTap,
-                  child: badge,
-                ),
-              ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final narrow = constraints.maxWidth < _narrowTileWidth;
+            if (!narrow) {
+              return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    oshi.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: HakoFonts.jp(
-                      size: 16,
-                      height: 1.5,
-                      weight: highlight ? FontWeight.w700 : FontWeight.w400,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
+                  left,
+                  const SizedBox(width: 12),
+                  Expanded(child: info),
+                  const SizedBox(width: 14),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      HakoTagChip(oshi.kind.label),
-                      HakoTagChip(oshi.genre.label),
-                      if (groupNames.isNotEmpty)
-                        HakoTagChip(
-                          '所属：${groupNames.join('・')}',
-                          key: ValueKey('oshi_affiliation_$_keySuffix'),
-                        ),
-                      if (isPending)
-                        HakoTagChip(
-                          '申請中',
-                          key: ValueKey('oshi_pending_badge_$_keySuffix'),
-                          link: true,
-                        ),
-                      if (onTap != null)
-                        HakoTagChip(
-                          switch (membersExpanded) {
-                            true => 'メンバー ▲',
-                            false => 'メンバー ▼',
-                            null => 'メンバーを見る ›',
-                          },
-                          key: ValueKey('oshi_members_label_$_keySuffix'),
-                          link: true,
-                        ),
+                      for (var i = 0; i < actions.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 6),
+                        actions[i],
+                      ],
                     ],
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(width: 14),
-            if (onToggleFavorite != null) ...[
-              IconButton(
-                key: ValueKey('oshi_favorite_button_$_keySuffix'),
-                tooltip: isFavorite ? '最推しを外す' : '最推しにする',
-                onPressed: isBusy ? null : onToggleFavorite,
-                icon: Icon(
-                  isFavorite ? Icons.star : Icons.star_border,
-                  color: isFavorite ? BrandColors.hall2 : BrandColors.ink,
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                left,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      info,
+                      const SizedBox(height: 6),
+                      Wrap(
+                        alignment: WrapAlignment.end,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: actions,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 4),
-            ],
-            _buildButton(isPending),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
