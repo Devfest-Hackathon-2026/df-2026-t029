@@ -12,7 +12,7 @@ const {collectLivePages} = require("./crawl");
 
 const MINUTE = 60 * 1000;
 /** 手動の取得の間隔・取得中とみなす時間（10分） */
-const COOLDOWN_MS = 10 * MINUTE;
+const COOLDOWN_MS = 1 * MINUTE;
 /** ページが変わっていなくても取り直す間隔（7日） */
 const RECHECK_MS = 7 * 24 * 60 * MINUTE;
 

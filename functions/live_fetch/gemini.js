@@ -28,11 +28,13 @@ function ai() {
   return client;
 }
 
-/** 日時の項目（日本時間） */
-const DATE_TIME = {
-  type: "string",
-  description: "日本時間。YYYY-MM-DD または YYYY-MM-DDTHH:mm",
-};
+/** 日時の項目（日本時間）。[what] は何の日時か（欄の取り違えを防ぐため、欄ごとに説明を付ける。L-4c） */
+function dateTime(what) {
+  return {
+    type: "string",
+    description: `${what}。日本時間で YYYY-MM-DD または YYYY-MM-DDTHH:mm`,
+  };
+}
 
 /** 2段目で返させる形（add_L 3.3）。分からない項目は省かせる（null は使わない） */
 const RESULT_SCHEMA = {
@@ -70,10 +72,10 @@ const RESULT_SCHEMA = {
               properties: {
                 type: {type: "string", enum: ["fc", "general", "upgrade", "other"]},
                 name: {type: "string", description: "受付の名前（例：FC1次先行）"},
-                applyStartAt: DATE_TIME,
-                applyEndAt: DATE_TIME,
-                resultAt: DATE_TIME,
-                paymentDeadline: DATE_TIME,
+                applyStartAt: dateTime("申込（受付）の開始日時。受付期間「A〜B」の A"),
+                applyEndAt: dateTime("申込（受付）の締切日時。受付期間「A〜B」の B。入金期限ではない"),
+                resultAt: dateTime("当落（抽選結果）の発表日時"),
+                paymentDeadline: dateTime("当選した後の入金（支払い）の期限。申込の締切ではない"),
                 prices: {
                   type: "array",
                   items: {
@@ -144,6 +146,7 @@ function structurePrompt(memo, today) {
     "- メモに書いていない項目・「不明」の項目は省く（推測で埋めない）。",
     "- 日時は日本時間で、YYYY-MM-DD または YYYY-MM-DDTHH:mm（時刻はHH:mm）。",
     "- 受付の種類：ファンクラブ先行は fc、一般発売は general、当選者向けの席のアップグレードは upgrade、それ以外（プレイガイド先行など）は other。",
+    "- 受付の日時：申込締切（受付期間の終わり）は applyEndAt、入金期限は paymentDeadline。取り違えない。",
     "- 公式サイトが見つからなかったときは lives を空にする。",
     "",
     `今日：${today}`,
