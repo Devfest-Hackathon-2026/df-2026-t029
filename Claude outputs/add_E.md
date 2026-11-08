@@ -24,7 +24,7 @@
 | 担当 | B（横山）。ライブ詳細・ホーム・`app.dart` は A（とし）と共有する |
 | ブランチ | `dev` から `features/Ea` |
 | 目的 | 遠征を「公演の行のメモ」から、独立した機能（一覧・予定・天気・現地の情報）に見せる |
-| 状況 | E-3〜E-6 完了。E-7 は保留。E-8（確認）進行中 |
+| 状況 | E-3〜E-6・E-8 完了（11/8）。E-7 は保留 |
 
 ## 2. 着手前の作り（11/8 朝の `dev`）
 
@@ -77,6 +77,7 @@
 - Google Maps Platform の **Weather API**（日ごとの予報 `forecast/days:lookup`。今日から最大10日。`pageSize=10` で1回で取る。`languageCode=ja`）。Essentials の SKU で月1万回の無料枠。
 - アプリからは直接呼ばず、**Cloud Functions の Callable 関数 `getEventWeather`** を呼ぶ（API キーを守るため。キーは Secret Manager の `WEATHER_API_KEY`）。
 - 位置は都道府県の代表地点（都道府県庁の所在地）の表で決める（`functions/prefectures.js`）。都道府県の名前は「都・府・県」を外して照合する（「東京」でも「東京都」でも同じ。北海道はそのまま）。
+- **日本の予報の形**：日本はウェザーニューズ社のデータで、昼の予報 `daytimeForecast` が無く、1日全体の予報 `fullDayForecast` で返る。昼の予報が無ければ `fullDayForecast` を使う。説明の末尾の「（夜間）」などのかっこ書きは外す（E-5x）。
 - キャッシュ：Functions が `weatherCache/pref-{都道府県のコード}` に、取った日時と10日分の要約を保存し、**3時間以内**ならそれを返す（同じ地域の公演で何度も呼ばない）。アプリはこのコレクションを読まない（ルールは今のまま拒否）。
 
 ### 5.2 Callable 関数 `getEventWeather`
@@ -90,10 +91,10 @@
 |---|---|
 | `status` | `ok`・`outOfRange`（10日より先、または過去）・`unknownPlace`（都道府県が分からない） |
 | `date` | 公演の日 |
-| `type` | 天気の種類（`CLEAR`・`PARTLY_CLOUDY`・`CLOUDY`・`RAIN`・`SNOW` など。昼の予報 `daytimeForecast.weatherCondition.type`） |
+| `type` | 天気の種類（`CLEAR`・`MOSTLY_CLEAR`・`PARTLY_CLOUDY`・`CLOUDY`・`RAIN`・`SNOW` など。`daytimeForecast`（無ければ `fullDayForecast`）の `weatherCondition.type`） |
 | `text` | 天気の説明（日本語。例：「晴れ」） |
 | `maxC`・`minC` | 最高・最低気温（℃、整数に丸める） |
-| `rainPercent` | 昼の降水確率（%） |
+| `rainPercent` | 降水確率（%。`daytimeForecast` か `fullDayForecast` の `precipitation.probability.percent`） |
 
 - ログインしていない呼び出しは拒否する（`unauthenticated`）。
 - Weather API の呼び出しに失敗したら `internal` のエラーにする（アプリは「天気を取得できませんでした」）。
@@ -131,10 +132,10 @@
 |---|---|---|
 | E-3 | 遠征メモの項目（時刻・現地メモ）。モデル・シート・公演の行の時刻（3章） | 完了 |
 | E-4 | リンクの追加（4章）。公演の行の「その他」 | 完了 |
-| E-5 | 天気（5章）。Functions（`getEventWeather`・都道府県の表・キャッシュ）とアプリ（リポジトリ・プロバイダ・`WeatherLine`・公演の行） | 完了（シークレット設定・Functions デプロイ済み） |
+| E-5 | 天気（5章）。Functions（`getEventWeather`・都道府県の表・キャッシュ）とアプリ（リポジトリ・プロバイダ・`WeatherLine`・公演の行） | 完了（シークレット設定・Functions デプロイ済み。E-5x で日本の `fullDayForecast` に対応） |
 | E-6 | 遠征の一覧とホームの入口（6章） | 完了 |
 | E-7 | （時間があれば）Gemini の遠征の案（9章） | 保留 |
-| E-8 | 確認。`markdown/deploy_手順.md` に Weather API・シークレットの手順を追記 | 進行中 |
+| E-8 | 確認。`markdown/deploy_手順.md` に Weather API・シークレットの手順を追記 | 完了（11/8。Chrome で8章の1〜4を確認） |
 
 ## 8. 確認すること
 
