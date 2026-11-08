@@ -261,6 +261,7 @@ class App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
+      debugShowCheckedModeBanner: false,
       title: 'おしあし',
       theme: buildAppTheme(ref.watch(themeSeedColorProvider)),
       scrollBehavior: const _AppScrollBehavior(),
