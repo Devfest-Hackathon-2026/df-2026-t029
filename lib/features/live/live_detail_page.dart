@@ -20,6 +20,7 @@ import '../live_form/date_time_field.dart';
 import '../live_form/live_draft_to_models.dart' show formatYen;
 import '../calendar/calendar_add_sheet.dart';
 import '../travel/trip_sheet.dart';
+import '../travel/weather_line.dart';
 import 'deadline_format.dart';
 import 'live_changes.dart';
 import 'live_list_entries.dart';
@@ -551,6 +552,8 @@ class _PerformanceTile extends ConsumerWidget {
                 height: 1.5,
               ),
             ),
+            // 公演の日の天気予報（今日から9日後まで。add_E 5章）
+            if (!finished) WeatherLine(performance: p, now: now),
             if (trip != null) ...[
               Padding(
                 padding: const EdgeInsets.only(top: 2),
