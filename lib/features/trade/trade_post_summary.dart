@@ -45,3 +45,15 @@ String? firstPhotoOf(TradePost post) {
   }
   return null;
 }
+
+/// 投稿のすべての写真（投稿全体 → 譲セットの順）。掲示板のカードで横に並べる（Fd 4）
+List<String> allPhotosOf(TradePost post) => [
+  ...post.images,
+  for (final s in post.gives) ...s.images,
+];
+
+/// 日付だけ（例：2026年11月8日）。掲示板のカードの更新日に使う（Fd 4）
+String formatDateOnly(DateTime d) {
+  final t = d.toLocal();
+  return '${t.year}年${t.month}月${t.day}日';
+}
