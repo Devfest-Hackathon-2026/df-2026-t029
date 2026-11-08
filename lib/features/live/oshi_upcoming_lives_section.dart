@@ -12,6 +12,7 @@ import '../../theme/hako_fonts.dart';
 import '../../utils/deadline.dart';
 import '../calendar/calendar_add_sheet.dart';
 import '../oshi/oshi_list_tile.dart' show OshiKindBadge;
+import '../live_fetch/live_fetch_dialog.dart';
 import 'live_list_entries.dart' show PerformerNames;
 import 'live_timeline.dart';
 
@@ -160,6 +161,13 @@ class _OshiUpcomingLivesSectionState
                   ),
                 ),
               ),
+              if (canFetchLives(oshi))
+                TextButton.icon(
+                  key: Key('oshi_upcoming_fetch_${oshi.key}'),
+                  onPressed: () => showLiveFetchDialog(context, oshi),
+                  icon: const Icon(Icons.travel_explore, size: 18),
+                  label: const Text('公式サイトから探す'),
+                ),
             ],
           ),
         ),
