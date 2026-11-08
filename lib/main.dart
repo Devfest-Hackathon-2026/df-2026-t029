@@ -17,16 +17,16 @@ Future<void> main() async {
   runApp(const ProviderScope(child: App()));
 }
 
-/// App Check の reCAPTCHA v3 のサイトキー。リポジトリには書かず、
+/// App Check の reCAPTCHA Enterprise のサイトキー。リポジトリには書かず、
 /// `--dart-define=APP_CHECK_SITE_KEY=...` で渡す
 const _appCheckSiteKey = String.fromEnvironment('APP_CHECK_SITE_KEY');
 
 /// App Check を有効にする（Firebase の初期化の後、ほかの呼び出しの前）。
-/// サイトキーがあれば reCAPTCHA v3。無ければ、開発中（デバッグビルド）だけ
+/// サイトキーがあれば reCAPTCHA Enterprise。無ければ、開発中（デバッグビルド）だけ
 /// デバッグ用プロバイダを使い、本番ビルドでは何もしない。失敗しても起動は続ける
 Future<void> _activateAppCheck() async {
   final WebProvider? provider = _appCheckSiteKey.isNotEmpty
-      ? ReCaptchaV3Provider(_appCheckSiteKey)
+      ? ReCaptchaEnterpriseProvider(_appCheckSiteKey)
       : (kDebugMode ? WebDebugProvider() : null);
   if (provider == null) return;
   try {
