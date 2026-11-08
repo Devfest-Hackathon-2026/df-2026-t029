@@ -9,6 +9,8 @@ import '../../providers/live_providers.dart';
 import '../../providers/memory_providers.dart';
 import '../../providers/oshi_providers.dart';
 import '../../providers/photo_providers.dart';
+import '../../providers/profile_providers.dart';
+import '../../providers/public_memory_providers.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/hako_app_widgets.dart';
 import '../../theme/hako_fonts.dart';
@@ -145,6 +147,10 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
   /// 写真の並び（最初はもとの images）。1枚目が表紙
   late final List<PhotoItem> _photos = savedPhotoItems(widget.memory.images);
 
+  /// 公開するか・座席も公開するか（add_K 5.1）
+  late bool _isPublic = widget.memory.isPublic;
+  late bool _publicSeat = widget.memory.publicSeat;
+
   /// 保存・削除・写真の読み込みの処理中（二重送信の防止）
   bool _busy = false;
 
@@ -188,6 +194,46 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
     });
   }
 
+  /// 公開の写しを書く・消す（add_K 5.1）。成功したら true。
+  /// 公開しないときは、念のため写しを消しておく（無くてもエラーにならない）
+  Future<bool> _syncPublic(String uid, LiveMemory memory) async {
+    final repo = ref.read(publicMemoryRepositoryProvider);
+    try {
+      if (!memory.isPublic) {
+        await repo.unpublish(uid, memory.performanceId);
+        return true;
+      }
+      // 推しで探せるように、ライブの出演者を写す。読めなければ空で書く
+      var groupIds = const <String>[];
+      var oshiIds = const <String>[];
+      try {
+        final live = await ref
+            .read(liveRepositoryProvider)
+            .watchLive(memory.liveId)
+            .first;
+        if (live != null) {
+          groupIds = live.groupIds;
+          oshiIds = live.oshiIds;
+        }
+      } catch (e) {
+        debugPrint('ライブの読み込みに失敗（出演者なしで公開）: $e');
+      }
+      final profile = await ref.read(myProfileProvider.future);
+      final name = profile?.displayName.trim() ?? '';
+      await repo.publish(
+        memory,
+        uid: uid,
+        displayName: name.isEmpty ? '匿名' : name,
+        groupIds: groupIds,
+        oshiIds: oshiIds,
+      );
+      return true;
+    } catch (e) {
+      debugPrint('公開の写しの保存に失敗: $e');
+      return false;
+    }
+  }
+
   /// 保存（M-5 仕様書 3.3）。新しい写真をアップロード → 記録を保存 → 外した写真を消す
   Future<void> _save() async {
     if (_busy || !(_formKey.currentState?.validate() ?? false)) return;
@@ -224,6 +270,8 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
       setlist: parseSetlist(_setlist.text),
       impression: _nullIfBlank(_impression.text),
       images: images,
+      isPublic: _isPublic,
+      publicSeat: _publicSeat,
     );
     try {
       if (isNew) {
@@ -239,10 +287,19 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
       return;
     }
 
-    // 3. 外した写真を消す（失敗しても無視。待たずに戻る）
-    unawaited(
-      photoRepo.deleteAll(original.images.where((p) => !images.contains(p))),
-    );
+    // 3. 公開の写しを書く・消す（add_K 5.1）。失敗しても記録の保存は戻さない
+    final synced = await _syncPublic(uid, memory);
+    if (!synced) {
+      _showMessage(messenger, '記録は保存しましたが、公開できませんでした。もう一度保存してください');
+    }
+
+    // 4. 外した写真を消す（失敗しても無視。待たずに戻る）。
+    // 公開の写しを書き換えられなかったときは、写しがまだ古い写真を指しているので消さない
+    if (synced) {
+      unawaited(
+        photoRepo.deleteAll(original.images.where((p) => !images.contains(p))),
+      );
+    }
 
     // 作成はライブの詳細へ、編集は記録の詳細へ戻る
     router.go(
@@ -280,6 +337,16 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
     final router = GoRouter.of(context);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _busy = true);
+
+    // 公開の写しを先に消す（失敗しても記録の削除に進む。add_K 5.2）
+    try {
+      await ref
+          .read(publicMemoryRepositoryProvider)
+          .unpublish(uid, memory.performanceId);
+    } catch (e) {
+      debugPrint('公開の写しの削除に失敗: $e');
+    }
+
     try {
       await repo.delete(uid, memory.performanceId);
     } catch (e) {
@@ -378,6 +445,29 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
                 onAdd: _addPhotos,
                 onRemove: (i) => setState(() => _photos.removeAt(i)),
                 addButtonKey: const Key('memory_form_add_photo'),
+              ),
+              // 公開の設定（add_K 5.1）
+              const SizedBox(height: 8),
+              const HakoSectionHeader('公開'),
+              SwitchListTile(
+                key: const Key('memory_form_public_switch'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('同じ推しのファンに公開する'),
+                subtitle: Text(
+                  'フォロー中の推しが同じ人の「みんなのメモリー」に出ます',
+                  style: subStyle,
+                ),
+                value: _isPublic,
+                onChanged: _busy ? null : (v) => setState(() => _isPublic = v),
+              ),
+              SwitchListTile(
+                key: const Key('memory_form_public_seat_switch'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('座席も公開する'),
+                value: _isPublic && _publicSeat,
+                onChanged: _busy || !_isPublic
+                    ? null
+                    : (v) => setState(() => _publicSeat = v),
               ),
               const SizedBox(height: 24),
               FilledButton(
