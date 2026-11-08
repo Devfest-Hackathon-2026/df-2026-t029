@@ -10,6 +10,7 @@ import '../live_form/date_time_field.dart';
 import '../../utils/deadline.dart';
 import 'live_list_entries.dart' show PerformerNames;
 import 'live_timeline.dart';
+import 'oshi_upcoming_lives_section.dart';
 import '../../providers/live_providers.dart';
 
 /// ライブ一覧の1行と、その出演者名
@@ -144,7 +145,8 @@ class _ListView extends StatelessWidget {
             ),
           ),
         ),
-        // Fd-2：推しの今後のライブはここに入る
+        // フォロー中の推しごとの今後のライブ（Fd 3.3）
+        const OshiUpcomingLivesList(),
         if (ended.isNotEmpty) ...[
           const HakoSectionHeader('終了', key: Key('live_list_finished_header')),
           for (final r in ended) _LiveTile(row: r),
