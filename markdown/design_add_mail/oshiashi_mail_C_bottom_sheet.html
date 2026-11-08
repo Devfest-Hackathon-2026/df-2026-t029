@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>おしあし プロフィール メールアドレス 案C:ボトムシート</title>
+<style>
+:root{--bg:#FBF6E9;--ink:#111;--muted:#4D4A42;--line:#C9C2AE;--c:#EC4529;--onc:#111;--err:#B3261E;--ok:#1B7F52;--cs:#FBD6CE}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI","Yu Gothic",Meiryo,sans-serif;background:#E7E0CB;color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;word-break:auto-phrase;line-break:strict}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid #1D4ED8;outline-offset:2px}
+.stage{display:flex;gap:32px;justify-content:center;align-items:flex-start;padding:20px 16px;min-height:100vh}
+.left{display:flex;flex-direction:column;gap:12px;flex:none}
+.preview{display:flex;align-items:center;gap:10px;background:#fff;border:2px solid var(--ink);border-radius:12px;padding:8px 12px;font-size:13px;font-weight:700}
+.seg{display:flex;border:2px solid var(--ink);border-radius:999px;overflow:hidden;margin-left:auto}
+.seg button{border:0;background:#fff;padding:6px 14px;font-size:13px;font-weight:700;min-height:34px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.notes{width:340px;flex:none;position:sticky;top:20px;background:#fff;border:2px solid var(--ink);border-radius:14px;padding:18px 18px 16px;max-height:calc(100vh - 40px);overflow:auto;font-size:14px}
+.notes .tag-id{display:inline-block;background:var(--ink);color:#fff;font-weight:800;border-radius:6px;padding:1px 9px;font-size:13px}
+.notes h2{font-size:18px;margin:8px 0 4px}
+.notes h3{font-size:14px;margin:16px 0 6px;font-weight:800}
+.notes p{color:var(--muted);line-height:1.7}
+.notes ul{padding-left:1.2em;line-height:1.7}
+.notes li{margin:2px 0}
+.notes code{background:#EEE7C9;border-radius:4px;padding:0 5px;font-size:13px}
+.phone{position:relative;width:390px;height:min(844px,calc(100dvh - 90px));display:flex;flex-direction:column;background:var(--bg);border:2px solid var(--ink);border-radius:28px;overflow:hidden;box-shadow:8px 8px 0 rgba(17,17,17,.9)}
+.appbar{flex:none;display:flex;align-items:center;gap:8px;min-height:58px;padding:0 14px 0 8px;background:var(--c);color:var(--onc);border-bottom:2px solid var(--ink)}
+.appbar h1{font-size:20px;font-weight:600}
+.iconbtn{width:44px;height:44px;border:0;background:none;display:grid;place-items:center;border-radius:50%}
+.main{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:16px 16px 40px}
+.ic{display:block;flex:none}
+.av-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.avatar{flex:none;width:96px;height:96px;border-radius:50%;border:2px solid var(--ink);background:radial-gradient(circle at 70% 40%,#C98A5C 0 22%,transparent 23%),linear-gradient(135deg,#7C2228,#3B2A2A)}
+.av-side{flex:1;min-width:170px}
+.btn-out{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border:2px solid var(--ink);border-radius:999px;background:var(--bg);font-weight:700;font-size:14px}
+.btn-text{border:0;background:none;font-weight:700;font-size:14px;min-height:44px;padding:0 10px}
+.cap{font-size:12px;color:var(--muted);line-height:1.6;margin-top:6px}
+.note{font-size:14px;margin:16px 0 8px}
+.fld{margin-top:10px}
+.fld .lb{font-size:12px;color:var(--muted)}
+.fld .in{display:block;width:100%;border:0;border-bottom:2px solid var(--ink);background:none;padding:6px 0;font-size:18px;border-radius:0}
+.count{text-align:right;font-size:13px;color:var(--muted);margin-top:2px}
+.helper{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.6}
+.btn-main{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;margin-top:16px;border:2px solid var(--ink);border-radius:14px;background:var(--c);color:var(--onc);font-weight:700;font-size:15px}
+.btn-main[disabled]{opacity:.45;cursor:not-allowed}
+.btn-out.wide{width:100%}
+hr.thick{border:0;border-top:2px solid var(--ink);margin:22px 0}
+.sec-t{font-size:18px;font-weight:700}
+.sec-d{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.6}
+.swatches{display:flex;flex-wrap:wrap;gap:12px 10px;margin-top:14px}
+.sw{width:44px;height:44px;border-radius:50%;border:2px solid var(--ink);display:grid;place-items:center;padding:0}
+.sw[aria-pressed="true"]{box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--ink)}
+.prev{margin-top:14px;display:inline-block;border:2px solid var(--ink);border-radius:14px;background:#fff;padding:10px 14px}
+.prev small{display:block;font-size:12px;color:var(--muted);margin-bottom:8px}
+.prev .ch{display:inline-block;border:2px solid var(--ink);border-radius:10px;background:var(--c);color:var(--onc);font-weight:700;padding:2px 12px;margin-right:6px;font-size:14px}
+.remind{display:flex;align-items:center;gap:12px;padding:16px 0;border-top:1.5px solid var(--line);margin-top:22px}
+.remind .t{font-size:16px;font-weight:600}
+.remind .d{font-size:12px;color:var(--muted);line-height:1.6;margin-top:2px}
+.remind .tx{flex:1}
+.sw-toggle{flex:none;width:52px;height:30px;border:2px solid var(--ink);border-radius:15px;background:#EDE6CF;position:relative;padding:0}
+.sw-toggle i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--ink);transition:transform .15s}
+.sw-toggle[aria-checked="true"]{background:var(--c)}
+.sw-toggle[aria-checked="true"] i{transform:translateX(22px)}
+
+/* ===== ログイン情報(共通パーツ) ===== */
+.badge{display:inline-flex;align-items:center;gap:6px;border:2px solid var(--ink);border-radius:9px;padding:1px 10px;font-size:13px;font-weight:700;background:#fff;line-height:1.6}
+.badge.g{background:#E8F0FE}
+.badge.m{background:var(--cs)}
+.mail-val{font-size:17px;font-weight:700;word-break:break-all;line-height:1.5}
+.eye{display:inline-flex;align-items:center;gap:4px;border:0;background:none;font-size:13px;font-weight:700;min-height:40px;padding:0 4px;text-decoration:underline;text-underline-offset:3px}
+.card{background:#fff;border:2px solid var(--ink);border-radius:14px;padding:14px 16px}
+.lnote{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--muted);line-height:1.65;margin-top:10px}
+.stepper{display:flex;align-items:center;gap:6px;margin:4px 0 18px}
+.stepper .s{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--muted)}
+.stepper .n{width:26px;height:26px;border-radius:50%;border:2px solid var(--ink);display:grid;place-items:center;font-size:13px;background:#fff}
+.stepper .s.on{color:var(--ink)}
+.stepper .s.on .n{background:var(--c);color:var(--onc)}
+.stepper .s.done .n{background:var(--ink);color:#fff}
+.stepper .bar{flex:1;height:2px;background:var(--ink);opacity:.35;min-width:12px}
+.dots{display:flex;gap:6px}
+.dots i{width:10px;height:10px;border-radius:50%;border:2px solid var(--ink);background:#fff}
+.dots i.on{background:var(--c)}
+.flow .lead{font-size:15px;line-height:1.7}
+.flow .sub{font-size:13px;color:var(--muted);line-height:1.7;margin-top:6px}
+.flow .cur{margin:14px 0 6px;font-size:13px;color:var(--muted)}
+.flow .cur b{display:block;color:var(--ink);font-size:15px;margin-top:2px;word-break:break-all}
+.flow .lbl{display:block;font-size:13px;font-weight:700;margin:16px 0 4px}
+.flow .tin{display:block;width:100%;min-height:50px;border:2px solid var(--ink);border-radius:12px;background:#fff;padding:8px 14px;font-size:17px}
+.flow .tin.code{font-size:26px;letter-spacing:.5em;text-align:center;font-variant-numeric:tabular-nums;padding-left:calc(14px + .5em)}
+.flow .tin[aria-invalid="true"]{border-color:var(--err);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--err)}
+.flow .err{display:flex;gap:6px;align-items:flex-start;color:var(--err);font-size:13px;font-weight:700;line-height:1.55;margin-top:8px;min-height:0}
+.flow .err:empty{display:none}
+.flow .links{display:flex;flex-direction:column;align-items:center;margin-top:8px}
+.flow .link{border:0;background:none;font-size:14px;font-weight:700;min-height:44px;padding:0 10px;text-decoration:underline;text-underline-offset:3px}
+.flow .link[disabled]{opacity:.5;text-decoration:none;cursor:default}
+.done{text-align:center;padding:12px 0 4px}
+.done .ok{width:72px;height:72px;margin:0 auto 14px;border-radius:50%;background:var(--c);color:var(--onc);border:2px solid var(--ink);display:grid;place-items:center}
+.done h3{font-size:20px;font-weight:800}
+.done p{font-size:14px;color:var(--muted);line-height:1.7;margin-top:8px}
+.done b{color:var(--ink);word-break:break-all}
+.toast{position:absolute;left:16px;right:16px;bottom:18px;z-index:30;background:var(--ink);color:#fff;border-radius:12px;padding:12px 16px;font-size:14px;font-weight:700;display:flex;gap:10px;align-items:center;transform:translateY(160%);transition:transform .25s}
+.toast.on{transform:none}
+.page{position:absolute;inset:0;z-index:10;background:var(--bg);display:flex;flex-direction:column;transform:translateX(105%);transition:transform .25s;visibility:hidden}
+.page.on{transform:none;visibility:visible}
+.page .main{padding-top:20px}
+.backdrop{position:absolute;inset:0;background:rgba(17,17,17,.45);opacity:0;pointer-events:none;z-index:10;transition:opacity .2s}
+.backdrop.on{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--bg);border:2px solid var(--ink);border-bottom:0;border-radius:22px 22px 0 0;padding:10px 20px 24px;transform:translateY(105%);transition:transform .25s ease;max-height:90%;overflow:auto;visibility:hidden}
+.sheet.on{transform:none;visibility:visible}
+.sheet .grab{width:44px;height:5px;border-radius:3px;background:var(--ink);opacity:.3;margin:0 auto 12px}
+.sheet .sh-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.sheet .sh-h h3{font-size:18px;font-weight:800}
+.inline-wrap{overflow:hidden;max-height:0;transition:max-height .3s ease}
+.inline-wrap.on{max-height:900px}
+.inline-box{margin-top:12px;padding:16px;border:2px solid var(--ink);border-radius:14px;background:#fff}
+.row-btn{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;border-top:1.5px solid var(--line);padding:14px 0;min-height:64px}
+.row-btn .tx{flex:1;min-width:0}
+.row-btn .t{font-size:16px;font-weight:600}
+.row-btn .d{font-size:13px;color:var(--muted);margin-top:2px;word-break:break-all}
+@media (max-width:820px){
+  .stage{flex-direction:column;align-items:center;padding:8px 0 0}
+  .left{width:100%}
+  .preview{border-radius:0;border-width:0 0 2px 0}
+  .phone{width:100%;height:calc(100dvh - 62px);border:0;border-radius:0;box-shadow:none}
+  .notes{position:static;width:auto;max-width:560px;max-height:none;margin:20px 16px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+</style>
+</head>
+<body class="vC">
+<div class="stage">
+  <div class="left">
+    <div class="preview" role="group" aria-label="プレビューするログイン方法">
+      <span>表示を切り替え</span>
+      <div class="seg">
+        <button type="button" data-mode="email" aria-pressed="true">メールで登録</button>
+        <button type="button" data-mode="google" aria-pressed="false">Googleで登録</button>
+      </div>
+    </div>
+    <div class="phone" id="phone">
+      <header class="appbar"><button class="iconbtn" type="button" aria-label="戻る"><svg class="ic" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button><h1>プロフィールを編集</h1></header>
+      <main class="main" id="main"></main>
+      <section class="page" id="page" aria-label="メールアドレスを変更"></section>
+      <div class="backdrop" id="backdrop"></div>
+      <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="メールアドレスを変更"></section>
+      <div class="toast" id="toast" role="status"></div>
+    </div>
+  </div>
+  <aside class="notes"><span class="tag-id">案C</span><h2>アカウント行+ボトムシート</h2>
+<p>プロフィールの最下部に「アカウント」の行を1つだけ足し、タップで下からシートを開いて変更する案です。いまの画面をほとんど変えずに済みます。</p>
+<h3>特徴</h3>
+<ul>
+<li>リマインド通知の下に「メールアドレス」の行を追加(変更頻度が低いので控えめな位置)</li>
+<li>行にはメールアドレスを伏せて表示。シート内の「表示」で全体を確認</li>
+<li>シートで「入力→確認→完了」を進める。背景のプロフィールが見えたまま操作できる</li>
+<li>完了後はシートが閉じ、画面下に確認のメッセージを表示</li>
+<li>Google登録の人は、変更の行ではなく説明つきの表示のみ</li>
+</ul><h3>試し方</h3>
+<ul>
+<li>画面上の「表示を切り替え」で、メール登録とGoogle登録の見え方を確認できます</li>
+<li>確認コードは <code>123456</code> で成功します(それ以外は入力ミスの表示)</li>
+<li><code>used@example.com</code> を入れると「すでに使われています」の表示になります</li>
+</ul>
+<h3>決めておきたいこと</h3>
+<ul>
+<li>変更後、これまでのアドレスにも通知を送るか(文面は「送る」前提で作成)</li>
+<li>パスワードなどでの本人確認を、変更前に挟むか</li>
+<li>確認コードの有効期限(10分)と、再送・入力回数の上限の値</li>
+</ul></aside>
+</div>
+<script>
+const VARIANT='C';
+const $=s=>document.querySelector(s);
+const P={
+ mail:'<rect x="3" y="5" width="18" height="14" rx="2.500"/><path d="m4 7 8 6 8-6"/>',
+ lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+ check:'<path d="m5 12.500 4.500 4.500L19 7.500"/>',
+ eye:'<path d="M2.500 12S6 5.500 12 5.500 21.500 12 21.500 12 18 18.500 12 18.500 2.500 12 2.500 12z"/><circle cx="12" cy="12" r="2.800"/>',
+ eyeoff:'<path d="M3 3l18 18M10.600 6a8.500 8.500 0 0 1 1.400-.1c6 0 9.500 6.100 9.500 6.100a16 16 0 0 1-3.100 3.800M6.600 7.600A16 16 0 0 0 2.500 12s3.500 6.500 9.500 6.500c1.500 0 2.800-.4 4-.9M9.900 9.900a3 3 0 0 0 4.200 4.200"/>',
+ img:'<rect x="3.500" y="4.500" width="17" height="15" rx="2.500"/><circle cx="9" cy="10" r="1.800"/><path d="m4 17 5-4.500 4 3.500 3-2.500 4 3.500"/>',
+ bell:'<path d="M6 17V11a6 6 0 0 1 12 0v6l1.500 2h-15zM10 21h4"/>',
+ alert:'<circle cx="12" cy="12" r="9"/><path d="M12 7.500v5.500M12 16.500h.01"/>',
+ info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5.500M12 7.500h.01"/>',
+ ext:'<path d="M14 4h6v6M20 4l-9 9M18 14v4.500a1.500 1.500 0 0 1-1.500 1.500h-11A1.500 1.500 0 0 1 4 18.500v-11A1.500 1.500 0 0 1 5.500 6H10"/>',
+ close:'<path d="M6 6l12 12M18 6 6 18"/>',
+ shield:'<path d="M12 3.500 5 6v5.500c0 4.200 2.800 7.600 7 9 4.200-1.400 7-4.800 7-9V6z"/><path d="m9 12 2.200 2.200L15.500 10"/>',
+ chev:'<path d="m9 5 7 7-7 7"/>',
+ reset:'<path d="M4.500 12a7.500 7.500 0 1 0 2.300-5.400M4.500 4.500v4h4"/>'
+};
+const ic=(n,s=22,sw=2)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+
+const THEMES=[['#EC4529','#111'],['#F27CB1','#111'],['#FF9F1C','#111'],['#F5D31A','#111'],['#8DB63C','#111'],['#2DBE7E','#111'],['#3DB5F2','#111'],['#4A97EE','#111'],['#283593','#fff'],['#8E24AA','#fff'],['#FFFFFF','#111'],['#111111','#fff']];
+const st={mode:'email',theme:0,remind:false,email:'ken-oshi@example.com',google:'ken.oshi@gmail.com',
+  open:false,step:1,newEmail:'',code:'',err:'',sec:0,tries:3,reveal:VARIANT==='A',timer:null,sentTo:''};
+const mask=e=>{const [a,b]=e.split('@');return a.slice(0,2)+'*'.repeat(Math.max(3,a.length-2))+'@'+b};
+const shown=()=>{const e=st.mode==='google'?st.google:st.email;return st.reveal?e:mask(e)};
+const EMAILRE=/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/* ---------- フロー(3案共通の中身) ---------- */
+function stepper(){
+  const items=['入力','確認','完了'];
+  return `<div class="stepper" aria-label="ステップ ${st.step} / 3">${items.map((t,i)=>{
+    const n=i+1,cls=n<st.step?'done':(n===st.step?'on':'');
+    return `<span class="s ${cls}"><span class="n">${n<st.step?ic('check',14,3):n}</span>${t}</span>${i<2?'<span class="bar"></span>':''}`}).join('')}</div>`;
+}
+function flowHTML(){
+  const cur=shown();
+  if(st.step===1){
+    return `<div class="flow">
+      <p class="lead">新しいメールアドレスに、6桁の確認コードを送ります。確認が終わるまでは、いまのメールアドレスのままです。</p>
+      <div class="cur">いまのメールアドレス<b>${cur}</b></div>
+      <label class="lbl" for="fNew">新しいメールアドレス</label>
+      <input class="tin" id="fNew" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="example@mail.com" value="${st.newEmail}" ${st.err?'aria-invalid="true"':''} aria-describedby="fErr">
+      <p class="err" id="fErr" role="alert">${st.err?ic('alert',18)+'<span>'+st.err+'</span>':''}</p>
+      <button class="btn-main" type="button" data-fa="send" ${st.newEmail?'':'disabled'}>確認コードを送る</button>
+    </div>`;
+  }
+  if(st.step===2){
+    return `<div class="flow">
+      <p class="lead"><b>${st.sentTo}</b> に、6桁の確認コードを送りました。</p>
+      <p class="sub">メールが届かないときは、迷惑メールフォルダもご確認ください。コードの有効期限は10分です。</p>
+      <label class="lbl" for="fCode">確認コード(6桁)</label>
+      <input class="tin code" id="fCode" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="000000" value="${st.code}" ${st.err?'aria-invalid="true"':''} aria-describedby="fErr">
+      <p class="err" id="fErr" role="alert">${st.err?ic('alert',18)+'<span>'+st.err+'</span>':''}</p>
+      <button class="btn-main" type="button" data-fa="verify" ${st.code.length===6&&st.tries>0?'':'disabled'}>確認して変更する</button>
+      <div class="links"><button class="link" type="button" data-fa="resend" ${st.sec>0?'disabled':''}>${st.sec>0?`コードを再送する(あと${st.sec}秒)`:'コードを再送する'}</button>
+      <button class="link" type="button" data-fa="back1">メールアドレスを入力し直す</button></div>
+    </div>`;
+  }
+  return `<div class="flow"><div class="done"><div class="ok">${ic('check',38,3)}</div>
+    <h3>メールアドレスを変更しました</h3>
+    <p>次回から、<b>${st.email}</b> でログインします。</p>
+    <p>これまでのメールアドレスには、変更のお知らせを送りました。心当たりがない場合は、お問い合わせください。</p></div>
+    <button class="btn-main" type="button" data-fa="finish">プロフィールに戻る</button></div>`;
+}
+function renderFlow(focusId){
+  const html=flowHTML();
+  if(VARIANT==='A'){
+    $('#page').innerHTML=`<header class="appbar"><button class="iconbtn" type="button" data-fa="close" aria-label="戻る">${ic('chev',24,2.4).replace('<path d="m9 5 7 7-7 7"/>','<path d="m15 5-7 7 7 7"/>')}</button><h1>メールアドレスを変更</h1></header><main class="main">${stepper()}${html}</main>`;
+  }else if(VARIANT==='B'){
+    $('#flowB').innerHTML=`<div class="inline-box"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:14px">メールアドレスを変更(${st.step}/3)</b>${st.step<3?`<button class="btn-text" type="button" data-fa="close" style="min-height:36px">キャンセル</button>`:''}</div>${html}</div>`;
+  }else{
+    $('#sheet').innerHTML=`<div class="grab"></div><div class="sh-h"><h3>メールアドレスを変更</h3><button class="iconbtn" type="button" data-fa="close" aria-label="閉じる">${ic('close',22,2.4)}</button></div>${stepper()}${html}`;
+  }
+  const f=focusId&&document.getElementById(focusId);
+  if(f){f.focus();const l=f.value.length;try{f.setSelectionRange(l,l)}catch(e){}}
+}
+function openFlow(){
+  st.open=true;st.step=1;st.newEmail='';st.code='';st.err='';st.tries=3;
+  if(VARIANT==='A'){renderFlow();$('#page').classList.add('on')}
+  if(VARIANT==='B'){renderFlow();$('#flowB').parentElement.classList.add('on')}
+  if(VARIANT==='C'){renderFlow();$('#sheet').classList.add('on');$('#backdrop').classList.add('on')}
+  setTimeout(()=>document.getElementById('fNew')&&document.getElementById('fNew').focus(),280);
+}
+function closeFlow(){
+  st.open=false;clearInterval(st.timer);
+  $('#page').classList.remove('on');$('#sheet').classList.remove('on');$('#backdrop').classList.remove('on');
+  const w=document.querySelector('.inline-wrap');if(w)w.classList.remove('on');
+  renderMain();
+}
+function startTimer(){
+  st.sec=30;clearInterval(st.timer);
+  st.timer=setInterval(()=>{
+    if(st.sec>0)st.sec--;
+    const b=document.querySelector('[data-fa="resend"]');
+    if(b){b.disabled=st.sec>0;b.textContent=st.sec>0?`コードを再送する(あと${st.sec}秒)`:'コードを再送する'}
+    if(st.sec===0)clearInterval(st.timer);
+  },1000);
+}
+function toast(t){const e=$('#toast');e.innerHTML=ic('check',20,3)+'<span>'+t+'</span>';e.classList.add('on');setTimeout(()=>e.classList.remove('on'),2800)}
+function doSend(){
+  const v=st.newEmail.trim();
+  if(!EMAILRE.test(v)){st.err='メールアドレスの形式が正しくありません。(例:example@mail.com)';renderFlow('fNew');return}
+  if(v.toLowerCase()===st.email.toLowerCase()){st.err='いま使っているメールアドレスと同じです。別のメールアドレスを入力してください。';renderFlow('fNew');return}
+  if(v.toLowerCase()==='used@example.com'){st.err='このメールアドレスは、すでに別のアカウントで使われています。';renderFlow('fNew');return}
+  st.newEmail=v;st.sentTo=v;st.err='';st.step=2;st.code='';st.tries=3;startTimer();renderFlow('fCode');
+}
+function doVerify(){
+  if(st.tries<=0)return;
+  if(st.code==='123456'){st.email=st.newEmail;st.err='';st.step=3;clearInterval(st.timer);renderFlow();return}
+  st.tries--;st.code='';
+  st.err=st.tries>0?`確認コードが違います。あと${st.tries}回入力できます。`:'入力できる回数の上限に達しました。コードを再送してください。';
+  renderFlow('fCode');
+}
+
+/* ---------- プロフィール本体 ---------- */
+function loginA(){
+  if(st.mode==='google'){
+    return `<section aria-labelledby="lgT"><h2 class="sec-t" id="lgT">ログイン情報</h2>
+    <div class="card" style="margin-top:12px"><span class="badge g">${ic('shield',16)}Googleアカウントでログイン中</span>
+      <div style="margin-top:12px;font-size:12px;color:var(--muted)">ログインに使っているメールアドレス</div>
+      <div class="mail-val">${shown()}</div>
+      <div class="lnote">${ic('info',18)}<span>メールアドレスは、Googleアカウント側で管理されています。変更したいときは、Googleアカウントの設定から行ってください。</span></div>
+      <button class="btn-out wide" type="button" style="margin-top:12px">Googleアカウントの設定を開く${ic('ext',18)}</button></div></section><hr class="thick">`;
+  }
+  return `<section aria-labelledby="lgT"><h2 class="sec-t" id="lgT">ログイン情報</h2>
+    <p class="sec-d">ログインに使うメールアドレスです。自分にだけ表示されます。</p>
+    <div class="card" style="margin-top:12px"><span class="badge m">${ic('mail',16)}メールアドレスで登録</span>
+      <div style="margin-top:12px;font-size:12px;color:var(--muted)">ログイン用メールアドレス</div>
+      <div class="mail-val">${shown()}</div>
+      <button class="btn-out wide" type="button" data-fa="open" style="margin-top:14px">${ic('mail',18)}メールアドレスを変更</button></div></section><hr class="thick">`;
+}
+function fieldB(){
+  if(st.mode==='google'){
+    return `<div class="fld"><div class="lb">ログイン用メールアドレス</div>
+      <div style="display:flex;align-items:center;gap:8px;border-bottom:2px solid var(--ink);padding:6px 0">${ic('lock',18)}<span class="mail-val" style="font-size:17px;flex:1">${shown()}</span><button class="eye" type="button" data-fa="reveal" aria-pressed="${st.reveal}">${ic(st.reveal?'eyeoff':'eye',18)}${st.reveal?'かくす':'表示'}</button></div>
+      <p class="helper">Googleアカウントでログイン中です。メールアドレスは、Googleアカウント側で管理されています。</p></div>`;
+  }
+  return `<div class="fld"><div class="lb">ログイン用メールアドレス</div>
+    <div style="display:flex;align-items:center;gap:6px;border-bottom:2px solid var(--ink);padding:4px 0 4px">${ic('mail',18)}<span class="mail-val" style="font-size:17px;flex:1">${shown()}</span><button class="eye" type="button" data-fa="reveal" aria-pressed="${st.reveal}">${ic(st.reveal?'eyeoff':'eye',18)}${st.reveal?'かくす':'表示'}</button><button class="btn-out" type="button" data-fa="open" style="min-height:40px;padding:0 14px">変更</button></div>
+    <p class="helper">ログインに使うメールアドレスです。変更は確認が終わるとすぐ反映され、下の「保存」は不要です。</p>
+    <div class="inline-wrap" id="wrapB"><div id="flowB"></div></div></div>`;
+}
+function accountC(){
+  if(st.mode==='google'){
+    return `<section aria-labelledby="acT" style="margin-top:22px"><h2 class="sec-t" id="acT">アカウント</h2>
+      <div class="row-btn" style="margin-top:10px;cursor:default"><span>${ic('shield',24)}</span><div class="tx"><div class="t">Googleアカウントでログイン中</div><div class="d">${shown()}</div></div><button class="eye" type="button" data-fa="reveal" aria-pressed="${st.reveal}">${ic(st.reveal?'eyeoff':'eye',18)}${st.reveal?'かくす':'表示'}</button></div>
+      <p class="helper" style="margin-top:2px">メールアドレスは、Googleアカウント側で管理されています。変更するには、Googleアカウントの設定から行ってください。</p></section>`;
+  }
+  return `<section aria-labelledby="acT" style="margin-top:22px"><h2 class="sec-t" id="acT">アカウント</h2>
+    <button class="row-btn" type="button" data-fa="open" style="margin-top:10px"><span>${ic('mail',24)}</span><div class="tx"><div class="t">メールアドレス</div><div class="d">${shown()}</div></div><span>${ic('chev',20)}</span></button>
+    <p class="helper" style="margin-top:2px">ログインに使うメールアドレスです。タップして変更できます。</p></section>`;
+}
+function renderMain(){
+  const [tc,on]=THEMES[st.theme];
+  $('#phone').style.setProperty('--c',tc);$('#phone').style.setProperty('--onc',on);
+  const main=$('#main'),y=main.scrollTop;
+  main.innerHTML=`
+  <div class="av-row"><span class="avatar" role="img" aria-label="現在のアイコン"></span><div class="av-side"><div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap"><button class="btn-out" type="button">${ic('img',20)}アイコンを変える</button><button class="btn-text" type="button">外す</button></div><p class="cap">グッズ交換の投稿・返信・チャットで、ほかの人にも表示されます</p></div></div>
+  <p class="note">変更した名前は、これから書く投稿・返信から反映されます。</p>
+  <div class="fld"><div class="lb">ハンドルネーム(必須)</div><input class="in" value="けん" aria-label="ハンドルネーム(必須)"><div class="count">2/20</div></div>
+  <div class="fld"><div class="lb">X アカウント(任意)</div><input class="in" value="@ken" aria-label="X アカウント(任意)"><p class="helper">投稿の連絡先の初期値に使います</p></div>
+  ${VARIANT==='B'?fieldB():''}
+  <button class="btn-main" type="button">保存</button>
+  <hr class="thick">
+  ${VARIANT==='A'?loginA():''}
+  <h2 class="sec-t">テーマカラー</h2><p class="sec-d">アプリ全体の色になります。推しのメンバーカラーなどを選べます。</p>
+  <div class="swatches">${THEMES.map((t,i)=>`<button class="sw" type="button" data-theme="${i}" style="background:${t[0]};color:${t[1]}" aria-pressed="${i===st.theme}" aria-label="テーマカラー ${i+1}">${i===st.theme?ic('check',22,3):''}</button>`).join('')}</div>
+  <button class="btn-out" type="button" data-theme="0" style="margin-top:14px">${ic('reset',18)}初期の色に戻す</button><br>
+  <div class="prev"><small>この色が使われる場所</small><span class="ch">追加</span><span class="ch">星宮ルナ</span></div>
+  <div class="remind"><span>${ic('bell',24)}</span><div class="tx"><div class="t">リマインド通知</div><div class="d">申込期限・当落発表・入金期限の1日前と3時間前に、このブラウザへ通知します</div></div><button class="sw-toggle" type="button" role="switch" data-remind aria-checked="${st.remind}" aria-label="リマインド通知"><i></i></button></div>
+  ${VARIANT==='C'?accountC():''}`;
+  main.scrollTop=y;
+}
+
+/* ---------- イベント ---------- */
+document.addEventListener('click',e=>{
+  const m=e.target.closest('[data-mode]');
+  if(m){st.mode=m.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',b===m));if(st.open)closeFlow();else renderMain();return}
+  const th=e.target.closest('[data-theme]');
+  if(th){st.theme=+th.dataset.theme;renderMain();return}
+  if(e.target.closest('[data-remind]')){st.remind=!st.remind;renderMain();return}
+  const a=e.target.closest('[data-fa]');
+  if(!a)return;
+  switch(a.dataset.fa){
+    case 'open':openFlow();break;
+    case 'close':closeFlow();break;
+    case 'reveal':st.reveal=!st.reveal;renderMain();if(st.open)renderFlow();break;
+    case 'send':doSend();break;
+    case 'verify':doVerify();break;
+    case 'resend':st.code='';st.err='';st.tries=3;startTimer();renderFlow('fCode');toast('確認コードを再送しました');break;
+    case 'back1':clearInterval(st.timer);st.step=1;st.err='';renderFlow('fNew');break;
+    case 'finish':closeFlow();toast('メールアドレスを変更しました');break;
+  }
+});
+document.addEventListener('input',e=>{
+  if(e.target.id==='fNew'){st.newEmail=e.target.value;const b=document.querySelector('[data-fa="send"]');if(b)b.disabled=!st.newEmail}
+  if(e.target.id==='fCode'){e.target.value=e.target.value.replace(/\D/g,'').slice(0,6);st.code=e.target.value;const b=document.querySelector('[data-fa="verify"]');if(b)b.disabled=!(st.code.length===6&&st.tries>0)}
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&st.open)closeFlow();
+  if(e.key==='Enter'&&e.target.id==='fNew'){e.preventDefault();doSend()}
+  if(e.key==='Enter'&&e.target.id==='fCode'&&st.code.length===6){e.preventDefault();doVerify()}
+});
+$('#backdrop').addEventListener('click',()=>{if(st.open)closeFlow()});
+renderMain();
+</script>
+</body>
+</html>

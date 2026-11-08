@@ -9,6 +9,7 @@ import '../../providers/public_profile_providers.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/hako_app_widgets.dart';
 import '../../theme/hako_fonts.dart';
+import 'account_section.dart';
 import 'notification_switch.dart';
 import 'profile_icon_editor.dart';
 import 'theme_color_picker.dart';
@@ -199,6 +200,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                           const SizedBox(height: 16),
                           const Divider(),
                           const NotificationSwitch(),
+                          const AccountSection(),
                         ],
                       ],
                     );

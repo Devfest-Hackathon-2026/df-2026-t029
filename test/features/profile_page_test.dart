@@ -7,10 +7,12 @@ import 'package:oshiashi/features/profile/profile_page.dart';
 import 'package:oshiashi/models/user_profile.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
 import 'package:oshiashi/providers/profile_providers.dart';
+import 'package:oshiashi/repositories/auth_repository.dart';
 import 'package:oshiashi/providers/theme_providers.dart';
 import 'package:oshiashi/theme/app_theme.dart';
 import 'package:oshiashi/theme/brand_colors.dart';
 
+import 'auth_test_helpers.dart';
 import 'theme_color_picker_test.dart' show FakeProfileRepository;
 
 Finder _key(String k) => find.byKey(Key(k));
@@ -50,6 +52,7 @@ Future<GoRouter> pumpProfile(
       overrides: [
         currentUidProvider.overrideWithValue('u1'),
         profileRepositoryProvider.overrideWithValue(repo),
+        authRepositoryProvider.overrideWithValue(FakeAuthRepository()),
       ],
       retry: (_, _) => null,
       child: MaterialApp.router(
@@ -99,6 +102,14 @@ void main() {
     expect(find.text('プロフィールを作成'), findsOneWidget);
     expect(_key('hako_back'), findsNothing);
     expect(find.text('テーマカラー'), findsNothing);
+  });
+
+  testWidgets('「アカウント」は編集のときだけ出る（初回の作成では出ない）', (tester) async {
+    await pumpProfile(tester, FakeProfileRepository(profile));
+    expect(_key('profile_account_section'), findsOneWidget);
+    expect(_key('profile_email_row'), findsOneWidget);
+    await pumpProfile(tester, FakeProfileRepository(null), canPop: false);
+    expect(_key('profile_account_section'), findsNothing);
   });
 
   testWidgets('名前が空なら保存せず、エラーを出す', (tester) async {
