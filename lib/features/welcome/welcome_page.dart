@@ -1,18 +1,20 @@
-// 紹介ページ（/welcome）。ログインしていない人が最初に見るページ（案6「ハコ色」）。
+// 紹介ページ（/welcome）。ログインしていない人が最初に見るページ（案C 改）。
 //
-// 構成: 色の帯 → ヘッダー → 最初の画面 → 6つのハコ → 「始める」の区画 → 色の帯
+// 構成: ヘッダー → 最初の画面（見出し・掲示板）→ PROBLEM 01 → FLOW → PROBLEM 02
+//       → SOLUTION → 6つのハコ → FAQ → CTA
 // 画面の移動:
-//   「始める」→ /login?mode=signup、右上の「ログイン」→ /login
-// 書体・色・部品は lib/theme/（HakoFonts・BrandColors・hako_widgets.dart）を使う。
-
-import 'dart:math' as math;
+//   「おしあしを始める」→ /login?mode=signup、右上の「ログイン」→ /login
+// 区画の部品は welcome_story.dart・welcome_features.dart、共通の部品は welcome_layout.dart。
+// 動き（アニメーション）は無い。
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../theme/brand_colors.dart';
-import '../../theme/hako_fonts.dart';
 import '../../theme/hako_widgets.dart';
+import 'welcome_features.dart';
+import 'welcome_layout.dart';
+import 'welcome_story.dart';
 
 /// 紹介ページ
 class WelcomePage extends StatelessWidget {
@@ -20,39 +22,26 @@ class WelcomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return HakoPage(
-      key: const Key('welcome_page'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const _Header(),
-          const _Hero(),
-          const _HallGrid(),
-          const _Cta(),
-        ],
-      ),
-    );
-  }
-}
-
-/// 広い画面で横幅を使う枠。左右の余白は、幅に応じて 20（〜599）・40（〜899）・64（900〜）。
-/// 中身は maxWidth（既定 1100）までで、中央に置く
-class _Wide extends StatelessWidget {
-  const _Wide({required this.child, this.maxWidth = 1100});
-
-  final Widget child;
-  final double maxWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final gutter = width >= 900 ? 64.0 : (width >= 600 ? 40.0 : 20.0);
-    return Center(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth),
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: gutter),
-          child: child,
+    return const Scaffold(
+      key: Key('welcome_page'),
+      backgroundColor: BrandColors.paper,
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _Header(),
+              _Hero(),
+              WelcomeProblemSection(),
+              WelcomeFlowSection(),
+              WelcomeGoodsProblemSection(),
+              WelcomeSolutionBand(),
+              WelcomeTileGrid(),
+              WelcomeFaqSection(),
+              _Cta(),
+            ],
+          ),
         ),
       ),
     );
@@ -64,37 +53,38 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Wide(
-      maxWidth: double.infinity,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // 狭い画面・大きい文字では、はみ出さないよう縮める
-            Flexible(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'おしあし',
-                  style: HakoFonts.jp(
-                    size: 32,
-                    weight: FontWeight.w700,
-                    height: 1.3,
-                  ),
+    // 枠（最大幅 960）の外。画面の左端・右端に付ける（左右の余白だけ幅に合わせる）
+    final width = MediaQuery.sizeOf(context).width;
+    final gutter = WelcomeBreakpoints.isPhone(width) ? 18.0 : 24.0;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(gutter, 28, gutter, 0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // 狭い画面・大きい文字では、はみ出さないよう縮める
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'おしあし',
+                style: welcomeJp(
+                  size: 30,
+                  weight: FontWeight.w700,
+                  letterSpacing: 0.6,
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            HakoPill(
-              key: const Key('welcome_login_button'),
-              label: 'ログイン',
-              fontSize: 18,
-              onPressed: () => context.go('/login'),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 12),
+          HakoPill(
+            key: const Key('welcome_login_button'),
+            label: 'ログイン',
+            fontSize: 16,
+            onPressed: () => context.go('/login'),
+          ),
+        ],
       ),
     );
   }
@@ -109,7 +99,7 @@ class _BoardRow {
   final String text;
 }
 
-// 架空の名前。実在の名前に変えない
+// 架空の名前。実在の名前に変えない。札の文字は墨（コントラストのため）
 const _boardRows = [
   _BoardRow('11.20', '入金', BrandColors.hall4, '「ひかりの夜」東京公演'),
   _BoardRow('11.24', '申込', BrandColors.hall1, '「ミナト・ツアー」大阪'),
@@ -121,89 +111,46 @@ class _Hero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width >= 900;
-    final h1Size = wide ? 56.0 : 40.0;
-    final h1 = HakoFonts.jp(
+    final width = MediaQuery.sizeOf(context).width;
+    final h1Size = welcomeClamp(width, min: 40, vw: 8, max: 68);
+    final h1Style = welcomeJp(
       size: h1Size,
       weight: FontWeight.w700,
-      height: 1.25,
-      letterSpacing: -0.8,
+      height: 1.2,
+      letterSpacing: h1Size * 0.01,
     );
-    return _Wide(
+    return WelcomeWrap(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(0, 28, 0, 36),
+        padding: const EdgeInsets.only(top: 56, bottom: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Semantics(
               header: true,
               child: Column(
+                key: const Key('welcome_h1'),
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('推し活の予定を、', style: h1),
-                  // 蛍光ペン: 文字の幅＋左右 2px、高さ 0.34em、行の下端から 5px 上
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Positioned(
-                        left: -2,
-                        right: -2,
-                        bottom: 5,
-                        height: h1Size * 0.34,
-                        child: const ColoredBox(color: BrandColors.hall3),
-                      ),
-                      Text('もう逃さない。', style: h1),
-                    ],
+                  Text('推し活の予定を、', style: h1Style),
+                  WelcomeMark(
+                    text: 'もう逃さない。',
+                    style: h1Style,
+                    color: BrandColors.hall3,
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: wide ? 560 : 330),
+              constraints: const BoxConstraints(maxWidth: 680),
               child: Text(
-                '申込、当落、入金。ばらばらの締切を、ひとつの掲示板にまとめます。',
-                style: HakoFonts.jp(size: wide ? 17 : 15),
+                '推し活の締切をひとつの掲示板にまとめて、次にやることを、ひと目で確認できるアプリです。',
+                key: const Key('welcome_lead'),
+                style: welcomeJp(size: 17),
               ),
             ),
-            const SizedBox(height: 28),
-            Semantics(
-              label: '締切の表示例',
-              excludeSemantics: true,
-              child: Container(
-                key: const Key('welcome_board'),
-                width: double.infinity,
-                color: BrandColors.ink,
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      decoration: const BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(color: BrandColors.boardRule),
-                        ),
-                      ),
-                      child: Text(
-                        "TODAY'S 締切",
-                        style: HakoFonts.en(
-                          size: 12,
-                          color: BrandColors.hall3,
-                          height: 1.4,
-                          letterSpacing: 12 * 0.14,
-                        ),
-                      ),
-                    ),
-                    for (var i = 0; i < _boardRows.length; i++)
-                      _BoardRowView(
-                        row: _boardRows[i],
-                        last: i == _boardRows.length - 1,
-                      ),
-                  ],
-                ),
-              ),
-            ),
+            const SizedBox(height: 32),
+            const _Board(),
           ],
         ),
       ),
@@ -211,18 +158,76 @@ class _Hero extends StatelessWidget {
   }
 }
 
-class _BoardRowView extends StatelessWidget {
-  const _BoardRowView({required this.row, required this.last});
+/// 掲示板（締切の表示例）。例の表なので、読み上げには中身を出さない
+class _Board extends StatelessWidget {
+  const _Board();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '締切の表示例',
+      excludeSemantics: true,
+      child: Container(
+        key: const Key('welcome_board'),
+        color: BrandColors.ink,
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.only(bottom: 8),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: WelcomeColors.rule)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'NEXT 締切',
+                    style: welcomeEn(
+                      size: 13,
+                      color: BrandColors.hall3,
+                      letterSpacing: 1.56,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      '直近の締切（表示例）',
+                      style: welcomeJp(
+                        size: 10.83,
+                        color: WelcomeColors.muted,
+                        letterSpacing: 0.43,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            for (var i = 0; i < _boardRows.length; i++)
+              _BoardLine(
+                row: _boardRows[i],
+                isLast: i == _boardRows.length - 1,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BoardLine extends StatelessWidget {
+  const _BoardLine({required this.row, required this.isLast});
 
   final _BoardRow row;
-  final bool last;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
-        border: last
+        border: isLast
             ? null
             : const Border(bottom: BorderSide(color: BrandColors.boardRow)),
       ),
@@ -230,40 +235,37 @@ class _BoardRowView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(
-            width: 62,
-            child: Text(
-              row.date,
-              style: HakoFonts.en(
-                size: 15,
-                weight: FontWeight.w700,
-                color: Colors.white,
-                height: 1.4,
+            width: 52,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                row.date,
+                style: welcomeEn(
+                  size: 16,
+                  weight: FontWeight.w700,
+                  color: BrandColors.surface,
+                  letterSpacing: 0.64,
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 16),
           Container(
             width: 54,
-            alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(vertical: 2),
-            decoration: BoxDecoration(
-              color: row.color,
-              borderRadius: BorderRadius.circular(2),
-            ),
+            color: row.color,
+            alignment: Alignment.center,
             child: Text(
               row.label,
-              style: HakoFonts.jp(
-                size: 12,
-                weight: FontWeight.w700,
-                height: 1.4,
-              ),
+              style: welcomeJp(size: 12, weight: FontWeight.w700),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 16),
           Expanded(
             child: Text(
               row.text,
-              style: HakoFonts.jp(size: 14, color: Colors.white, height: 1.4),
+              style: welcomeJp(size: 15, color: BrandColors.surface),
             ),
           ),
         ],
@@ -272,260 +274,51 @@ class _BoardRowView extends StatelessWidget {
   }
 }
 
-/// 6つのハコの内容
-class _HallData {
-  const _HallData({
-    required this.color,
-    required this.top,
-    required this.bottom,
-    required this.title,
-    required this.titleSize,
-    required this.description,
-    required this.enLabel,
-  });
-  final Color color;
-  final double top;
-  final double bottom;
-  final String title;
-  final double titleSize;
-  final String description;
-  final String enLabel;
-}
-
-const _halls = [
-  _HallData(
-    color: BrandColors.hall1,
-    top: 40,
-    bottom: 44,
-    title: '推しをフォロー',
-    titleSize: 30,
-    description: '推しを探してフォロー。見つからなければ追加を申請できます。',
-    enLabel: 'FOLLOW',
-  ),
-  _HallData(
-    color: BrandColors.hall2,
-    top: 26,
-    bottom: 28,
-    title: 'スクショから読み取り',
-    titleSize: 30,
-    description: '告知画像やチケットサイトのスクショから、日程・申込期限・入金期限を AI が読み取ります。',
-    enLabel: 'SCAN',
-  ),
-  _HallData(
-    color: BrandColors.hall3,
-    top: 26,
-    bottom: 40,
-    title: '次の締切が、ひと目で',
-    titleSize: 34,
-    description: '申込 → 当落 → 入金。次にやることの期限が分かります。',
-    enLabel: 'DUE',
-  ),
-  _HallData(
-    color: BrandColors.hall4,
-    top: 26,
-    bottom: 28,
-    title: 'みんなで共有',
-    titleSize: 30,
-    description: '同じ推しのファンが登録したライブを、自分の一覧に追加できます。',
-    enLabel: 'SHARE',
-  ),
-  _HallData(
-    color: BrandColors.hall5,
-    top: 20,
-    bottom: 20,
-    title: 'Google カレンダーに追加',
-    titleSize: 26,
-    description: '',
-    enLabel: 'CALENDAR',
-  ),
-  _HallData(
-    color: BrandColors.hall6,
-    top: 26,
-    bottom: 40,
-    title: 'グッズ交換',
-    titleSize: 30,
-    description: '「譲」「求」を登録すると、交換できる相手が見つかります。',
-    enLabel: 'TRADE',
-  ),
-];
-
-/// 6つのハコの並び。幅 600 以上は3列（2行）、600 未満は1列。
-/// 隙間なしで敷き詰め、同じ行のハコは高さをそろえる。全幅を使う（HakoContent で包まない）
-class _HallGrid extends StatelessWidget {
-  const _HallGrid();
-
-  static int columnsFor(double width) {
-    return width >= 600 ? 3 : 1;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = columnsFor(constraints.maxWidth);
-        if (columns == 1) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (var i = 0; i < _halls.length; i++)
-                _Hall(
-                  index: i,
-                  width: constraints.maxWidth,
-                  singleColumn: true,
-                ),
-            ],
-          );
-        }
-        // 各ハコの幅を決まった値（SizedBox）にしてから IntrinsicHeight で高さをそろえる。
-        // Expanded のままだと、IntrinsicHeight が実際より広い幅で折り返しを測り、あふれることがある
-        final cellWidth = constraints.maxWidth / columns;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (var start = 0; start < _halls.length; start += columns)
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (var i = start; i < start + columns; i++)
-                      SizedBox(
-                        width: cellWidth,
-                        child: _Hall(index: i, width: cellWidth),
-                      ),
-                  ],
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _Hall extends StatelessWidget {
-  const _Hall({
-    required this.index,
-    required this.width,
-    this.singleColumn = false,
-  });
-
-  final int index;
-
-  /// このハコの幅（説明文の幅を決めるのに使う）
-  final double width;
-
-  /// 1列で並べているか
-  final bool singleColumn;
-
-  @override
-  Widget build(BuildContext context) {
-    final data = _halls[index];
-    final n = (index + 1).toString().padLeft(2, '0');
-    final labelStyle = HakoFonts.en(
-      size: 12,
-      height: 1.4,
-      letterSpacing: 12 * 0.14,
-    );
-    return Container(
-      key: Key('welcome_hall_${index + 1}'),
-      color: data.color,
-      child: Stack(
-        fit: StackFit.passthrough,
-        children: [
-          Positioned(
-            right: 16,
-            bottom: 6,
-            child: IgnorePointer(
-              child: ExcludeSemantics(
-                child: Text(
-                  n,
-                  style: HakoFonts.en(
-                    size: 84,
-                    weight: FontWeight.w900,
-                    color: BrandColors.ink.withValues(alpha: 0.18),
-                    height: 1,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(20, data.top, 20, data.bottom),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ExcludeSemantics(
-                  // 狭いハコでは、右の英単語が次の行に折り返す
-                  child: Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    runSpacing: 2,
-                    children: [
-                      Text('HALL $n', style: labelStyle),
-                      Text(data.enLabel, style: labelStyle),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.only(
-                    top: 10,
-                    bottom: data.description.isEmpty ? 0 : 6,
-                  ),
-                  child: Semantics(
-                    header: true,
-                    child: Text(
-                      data.title,
-                      style: HakoFonts.jp(
-                        size: data.titleSize,
-                        weight: FontWeight.w700,
-                        height: 1.25,
-                      ),
-                    ),
-                  ),
-                ),
-                if (data.description.isNotEmpty)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: SizedBox(
-                      // 1列のときだけ 300 までに絞る。複数列では、幅 300 に絞ると
-                      // IntrinsicHeight が折り返しの行数を読み違えてあふれる（幅 1280・文字 1.3 倍で確認）ので、ハコの幅いっぱいにする
-                      width: singleColumn
-                          ? math.min(300, width - 40)
-                          : width - 40,
-                      child: Text(
-                        data.description,
-                        style: HakoFonts.jp(size: 15),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 「始める」の区画
+/// 「始める」の区画（黒い帯）
 class _Cta extends StatelessWidget {
   const _Cta();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    return WelcomeBand(
       color: BrandColors.ink,
-      padding: const EdgeInsets.fromLTRB(0, 40, 0, 36),
-      child: _Wide(
+      padding: EdgeInsets.fromLTRB(0, 40, 0, 56 + safeBottom),
+      child: WelcomeWrap(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          key: const Key('welcome_cta'),
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '6つのハコ、まとめて入場。',
-              key: const Key('welcome_cta_note'),
-              style: HakoFonts.jp(size: 14, color: BrandColors.onInkSub),
+            Semantics(
+              header: true,
+              child: Text(
+                'まずは、推しをひとり。',
+                style: welcomeJp(
+                  size: welcomeClamp(
+                    MediaQuery.sizeOf(context).width,
+                    min: 22,
+                    vw: 4,
+                    max: 30,
+                  ),
+                  weight: FontWeight.w700,
+                  height: 1.4,
+                  color: BrandColors.surface,
+                ),
+              ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 8),
+            Text(
+              '新規登録して、推しをフォローするところから始めましょう。',
+              style: welcomeJp(size: 15, color: BrandColors.onInkSub),
+            ),
+            const SizedBox(height: 24),
             const _StartButton(),
+            const SizedBox(height: 16),
+            Text(
+              '新規登録・ログインの画面に進みます。',
+              key: const Key('welcome_cta_note'),
+              style: welcomeJp(size: 13, color: WelcomeColors.muted),
+            ),
           ],
         ),
       ),
@@ -533,8 +326,7 @@ class _Cta extends StatelessWidget {
   }
 }
 
-/// 「始める」ボタン。硬い影つき。2.4秒で1周、左上へ 2px 動いてもどる。
-/// 端末の「動きを減らす」がオンなら止める
+/// 「おしあしを始める」ボタン。黄の地・赤の硬い影。フォーカス中は青の枠が内側に出る
 class _StartButton extends StatefulWidget {
   const _StartButton();
 
@@ -542,89 +334,63 @@ class _StartButton extends StatefulWidget {
   State<_StartButton> createState() => _StartButtonState();
 }
 
-class _StartButtonState extends State<_StartButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1200),
-  );
-  late final Animation<double> _curve = CurvedAnimation(
-    parent: _controller,
-    curve: Curves.easeInOut,
-  );
+class _StartButtonState extends State<_StartButton> {
   bool _focused = false;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _controller.stop();
-      _controller.value = 0;
-    } else if (!_controller.isAnimating) {
-      // 往復で 2.4 秒（行きと帰りが 1.2 秒ずつ）
-      _controller.repeat(reverse: true);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _curve,
-      builder: (context, child) => Transform.translate(
-        offset: Offset(-2 * _curve.value, -2 * _curve.value),
-        child: child,
+    final width = MediaQuery.sizeOf(context).width;
+    final labelSize = WelcomeBreakpoints.isPhone(width) ? 21.0 : 26.0;
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: BrandColors.hall1,
+            offset: Offset(6, 6),
+            blurRadius: 0,
+          ),
+        ],
       ),
       child: DecoratedBox(
+        position: DecorationPosition.foreground,
         decoration: BoxDecoration(
-          color: BrandColors.hall3,
-          borderRadius: BorderRadius.circular(4),
-          // 大きさが変わらないよう、常に 4px の枠を持ち、フォーカス中だけ青にする
-          border: Border.all(
-            color: _focused ? BrandColors.hall5 : Colors.transparent,
-            width: 4,
-          ),
-          boxShadow: const [
-            BoxShadow(color: BrandColors.hall1, offset: Offset(6, 6)),
-          ],
+          border: _focused
+              ? Border.all(color: BrandColors.hall5, width: 4)
+              : null,
         ),
         child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            key: const Key('welcome_start_button'),
-            borderRadius: BorderRadius.circular(4),
-            splashColor: BrandColors.ink.withValues(alpha: 0.1),
-            highlightColor: BrandColors.ink.withValues(alpha: 0.1),
-            onFocusChange: (value) => setState(() => _focused = value),
-            onTap: () => context.go('/login?mode=signup'),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 76),
+          color: BrandColors.hall3,
+          child: Semantics(
+            button: true,
+            child: InkWell(
+              key: const Key('welcome_start_button'),
+              splashColor: BrandColors.ink.withValues(alpha: 0.1),
+              highlightColor: BrandColors.ink.withValues(alpha: 0.1),
+              onFocusChange: (focused) => setState(() => _focused = focused),
+              onTap: () => context.go('/login?mode=signup'),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 20,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      '始める',
-                      style: HakoFonts.jp(
-                        size: 34,
-                        weight: FontWeight.w700,
-                        height: 1.25,
+                    Flexible(
+                      child: Text(
+                        'おしあしを始める',
+                        style: welcomeJp(
+                          size: labelSize,
+                          weight: FontWeight.w700,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 12),
                     ExcludeSemantics(
                       child: Text(
                         '→',
-                        style: HakoFonts.jp(
-                          size: 34,
-                          weight: FontWeight.w700,
-                          height: 1.25,
-                        ),
+                        style: welcomeJp(size: 32, weight: FontWeight.w700),
                       ),
                     ),
                   ],
