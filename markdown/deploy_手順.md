@@ -157,6 +157,18 @@ firebase functions:secrets:set WEATHER_API_KEY
 - キーを変えたときは、上のコマンドで新しい版を作り、`firebase deploy --only functions` をやり直す。
 - 無料枠は月1万回（Essentials）。Functions が都道府県ごとに3時間 `weatherCache` に置くので、同じ地域の公演では呼び出しが増えない。
 
+### 2.10 Google フォト連携（メモリーの写真えらび）
+
+Google フォトの Picker API で、利用者が選んだ写真だけを読む（`lib/services/google_photos_service.dart`。認可はカレンダーと同じ要領）。
+
+- Google Cloud コンソール → API とサービス → ライブラリ →「**Photos Picker API**」を有効にする。
+- OAuth 同意画面のデータアクセスに `https://www.googleapis.com/auth/photospicker.mediaitems.readonly` を足す。**「機密性の高いスコープ」**（2026-11-08 確認）。
+  - 公開ステータスが **テスト** の間は、テストユーザーに登録したアカウントしかつなげない。審査（OAuth アプリの確認）は日数がかかり、提出に間に合わない見込み。
+  - **審査員が自分のアカウントでつなぐと失敗する**。提出物の説明か動画に「Google フォトの連携はテストユーザーのみ。つながなくても『端末から写真を追加』で使える」と書く。
+- 写真を Gemini に送る（縮小版のみ）ので、**請求先アカウントの紐づけ（Blaze）が要る**。無料枠のままだと、送った内容が Google の改善に使われ、人が確認することがある（Gemini API 追加利用規約）。請求先を紐づけると有料サービス扱いになり、製品の改善には使われない。紐づけたら 2.6 の予算アラートを設定する。
+- Cloud Storage の CORS: 投稿画像の保存で、Storage の写真が空白になるときだけ、`gsutil cors set` で `localhost` と公開先のドメインの GET を許可する（人間が行う）。
+- 動作確認用の画面 `/photos-test`（導線なし。URL を直接開く。Gemini を呼べるので、提出前に残すか判断する）。
+
 ## 3. 公開後の確認
 
 プレビュー・本番の両方で、PC の Chrome とスマホのブラウザで確かめる。

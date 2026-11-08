@@ -30,6 +30,8 @@ import 'features/profile/profile_page.dart';
 import 'features/memory/memory_form_page.dart';
 import 'features/memory/memory_detail_page.dart';
 import 'features/memory/memory_list_page.dart';
+import 'features/memory/share/memory_share_screen.dart';
+import 'features/photos/photos_test_page.dart';
 import 'features/welcome/welcome_page.dart';
 import 'features/oshi/oshi_page.dart';
 import 'features/shell/app_shell.dart';
@@ -93,6 +95,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/calendar-test',
         builder: (context, state) => const CalendarTestPage(),
+      ),
+      // Google フォトの接続テスト（G0。本番の導線には出さない）
+      GoRoute(
+        path: '/photos-test',
+        builder: (context, state) => const PhotosTestPage(),
       ),
       // ログイン後の画面は、タブの付いた外枠の中に出す（D-2）
       ShellRoute(
@@ -173,6 +180,16 @@ final routerProvider = Provider<GoRouter>((ref) {
                         path: 'edit',
                         builder: (context, state) => MemoryFormPage(
                           performanceId: state.pathParameters['performanceId']!,
+                        ),
+                      ),
+                      // 投稿をまとめて編集（メモリーの統合）。?target=x|ig で投稿先を選んで開く
+                      GoRoute(
+                        path: 'share',
+                        builder: (context, state) => MemoryShareScreen(
+                          performanceId: state.pathParameters['performanceId']!,
+                          initialTarget: shareTargetFromQuery(
+                            state.uri.queryParameters['target'],
+                          ),
                         ),
                       ),
                     ],

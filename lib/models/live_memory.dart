@@ -20,6 +20,7 @@ class LiveMemory {
     this.publicSeat = false,
     this.createdAt,
     this.updatedAt,
+    this.postedAt,
   });
 
   /// 公演から、中身が空の記録を作る（ライブ名・開演日時・会場を複製する）。
@@ -57,6 +58,7 @@ class LiveMemory {
       publicSeat: data['publicSeat'] as bool? ?? false,
       createdAt: toDateTime(data['createdAt']),
       updatedAt: toDateTime(data['updatedAt']),
+      postedAt: toDateTime(data['postedAt']),
     );
   }
 
@@ -78,6 +80,10 @@ class LiveMemory {
 
   final DateTime? createdAt; // 保存直後（サーバー時刻の確定前）は null
   final DateTime? updatedAt; // 同上
+
+  /// SNS に投稿する操作をした日時（無ければ未投稿）。ホームの「新しい記録」の判定に使う。
+  /// [toFirestore] には入れない（`markPosted` だけが書く）
+  final DateTime? postedAt;
 
   /// 参戦済みか（公演日時が [now] 以前）。false なら参戦予定
   bool isAttended(DateTime now) => !startAt.isAfter(now);
@@ -120,5 +126,6 @@ class LiveMemory {
         publicSeat: publicSeat ?? this.publicSeat,
         createdAt: createdAt,
         updatedAt: updatedAt,
+        postedAt: postedAt,
       );
 }
