@@ -275,7 +275,11 @@ final emailChangeProvider =
 /// 画面に出す、いまのメールアドレス。完了のあと、行の伏せ字を更新するために使う
 class CurrentEmailNotifier extends Notifier<String?> {
   @override
-  String? build() => ref.read(authRepositoryProvider).currentEmail;
+  String? build() {
+    // ログイン・ログアウト・アカウントの切り替えで作り直す
+    ref.watch(authStateProvider.select((a) => a.value?.uid));
+    return ref.read(authRepositoryProvider).currentEmail;
+  }
 
   void refresh() {
     state = ref.read(authRepositoryProvider).currentEmail;
@@ -289,7 +293,11 @@ final currentEmailProvider = NotifierProvider<CurrentEmailNotifier, String?>(
 /// 「表示／かくす」。true のとき、メールアドレスの全体を出す
 class EmailRevealNotifier extends Notifier<bool> {
   @override
-  bool build() => false;
+  bool build() {
+    // アカウントが変わったら「かくす」に戻す
+    ref.watch(authStateProvider.select((a) => a.value?.uid));
+    return false;
+  }
 
   void toggle() => state = !state;
 }
