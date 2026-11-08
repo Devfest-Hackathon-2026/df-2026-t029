@@ -17,6 +17,25 @@ function get(url) {
   });
 }
 
+/** robots.txt の中身を覚えておく（オリジン → {text, at}。text が null なら取れなかった） */
+const robotsCache = new Map();
+const ROBOTS_CACHE_MS = 60 * 60 * 1000;
+
+/** オリジンの robots.txt の中身。取れない（404・通信の失敗など）ときは null */
+async function robotsTextOf(origin) {
+  const cached = robotsCache.get(origin);
+  if (cached && Date.now() - cached.at < ROBOTS_CACHE_MS) return cached.text;
+  let text = null;
+  try {
+    const res = await get(`${origin}/robots.txt`);
+    if (res.ok) text = await res.text();
+  } catch (e) {
+    text = null;
+  }
+  robotsCache.set(origin, {text, at: Date.now()});
+  return text;
+}
+
 /**
  * robots.txt で [url] の取得が許可されているか。
  * robots.txt が取れない（404・通信の失敗など）ときは許可とみなす
@@ -28,16 +47,9 @@ async function isAllowed(url) {
   } catch (e) {
     return false;
   }
-  const robotsUrl = `${origin}/robots.txt`;
-  let text;
-  try {
-    const res = await get(robotsUrl);
-    if (!res.ok) return true;
-    text = await res.text();
-  } catch (e) {
-    return true;
-  }
-  return robotsParser(robotsUrl, text).isAllowed(url, ROBOTS_AGENT) !== false;
+  const text = await robotsTextOf(origin);
+  if (text === null) return true;
+  return robotsParser(`${origin}/robots.txt`, text).isAllowed(url, ROBOTS_AGENT) !== false;
 }
 
 /**

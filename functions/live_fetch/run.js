@@ -8,6 +8,7 @@ const {research, structure} = require("./gemini");
 const {arrayOf, cleanUrl, jstDate, normalizeResult} = require("./normalize");
 const {upsertLives} = require("./upsert");
 const {isAllowed, pageHash} = require("./page_check");
+const {collectLivePages} = require("./crawl");
 
 const MINUTE = 60 * 1000;
 /** 手動の取得の間隔・取得中とみなす時間（10分） */
@@ -95,7 +96,11 @@ async function runLiveFetch(kind, id, {mode}) {
       genre: data.genre,
       officialUrl: knownUrl,
     };
-    const {memo, searchQueries} = await research(target, today);
+    // 公式サイトをたどって、読ませるページを集める（L-4b）
+    const startUrls = [knownUrl, cleanUrl(lf.schedulePageUrl)].filter(Boolean);
+    const pageUrls = startUrls.length > 0 ? await collectLivePages(startUrls) : [];
+    logger.info(`ライブ情報の取得 ${kind}:${id}: 読むページ ${pageUrls.length} 件`);
+    const {memo, searchQueries} = await research(target, today, pageUrls);
     const raw = await structure(memo, today);
     const geminiAt = Timestamp.now();
     const result = normalizeResult(raw, now);

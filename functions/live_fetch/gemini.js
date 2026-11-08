@@ -98,8 +98,8 @@ const RESULT_SCHEMA = {
   required: ["lives"],
 };
 
-/** 1段目のプロンプト（add_L 3.5） */
-function researchPrompt(target, today) {
+/** 1段目のプロンプト（add_L 3.5）。[pageUrls] は Functions がたどって集めたページ（L-4b） */
+function researchPrompt(target, today, pageUrls) {
   const who = target.kind === "group" ? "グループ" : "人";
   const lines = [
     `今日は ${today}（日本時間）です。`,
@@ -109,19 +109,27 @@ function researchPrompt(target, today) {
   if (target.aliases.length > 0) lines.push(`- 別名：${target.aliases.join("、")}`);
   if (target.genre) lines.push(`- ジャンル：${GENRE_LABEL[target.genre] ?? target.genre}`);
   if (target.officialUrl) lines.push(`- 公式サイト：${target.officialUrl}`);
+  if (pageUrls.length > 0) {
+    lines.push(
+        "",
+        "公式サイトの、ライブ・イベントの一覧と詳細のページです。まずこれらをすべて読んでください：",
+        ...pageUrls.map((u) => `- ${u}`),
+    );
+  }
   lines.push(
       "",
       "手順：",
       "1. 公式サイトが分からなければ、Google 検索で公式サイトを探す。ファンサイト・まとめサイト・ニュースサイト・チケット転売サイトは公式サイトではない。",
-      "2. 公式サイトのライブ・ツアー・イベント・スケジュールのページを開いて読む。",
-      "3. 今日以降に開催される公演と、チケットの受付（ファンクラブ先行・プレイガイド先行・一般発売・アップグレードなど）を書き出す。",
+      "2. 上のページ（無ければ公式サイトのライブ・ツアー・イベント・スケジュールのページ）を読む。開場・開演の時刻は、各公演の詳細ページに書いてあることが多い。",
+      "3. 今日以降に開催される公演と、チケットの受付（ファンクラブ先行・プレイガイド先行・一般発売・アップグレードなど）を書き出す。テレビ・ラジオ・雑誌・配信番組への出演は書かない。",
       "",
       "決まり：",
       "- 公式サイトと、公式サイトからリンクされた公式のチケットページに書いてあることだけを書く。推測しない。分からないことは「不明」と書く。",
       "- 同じ名前の別の人・グループと取り違えない。",
       "- 日付は年まで書く。ページに年が無ければ、今日以降で最も近い日付になる年にする。時刻は日本時間。",
+      "- ツアーは1つのライブにまとめ、会場・日ごとの公演を並べる。",
       "- 公式サイトの文章をそのまま長く写さず、項目だけを書く。",
-      "- 書き出す項目：公式サイトのトップの URL、公式 X のユーザー名、ライブ情報を読んだページの URL。" +
+      "- 書き出す項目：公式サイトのトップの URL、公式 X のユーザー名、ライブ情報を読んだページ（一覧）の URL。" +
         "ライブごとに、ライブ名、ライブの公式ページの URL、公演（日付・開場・開演・会場・都道府県・オンライン配信か）、" +
         "受付（種類・名前・申込開始・申込締切・当落発表・入金期限・席種と料金・当選した人だけが対象か）。",
       "- 公式サイトが見つからなければ「公式サイトは見つからなかった」と書く。",
@@ -149,10 +157,10 @@ function structurePrompt(memo, today) {
  * 1段目：調べて文章で書き出す。
  * 返り値：{memo, searchQueries}（searchQueries は Google 検索の語。最大5件）
  */
-async function research(target, today) {
+async function research(target, today, pageUrls = []) {
   const res = await ai().models.generateContent({
     model: GEMINI_MODEL,
-    contents: researchPrompt(target, today),
+    contents: researchPrompt(target, today, pageUrls),
     config: {tools: [{googleSearch: {}}, {urlContext: {}}]},
   });
   const memo = (res.text ?? "").trim();
