@@ -7,6 +7,12 @@ import '../../models/expense.dart';
 import '../../providers/expense_providers.dart';
 import '../../providers/live_providers.dart';
 import '../../utils/expense_summary.dart';
+import '../../providers/oshi_color_providers.dart';
+import '../../providers/oshi_providers.dart';
+import '../../theme/brand_colors.dart';
+import '../../theme/hako_fonts.dart';
+import '../../utils/expense_by_oshi.dart';
+import '../oshi/oshi_list_tile.dart';
 import '../common/empty_state.dart';
 import '../live_form/live_draft_to_models.dart' show formatYen;
 import '../travel/trip_sheet.dart';
@@ -117,6 +123,12 @@ class _ExpensePageState extends ConsumerState<ExpensePage> {
   }
 
   Widget _content(MonthSummary summary, int? budget) {
+    // 推しごとの推し活費（add_O 3.4）
+    final byOshi = summarizeByOshi(
+      summary.items,
+      ref.watch(myLivesProvider).value ?? const [],
+      ref.watch(followingOshisProvider).value ?? const [],
+    );
     return ListView(
       key: const Key('expense_list'),
       // 右下のボタンで最後の行が隠れないようにする
@@ -132,6 +144,10 @@ class _ExpensePageState extends ConsumerState<ExpensePage> {
         _TotalCard(total: summary.total, budget: budget),
         const SizedBox(height: 16),
         _CategoryBars(byCategory: summary.byCategory),
+        if (!byOshi.isEmpty) ...[
+          const SizedBox(height: 16),
+          _OshiBars(byOshi: byOshi),
+        ],
         const SizedBox(height: 8),
         const Divider(),
         if (summary.items.isEmpty)
@@ -366,6 +382,103 @@ class _ExpenseTile extends StatelessWidget {
             ? theme.textTheme.bodySmall?.copyWith(color: scheme.error)
             : theme.textTheme.titleSmall,
       ),
+    );
+  }
+}
+
+/// 推しごとの棒（add_O 3.4）。棒の色は推しの色（無ければ墨）
+class _OshiBars extends ConsumerWidget {
+  const _OshiBars({required this.byOshi});
+
+  final ExpenseByOshi byOshi;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final colors = ref.watch(oshiColorsProvider).value ?? const {};
+    final max = [
+      for (final e in byOshi.byOshi) e.amount,
+      byOshi.unassigned,
+    ].fold(0, (a, b) => a > b ? a : b);
+
+    Widget bar({
+      required Key key,
+      required Widget label,
+      required int amount,
+      required Color color,
+    }) {
+      return Padding(
+        key: key,
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            SizedBox(width: 128, child: label),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  widthFactor: max == 0 ? 0 : amount / max,
+                  child: Container(
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 88,
+              child: Text(
+                '¥${formatYen(amount)}',
+                textAlign: TextAlign.right,
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      key: const Key('expense_oshi_bars'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const HakoSectionHeader('推しごと'),
+        for (final e in byOshi.byOshi)
+          bar(
+            key: Key('expense_oshi_${e.oshi.kind.name}_${e.oshi.id}'),
+            label: Row(
+              children: [
+                OshiKindBadge(oshi: e.oshi, size: 20),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    e.oshi.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+            amount: e.amount,
+            color: resolveOshiColor(e.oshi, colors) ?? BrandColors.ink,
+          ),
+        if (byOshi.unassigned > 0)
+          bar(
+            key: const Key('expense_oshi_unassigned'),
+            label: Text('推しの指定なし', style: theme.textTheme.bodyMedium),
+            amount: byOshi.unassigned,
+            color: BrandColors.tonal2,
+          ),
+        const SizedBox(height: 4),
+        Text(
+          '複数の推しのライブの出費は、それぞれの推しに入れています（合計は月の合計より多くなることがあります）',
+          style: HakoFonts.jp(size: 12, color: BrandColors.sub, height: 1.5),
+        ),
+      ],
     );
   }
 }

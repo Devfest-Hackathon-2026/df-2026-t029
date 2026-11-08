@@ -13,6 +13,8 @@ import '../../utils/photo_picker.dart';
 import '../common/storage_image.dart';
 import '../profile/theme_color_picker.dart';
 
+import 'oshi_days_section.dart';
+
 /// 絵文字の候補（add_I 3.1）
 const kOshiEmojiPresets = [
   '🌙', '⭐', '🌸', '🎀', '💜', '💙', '💚', '💛', '🧡', '❤️', '🐬', '🐰', //
@@ -209,7 +211,7 @@ class _OshiColorSheetState extends ConsumerState<_OshiColorSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${oshi.name}の色と絵文字',
+            '${oshi.name}の設定',
             style: HakoFonts.jp(size: 16, weight: FontWeight.w700, height: 1.5),
           ),
           const SizedBox(height: 12),
@@ -316,6 +318,9 @@ class _OshiColorSheetState extends ConsumerState<_OshiColorSheet> {
               ],
             ],
           ),
+          const SizedBox(height: 24),
+          // 記念日（add_O 3.1）
+          OshiDaysSection(oshi: oshi),
           if (_saving) ...[
             const SizedBox(height: 12),
             const LinearProgressIndicator(),

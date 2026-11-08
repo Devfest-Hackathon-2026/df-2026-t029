@@ -335,6 +335,8 @@ tradePosts/p1
 | oshiColors | colors | map | キー → 色（ARGB の数。Fc） |
 | oshiEmojis | emojis | map | キー → 絵文字1文字（add_I） |
 | oshiImages | images | map | キー → Storage のパス `users/{uid}/oshiIcons/{ファイル名}`（add_I。本人にしか見えない） |
+| oshiDays | startDates | map | キー → 推し始めた日（`YYYY-MM-DD`。add_O） |
+| oshiDays | birthdays | map | キー → 誕生日（グループは結成日。`MM-DD`。add_O） |
 | （共通） | updatedAt | timestamp | 更新日時 |
 
 ### 3.16 publicProfiles/{uid}（公開プロフィール）
