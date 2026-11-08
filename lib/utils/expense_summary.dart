@@ -26,6 +26,7 @@ class ExpenseItem {
     required this.amount,
     required this.date,
     this.liveTitle,
+    this.liveId,
     this.detail,
     this.amountUnset = false,
   });
@@ -43,6 +44,9 @@ class ExpenseItem {
   /// どの月の出費かを決める日
   final DateTime date;
   final String? liveTitle;
+
+  /// ライブの ID（推しごとの集計に使う。add_O 3.4）。ライブに結び付かなければ null
+  final String? liveId;
 
   /// 補足（例：「S席 × 2枚」「新幹線・宿あり」）
   final String? detail;
@@ -116,6 +120,7 @@ List<ExpenseItem> buildExpenseItems({
         amount: amount,
         date: r.paymentDeadline ?? r.resultAt ?? r.applyEndAt,
         liveTitle: titles[r.liveId],
+        liveId: r.liveId,
         detail: detail,
         amountUnset: unset,
       ),
@@ -138,6 +143,7 @@ List<ExpenseItem> buildExpenseItems({
         amount: t.totalCost,
         date: t.startAt,
         liveTitle: t.liveTitle,
+        liveId: t.liveId.isEmpty ? null : t.liveId,
         detail: parts.isEmpty ? null : parts.join('・'),
       ),
     );
@@ -154,6 +160,7 @@ List<ExpenseItem> buildExpenseItems({
         amount: e.amount,
         date: e.date,
         liveTitle: e.liveTitle,
+        liveId: e.liveId,
       ),
     );
   }
