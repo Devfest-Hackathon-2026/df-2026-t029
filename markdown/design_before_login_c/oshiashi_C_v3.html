@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>おしあし 案C 改</title><style>
+:root{--cream:#FBF6EA;--ink:#111;--yellow:#F2D117;--red:#E8432C;--orange:#FF9F1C;--green:#2BBF7E;--blue:#4B9BF0;--pink:#F27BB0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--cream);color:var(--ink);font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",Meiryo,sans-serif;line-height:1.7;-webkit-font-smoothing:antialiased;word-break:auto-phrase;overflow-wrap:break-word;line-break:strict;text-wrap:pretty}
+.wrap{max-width:960px;margin:0 auto;padding:0 24px}
+header{display:flex;justify-content:space-between;align-items:center;padding:28px 0 0}
+.logo{font-size:30px;font-weight:800;letter-spacing:.02em}
+.login{border:2px solid var(--ink);border-radius:999px;padding:6px 20px;font-weight:700;font-size:16px;background:transparent;color:var(--ink);text-decoration:none}
+.hero{padding-top:56px;padding-bottom:8px}
+h1{font-size:clamp(40px,8vw,68px);line-height:1.2;font-weight:800;letter-spacing:.01em}
+h1 .mark,.mark{background:linear-gradient(transparent 80%,var(--yellow) 80%);padding-right:.15em}
+.lead{margin-top:24px;font-size:17px;max-width:40em}
+.board{background:var(--ink);color:#fff;margin:32px 0 0;padding:16px 16px 6px}
+.board h2{color:var(--yellow);font-size:13px;letter-spacing:.12em;padding-bottom:8px;border-bottom:1px solid #444;font-weight:800}
+.board h2 small{color:#aaa;font-weight:500;letter-spacing:.04em;margin-left:8px}
+.row{display:flex;gap:16px;align-items:center;padding:10px 0;border-bottom:1px solid #333;font-size:15px}
+.row:last-child{border-bottom:0}
+.row b{font-family:"Helvetica Neue",Arial,sans-serif;width:52px;font-size:16px;letter-spacing:.04em}
+.tag{width:54px;text-align:center;font-size:12px;font-weight:700;padding:2px 0;color:#111;flex:none}
+.t-pay{background:var(--green)}.t-apply{background:var(--red);color:#fff}.t-result{background:var(--yellow)}
+.sec-title{padding-top:56px;padding-bottom:20px}
+.sec-title .eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;color:#777}
+.sec-title h2{font-size:clamp(26px,4.4vw,36px);line-height:1.35;font-weight:800;margin-top:4px}
+.sec-title p{margin-top:10px;max-width:42em;font-size:16px}
+.pains{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.pain{background:#fff;border:2px solid var(--ink);padding:20px;box-shadow:5px 5px 0 var(--ink)}
+.pains.goods .pain{box-shadow:5px 5px 0 var(--pink)}
+.pain q{display:block;font-size:19px;font-weight:800;line-height:1.5;quotes:"「" "」"}
+.pain p{margin-top:10px;font-size:14.5px}
+.terms{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:2px solid var(--ink);background:#fff}
+.term{padding:20px;border-right:2px solid var(--ink);position:relative}
+.term:last-child{border-right:0}
+.term .tag{width:auto;display:inline-block;padding:2px 12px;font-size:13px}
+.term h3{font-size:20px;margin:10px 0 6px;font-weight:800}
+.term p{font-size:14.5px}
+.term .arrow{position:absolute;right:-17px;top:50%;transform:translateY(-50%);background:var(--ink);color:var(--yellow);width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:900;z-index:2}
+.bridge{background:var(--ink);color:#fff;padding:44px 0 36px}
+.bridge .eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;color:var(--yellow)}
+.bridge h2{font-size:clamp(26px,4.6vw,38px);line-height:1.4;font-weight:800;margin-top:6px}
+.bridge h2 .mark{background:linear-gradient(transparent 80%,var(--red) 80%)}
+.bridge p{margin-top:10px;font-size:16px;color:#ddd}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);margin:0}
+.tile{position:relative;padding:22px 22px 76px;min-height:260px;overflow:hidden}
+.tile .meta{display:flex;justify-content:space-between;font-family:"Helvetica Neue",Arial,sans-serif;font-size:12px;font-weight:800;letter-spacing:.14em}
+.tile h3{font-size:clamp(22px,3vw,28px);line-height:1.3;font-weight:800;margin:10px 0 8px;position:relative;z-index:1}
+.tile p{font-size:14.5px;line-height:1.75;position:relative;z-index:1}
+.tile .no{position:absolute;right:10px;bottom:-14px;font-family:"Helvetica Neue",Arial,sans-serif;font-size:92px;font-weight:900;line-height:1;color:rgba(0,0,0,.12);z-index:0}
+.c1{background:var(--red)}.c2{background:var(--orange)}.c3{background:var(--yellow)}.c4{background:var(--green)}.c5{background:var(--blue)}.c6{background:var(--pink)}
+.faq details{border-bottom:2px solid var(--ink);padding:14px 0}
+.faq details:first-of-type{border-top:2px solid var(--ink)}
+.faq summary{cursor:pointer;font-weight:800;font-size:16.5px;list-style:none;display:flex;justify-content:space-between;gap:12px}
+.faq summary::after{content:"+";font-size:22px;line-height:1}
+.faq details[open] summary::after{content:"−"}
+.faq details p{margin-top:8px;font-size:15px;max-width:42em}
+.cta{background:var(--ink);color:#fff;padding:40px 0 56px}
+.cta h2{font-size:clamp(22px,4vw,30px);line-height:1.4;font-weight:800}
+.cta p{margin-top:8px;font-size:15px;color:#ddd}
+.btn{display:flex;justify-content:space-between;align-items:center;margin-top:24px;background:var(--yellow);color:#111;font-size:26px;font-weight:800;padding:20px 24px;text-decoration:none;box-shadow:6px 6px 0 var(--red)}
+.btn span:last-child{font-size:32px}
+.cta .note{margin-top:16px;font-size:13px;color:#aaa}
+footer{background:var(--ink);color:#777;text-align:center;font-size:12px;padding:0 0 24px}
+.badge{background:var(--ink);color:var(--yellow);font-size:12px;font-weight:800;letter-spacing:.1em;padding:6px 24px;text-align:center}
+@media(max-width:760px){
+ .grid{grid-template-columns:1fr 1fr}
+ .pains{grid-template-columns:1fr}
+ .terms{grid-template-columns:1fr}.term{border-right:0;border-bottom:2px solid var(--ink)}.term:last-child{border-bottom:0}
+ .term .arrow{right:auto;left:24px;top:auto;bottom:-17px;transform:rotate(90deg)}
+ .tile{min-height:0;padding-bottom:64px}.tile .no{font-size:72px}
+}
+@media(max-width:520px){.grid{grid-template-columns:1fr}.wrap{padding:0 18px}.btn{font-size:21px}}
+</style></head><body>
+<div class="badge">案C 改</div>
+<header class="wrap"><div class="logo">おしあし</div><a class="login" href="#login">ログイン</a></header>
+<main>
+
+<div class="wrap hero"><h1>推し活の予定を、<br><span class="mark">もう逃さない。</span></h1>
+<p class="lead">推し活の締切をひとつの掲示板にまとめて、次にやることを、ひと目で確認できるアプリです。</p>
+<div class="board">
+  <h2>NEXT 締切<small>直近の締切(表示例)</small></h2>
+  <div class="row"><b>11.20</b><span class="tag t-pay">入金</span><span>「ひかりの夜」東京公演</span></div>
+  <div class="row"><b>11.24</b><span class="tag t-apply">申込</span><span>「ミナト・ツアー」大阪</span></div>
+  <div class="row"><b>11.30</b><span class="tag t-result">当落</span><span>「ひかりの夜」追加公演</span></div>
+</div>
+</div>
+
+<!-- 1. うっかり(案Bから) -->
+<div class="wrap sec-title"><div class="eyebrow">PROBLEM 01</div><h2>こんな「うっかり」、ありませんか?</h2><p>推し活は楽しい分、気をつけることがたくさん。おしあしは、その「うっかり」を減らすためのアプリです。</p></div>
+<div class="wrap" style="padding-bottom:56px"><div class="pains">
+<div class="pain"><q>申込期限、いつだっけ?</q><p>公式サイト、SNS、メール。告知があちこちにあって、期限を見落としてしまう。</p></div>
+<div class="pain"><q>当選したのに、入金を忘れた</q><p>当落発表のあとには入金期限があります。過ぎてしまうと、せっかくの当選が無効になることも。</p></div>
+<div class="pain"><q>ライブが増えて、整理できない</q><p>追いかける推しが増えるほど、日程も期限も増えて、頭の中だけでは管理しきれない。</p></div>
+</div></div>
+
+<!-- 2. 期限の流れ -->
+<div class="wrap sec-title" style="padding-top:0"><div class="eyebrow">FLOW</div><h2>チケットの期限は、この順番で管理していきます</h2><p>はじめての方も安心。申込・当落・入金、それぞれの意味から説明します。</p></div>
+<div class="wrap" style="padding-bottom:56px"><div class="terms">
+<div class="term"><span class="tag t-apply">申込</span><h3>申し込む</h3><p>チケットの抽選などに申し込める期間。この期限を過ぎると、そもそも参加できません。</p><div class="arrow">→</div></div>
+<div class="term"><span class="tag t-result">当落</span><h3>結果を待つ</h3><p>当選か落選かが発表される日。発表の時間も、ライブごとに違います。</p><div class="arrow">→</div></div>
+<div class="term"><span class="tag t-pay">入金</span><h3>支払う</h3><p>当選したあと、チケット代を支払う期限。ここを過ぎると、当選が取り消されることがあります。</p></div>
+</div></div>
+
+<!-- 3. ライブ前のグッズの困りごと -->
+<div class="wrap sec-title" style="padding-top:0"><div class="eyebrow">PROBLEM 02</div><h2>ライブ本番の前に、こんなことありませんか?</h2><p>チケットが取れても、推し活の悩みはまだあります。ライブの日が近づくほど気になるのが、グッズのこと。</p></div>
+<div class="wrap" style="padding-bottom:56px"><div class="pains goods">
+<div class="pain"><q>推しのグッズ、手に入らなかった</q><p>欲しかったグッズが売り切れていた、買いに行けなかった。ライブまでに何とか手に入れたい。</p></div>
+<div class="pain"><q>誰かとグッズを交換したい</q><p>自分が持っているグッズと、欲しいグッズを交換できたら。そう思っても、きっかけがない。</p></div>
+<div class="pain"><q>持っている人が、見つからない</q><p>お目当てのグッズを持っている人を、SNSの投稿から探し回るのは大変で、時間もかかる。</p></div>
+</div></div>
+
+<!-- 4. 解決=6つの機能 -->
+<div class="bridge"><div class="wrap"><div class="eyebrow">SOLUTION</div><h2>そんなお悩みを、<span class="mark">おしあし</span>が解決します。</h2><p>おしあしでできる、6つのこと。</p></div></div>
+<div class="grid"><section class="tile c1"><div class="meta"><span>HALL 01</span><span>FOLLOW</span></div>
+<h3>推しをフォロー</h3><p>推しを探してフォロー。見つからなければ、追加を申請できます。</p><div class="no">01</div></section><section class="tile c2"><div class="meta"><span>HALL 02</span><span>SCAN</span></div>
+<h3>スクショで読み取り</h3><p>告知画像やチケットサイトのスクリーンショットから、日程・申込期限・入金期限をAIが読み取ります。</p><div class="no">02</div></section><section class="tile c3"><div class="meta"><span>HALL 03</span><span>DUE</span></div>
+<h3>次の締切が、ひと目で</h3><p>申込・当落・入金の期限を並べて表示。次にやることが分かります。</p><div class="no">03</div></section><section class="tile c4"><div class="meta"><span>HALL 04</span><span>SHARE</span></div>
+<h3>みんなで共有</h3><p>同じ推しのファンが登録したライブを、自分の一覧に追加できます。</p><div class="no">04</div></section><section class="tile c5"><div class="meta"><span>HALL 05</span><span>CALENDAR</span></div>
+<h3>Google カレンダーに追加</h3><p>登録した予定を、Google カレンダーにも追加できます。</p><div class="no">05</div></section><section class="tile c6"><div class="meta"><span>HALL 06</span><span>TRADE</span></div>
+<h3>グッズ交換</h3><p>手放したいグッズは「譲」、探しているグッズは「求」として登録。交換できる相手が見つかります。</p><div class="no">06</div></section></div>
+
+<!-- 5. FAQ -->
+<div class="wrap sec-title"><div class="eyebrow">FAQ</div><h2>よくある質問</h2></div>
+<div class="wrap" style="padding-bottom:56px"><div class="faq">
+<details><summary>スクショは、どんな画像を選べばいいですか?</summary><p>公演名・日程・申込期間・入金期限などが写っている、告知画像やチケットサイトの画面です。登録する前に、読み取り結果を必ず確認してください。</p></details>
+<details><summary>フォローしたい推しが見つからないときは?</summary><p>追加の申請を送れます。</p></details>
+<details><summary>「譲」「求」って何ですか?</summary><p>グッズ交換で使う、ファンの間の言葉です。手放したいグッズは「譲」、探しているグッズは「求」として登録します。</p></details>
+<details><summary>ほかのファンが登録したライブは、どう使えますか?</summary><p>同じ推しをフォローしているファンが登録したライブを、自分の一覧に追加できます。自分で入力する手間が省けます。</p></details>
+</div></div>
+
+<!-- 6. CTA -->
+<div class="cta"><div class="wrap"><h2>まずは、推しをひとり。</h2><p>新規登録して、推しをフォローするところから始めましょう。</p><a class="btn" href="#signup"><span>おしあしを始める</span><span>→</span></a><p class="note">新規登録・ログインの画面に進みます。</p></div></div>
+</main>
+<footer><div class="wrap">おしあし — ログイン前画面 文言案</div></footer>
+</body></html>

@@ -3,10 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/oshi_providers.dart';
+import '../../theme/brand_colors.dart';
 import '../../theme/hako_app_widgets.dart';
+import '../../theme/hako_fonts.dart';
 import '../live_form/date_time_field.dart';
 import '../../utils/deadline.dart';
 import 'live_list_entries.dart' show PerformerNames;
+import 'live_timeline.dart';
+import 'oshi_upcoming_lives_section.dart';
 import '../../providers/live_providers.dart';
 
 /// ライブ一覧の1行と、その出演者名
@@ -31,7 +35,8 @@ final liveListRowsProvider = Provider<AsyncValue<List<LiveListRow>>>((ref) {
   ]);
 });
 
-/// 自分のライブ一覧（/lives）
+/// 自分のライブ一覧（/lives）。
+/// 今後のライブ（タイムライン）→「ライブを追加」→（Fd-2：推しの今後のライブ）→ 終了（Fd 3.1）
 class LiveListPage extends ConsumerWidget {
   const LiveListPage({super.key});
 
@@ -41,15 +46,6 @@ class LiveListPage extends ConsumerWidget {
 
     return HakoPageScaffold(
       title: 'ライブ一覧',
-      // 読み込めたら、件数によらず右下に「ライブを追加する」を出す
-      floatingActionButton: rows.hasValue && !rows.hasError
-          ? FloatingActionButton.extended(
-              key: const Key('live_list_register_fab'),
-              onPressed: () => context.push('/lives/add'),
-              icon: const Icon(Icons.add),
-              label: const Text('ライブを追加する'),
-            )
-          : null,
       body: SafeArea(
         child: switch (rows) {
           AsyncError() => _ErrorView(
@@ -60,7 +56,6 @@ class LiveListPage extends ConsumerWidget {
               ref.invalidate(myPerformancesProvider);
             },
           ),
-          AsyncValue(value: final r?) when r.isEmpty => const _EmptyView(),
           AsyncValue(value: final r?) => _ListView(rows: r),
           _ => const Center(
             key: Key('live_list_loading'),
@@ -100,30 +95,6 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-class _EmptyView extends StatelessWidget {
-  const _EmptyView();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      key: const Key('live_list_empty'),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'ライブ一覧はまだ空です。\n'
-              '右下の「ライブを追加する」から、行くライブを追加しましょう',
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _ListView extends StatelessWidget {
   const _ListView({required this.rows});
 
@@ -131,17 +102,65 @@ class _ListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final upcoming = rows.where((r) => !r.entry.isEnded);
+    final upcoming = rows.where((r) => !r.entry.isEnded).toList();
     final ended = rows.where((r) => r.entry.isEnded).toList();
-    final pad = HakoPageScaffold.padding(context);
     return ListView(
       key: const Key('live_list'),
-      // 下は、右下のボタンで最後の行が隠れないようにあける
-      padding: EdgeInsets.fromLTRB(pad.left, pad.top, pad.right, 88),
+      padding: HakoPageScaffold.padding(context),
       children: [
-        for (final r in upcoming) _LiveTile(row: r),
+        // 自分の今後のライブ（Fd 3.2）
+        const HakoSectionHeader(
+          '今後のライブ',
+          key: Key('live_list_upcoming_header'),
+        ),
+        const HakoHint(
+          '開催日の近い順です。タップすると詳細を開けます。',
+          key: Key('hint_live_upcoming'),
+        ),
+        if (upcoming.isEmpty)
+          Padding(
+            key: const Key('live_list_upcoming_empty'),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              '今後のライブはまだありません',
+              style: HakoFonts.jp(
+                size: 13,
+                color: BrandColors.sub,
+                height: 1.5,
+              ),
+            ),
+          )
+        else
+          for (var i = 0; i < upcoming.length; i++)
+            LiveTimelineItem(
+              entry: upcoming[i].entry,
+              performers: upcoming[i].performerNames,
+              isFirst: i == 0,
+              isLast: i == upcoming.length - 1,
+              // いちばん近い今後のライブだけ丸を塗る
+              filled: i == 0,
+            ),
+        // 区画の右下に「ライブを追加」（FAB の置き換え。Fd 3.1）
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              key: const Key('live_list_add_button'),
+              onPressed: () => context.push('/lives/add'),
+              icon: const Icon(Icons.add),
+              label: const Text('ライブを追加'),
+            ),
+          ),
+        ),
+        // フォロー中の推しごとの今後のライブ（Fd 3.3）
+        const OshiUpcomingLivesList(),
         if (ended.isNotEmpty) ...[
           const HakoSectionHeader('終了', key: Key('live_list_finished_header')),
+          const HakoHint(
+            '終了したライブです。思い出はメモリーでも見返せます。',
+            key: Key('hint_live_finished'),
+          ),
           for (final r in ended) _LiveTile(row: r),
         ],
       ],
@@ -149,6 +168,7 @@ class _ListView extends StatelessWidget {
   }
 }
 
+/// 終了したライブの1行
 class _LiveTile extends StatelessWidget {
   const _LiveTile({required this.row});
 
@@ -156,14 +176,10 @@ class _LiveTile extends StatelessWidget {
 
   String _dateLine() {
     final e = row.entry;
-    final count = e.performances.length;
     if (e.isEnded) {
       return '終了（最終公演 ${formatDateTime(e.performances.last.startAt)}）';
     }
-    final next = e.nextStartAt;
-    if (next == null) return '公演の日程は未登録です';
-    final rest = count > 1 ? '（全$count公演）' : '';
-    return '次の公演 ${formatDateTime(next)}$rest';
+    return upcomingDateLine(e);
   }
 
   @override

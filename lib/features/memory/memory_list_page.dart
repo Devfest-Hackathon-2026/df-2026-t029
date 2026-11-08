@@ -12,44 +12,81 @@ import '../live_form/date_time_field.dart';
 import '../common/empty_state.dart';
 
 import 'memory_album_card.dart';
+import 'shared_memories_view.dart';
 
-/// メモリー一覧（/memories）。参戦予定と参戦済み（アルバム）を並べる。
+/// メモリー一覧（/memories）。「自分のメモリー」と「みんなのメモリー」のタブ（add_K 6.1）。
+/// 自分のメモリーは、参戦予定と参戦済み（アルバム）を並べる。
 /// PC で本文の幅が広いときは、左に参戦予定・右に参戦済みの2列にする（Fc 5.2）
-class MemoryListPage extends ConsumerWidget {
+class MemoryListPage extends StatelessWidget {
   const MemoryListPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final album = ref.watch(memoryAlbumProvider);
+  Widget build(BuildContext context) {
     return HakoPageScaffold(
       title: 'メモリー',
       maxContentWidth: 1080,
       body: SafeArea(
-        child: switch (album) {
-          AsyncError() => _Message(
-            key: const Key('memory_list_error'),
-            text: '記録を読み込めませんでした',
-            action: OutlinedButton(
-              key: const Key('memory_list_retry_button'),
-              onPressed: () => ref.invalidate(myMemoriesProvider),
-              child: const Text('もう一度読み込む'),
-            ),
+        // 選んだタブは覚えない（最初は「自分のメモリー」）
+        child: DefaultTabController(
+          length: 2,
+          child: Column(
+            children: [
+              TabBar(
+                key: const Key('memory_tabs'),
+                labelColor: BrandColors.ink,
+                unselectedLabelColor: BrandColors.sub,
+                indicatorColor: BrandColors.ink,
+                labelStyle: HakoFonts.jp(
+                  size: 14,
+                  weight: FontWeight.w700,
+                  height: 1.3,
+                ),
+                tabs: const [
+                  Tab(key: Key('memory_tab_mine'), text: '自分のメモリー'),
+                  Tab(key: Key('memory_tab_shared'), text: 'みんなのメモリー'),
+                ],
+              ),
+              const Expanded(
+                child: TabBarView(children: [_MineTab(), SharedMemoriesView()]),
+              ),
+            ],
           ),
-          AsyncData(value: MemoryAlbum(upcoming: [], attended: [])) =>
-            const EmptyState(
-              key: Key('memory_list_empty'),
-              icon: Icons.photo_album_outlined,
-              title: '参戦したライブを記録すると、ここに並びます',
-              message: 'ライブの詳細の公演から「記録する」で残せます',
-            ),
-          AsyncData(:final value) => _AlbumView(album: value),
-          _ => const Center(
-            key: Key('memory_list_loading'),
-            child: CircularProgressIndicator(),
-          ),
-        },
+        ),
       ),
     );
+  }
+}
+
+/// 「自分のメモリー」タブ（今までのメモリー一覧の中身）
+class _MineTab extends ConsumerWidget {
+  const _MineTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final album = ref.watch(memoryAlbumProvider);
+    return switch (album) {
+      AsyncError() => _Message(
+        key: const Key('memory_list_error'),
+        text: '記録を読み込めませんでした',
+        action: OutlinedButton(
+          key: const Key('memory_list_retry_button'),
+          onPressed: () => ref.invalidate(myMemoriesProvider),
+          child: const Text('もう一度読み込む'),
+        ),
+      ),
+      AsyncData(value: MemoryAlbum(upcoming: [], attended: [])) =>
+        const EmptyState(
+          key: Key('memory_list_empty'),
+          icon: Icons.photo_album_outlined,
+          title: '参戦したライブを記録すると、ここに並びます',
+          message: 'ライブの詳細の公演から「記録する」で残せます',
+        ),
+      AsyncData(:final value) => _AlbumView(album: value),
+      _ => const Center(
+        key: Key('memory_list_loading'),
+        child: CircularProgressIndicator(),
+      ),
+    };
   }
 }
 
@@ -108,6 +145,10 @@ class _AlbumView extends StatelessWidget {
         ),
       ),
     );
+    Widget hint(String text, String key) => SliverPadding(
+      padding: EdgeInsets.symmetric(horizontal: pad.left),
+      sliver: SliverToBoxAdapter(child: HakoHint(text, key: Key(key))),
+    );
     final top = SliverPadding(
       padding: EdgeInsets.only(top: pad.top - 22 < 0 ? 0 : pad.top - 22),
     );
@@ -115,6 +156,7 @@ class _AlbumView extends StatelessWidget {
     // 参戦予定（行）
     final upcoming = <Widget>[
       header('参戦予定'),
+      hint('これから行くライブです。座席も確認できます。', 'hint_memory_next'),
       if (album.upcoming.isEmpty)
         none('参戦予定の記録はありません')
       else
@@ -131,6 +173,7 @@ class _AlbumView extends StatelessWidget {
     // 参戦済み（カードのグリッド）
     final attended = <Widget>[
       header('参戦済み'),
+      hint('行ったライブの思い出です。', 'hint_memory_done'),
       if (album.attended.isEmpty)
         const SliverToBoxAdapter(
           child: EmptyState(

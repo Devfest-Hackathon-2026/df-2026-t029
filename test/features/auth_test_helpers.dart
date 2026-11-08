@@ -36,6 +36,45 @@ class FakeAuthRepository implements AuthRepository {
   /// currentUser が返す User（確認画面でメールアドレスを出すため）
   User? user;
 
+  /// currentEmail が返す値（メールアドレス変更のテスト用）
+  String? email = 'user@example.com';
+
+  /// providerIds が返す値
+  List<String> providers = ['password'];
+
+  /// startEmailChange に渡された新しいアドレスの記録
+  final List<String> emailChanges = [];
+
+  /// reauthenticateWithPassword が呼ばれた回数（パスワードは記録も出力もしない）
+  int reauths = 0;
+
+  /// reloadCurrentEmail の返り値
+  String? reloadedEmail;
+
+  @override
+  String? get currentEmail => email;
+
+  @override
+  List<String> get providerIds => providers;
+
+  @override
+  Future<void> startEmailChange(String newEmail) async {
+    emailChanges.add(newEmail.trim());
+    await _run('startEmailChange');
+  }
+
+  @override
+  Future<void> reauthenticateWithPassword(String password) async {
+    reauths++;
+    await _run('reauth');
+  }
+
+  @override
+  Future<String?> reloadCurrentEmail() async {
+    await _run('reloadCurrentEmail');
+    return reloadedEmail;
+  }
+
   @override
   Stream<User?> authStateChanges() => const Stream.empty();
 

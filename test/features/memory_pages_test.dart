@@ -106,6 +106,30 @@ void main() {
       expect(_key('memory_detail'), findsOneWidget);
     });
 
+    testWidgets('補足: 「参戦予定」「参戦済み」の見出しの下に、それぞれ出る', (tester) async {
+      await pumpMemory(tester, '/memories', memories: [upcoming, attended]);
+      expect(find.text('これから行くライブです。座席も確認できます。'), findsOneWidget);
+      expect(find.text('行ったライブの思い出です。'), findsOneWidget);
+      double y(Finder f) => tester.getTopLeft(f).dy;
+      expect(y(find.text('参戦予定')), lessThan(y(_key('hint_memory_next'))));
+      expect(
+        y(_key('hint_memory_next')),
+        lessThan(y(_key('memory_list_upcoming_u'))),
+      );
+      expect(y(find.text('参戦済み')), lessThan(y(_key('hint_memory_done'))));
+      expect(
+        y(_key('hint_memory_done')),
+        lessThan(y(_key('memory_list_attended_a'))),
+      );
+    });
+
+    testWidgets('補足: 見出しが出ない（記録が1件も無い）ときは出ない', (tester) async {
+      await pumpMemory(tester, '/memories', memories: const []);
+      expect(find.text('参戦予定'), findsNothing);
+      expect(_key('hint_memory_next'), findsNothing);
+      expect(_key('hint_memory_done'), findsNothing);
+    });
+
     for (final w in [320.0, 360.0, 390.0, 720.0, 1000.0]) {
       testWidgets('幅 $w・文字 1.3 倍・長いタイトルではみ出さない', (tester) async {
         await pumpMemory(

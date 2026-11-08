@@ -7,8 +7,10 @@ import '../../providers/oshi_providers.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/hako_fonts.dart';
 import '../../utils/oshi_search.dart';
+import '../../providers/favorite_oshi_providers.dart';
 import 'follow_actions.dart';
 import 'oshi_list_tile.dart';
+import 'oshi_menu.dart';
 
 /// グループのメンバー（Fc 4.1）。承認済み（名前順）→ 申請中（名前順）。
 /// 申請中のグループは、メンバーも申請中なので、申請中も含めて返す
@@ -112,20 +114,23 @@ class _FollowAllMembersButtonState
           : () => _followAll(targets, following),
       icon: const Icon(Icons.group_add_outlined, size: 18),
       label: Text(
-        _running ? 'フォローしています…' : 'メンバー全員をフォロー（${targets.length}人）',
+        _running ? 'フォローしています…' : 'メンバーをまとめてフォロー（${targets.length}人）',
       ),
     );
   }
 }
 
-/// グループの行の下に開く、メンバーの一覧（Fc 4.1）。
+/// グループの行の下に開く、メンバーの一覧（Fc 4.1・Fd 5.2）。
 /// 左に字下げし、左端に墨の縦線を引く。
-/// 上から：全員フォロー → メンバーの行 → 「メンバーを申請する」
+/// 上から：全員フォロー（[showFollowAllButton]）→ メンバーの行 → 「メンバーを申請する」。
+/// [withActions] なら、メンバーの行に ☆ と ⋮ を出す（推しページのフォロー中の一覧）
 class GroupMembersPanel extends ConsumerStatefulWidget {
   const GroupMembersPanel({
     super.key,
     required this.group,
     this.highlightKeys = const {},
+    this.showFollowAllButton = true,
+    this.withActions = false,
   });
 
   final OshiSummary group;
@@ -133,13 +138,26 @@ class GroupMembersPanel extends ConsumerStatefulWidget {
   /// 名前を太字にするメンバー（推しを探すでヒットしたもの。Fc 4.3）
   final Set<String> highlightKeys;
 
+  /// 上に「メンバーをまとめてフォロー」を出すか。
+  /// グループの行に出している推しページでは false（Fd 5.2）
+  final bool showFollowAllButton;
+
+  /// メンバーの行に ☆ と ⋮ を出すか（Fd 5.2）
+  final bool withActions;
+
   @override
   ConsumerState<GroupMembersPanel> createState() => _GroupMembersPanelState();
 }
 
 class _GroupMembersPanelState extends ConsumerState<GroupMembersPanel> {
-  /// フォロー・解除の処理中の推し（OshiSummary.key）
+  /// フォロー・解除・最推しの処理中の推し（OshiSummary.key）
   final Set<String> _busy = {};
+
+  void _showError(String error) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(error)));
+  }
 
   Future<void> _toggleFollow(OshiSummary oshi, {required bool follow}) async {
     if (_busy.contains(oshi.key)) return;
@@ -147,11 +165,26 @@ class _GroupMembersPanelState extends ConsumerState<GroupMembersPanel> {
     final error = await runFollowAction(ref, oshi, follow: follow);
     if (!mounted) return;
     setState(() => _busy.remove(oshi.key));
-    if (error != null) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(error)));
+    if (error != null) _showError(error);
+  }
+
+  /// 最推しにする・外す（Fd 5.2）。フォローしていないメンバーを最推しにするときは、
+  /// 先にフォローする（失敗したら最推しにしない）
+  Future<void> _toggleFavorite(
+    OshiSummary oshi, {
+    required bool favorite,
+    required bool isFollowing,
+  }) async {
+    if (_busy.contains(oshi.key)) return;
+    setState(() => _busy.add(oshi.key));
+    String? error;
+    if (favorite && !isFollowing) {
+      error = await runFollowAction(ref, oshi, follow: true);
     }
+    error ??= await runFavoriteAction(ref, oshi, favorite: favorite);
+    if (!mounted) return;
+    setState(() => _busy.remove(oshi.key));
+    if (error != null) _showError(error);
   }
 
   @override
@@ -160,6 +193,7 @@ class _GroupMembersPanelState extends ConsumerState<GroupMembersPanel> {
     final all = ref.watch(allOshisProvider).value ?? const <OshiSummary>[];
     final followAsync = ref.watch(followStateProvider);
     final following = followAsync.value ?? FollowState.empty;
+    final favoriteKey = ref.watch(favoriteOshiKeyProvider).value;
     final names = groupNamesById(all);
     final members = groupMembersOf(group, all);
     final muted = HakoFonts.jp(size: 13, color: BrandColors.sub, height: 1.6);
@@ -176,10 +210,11 @@ class _GroupMembersPanelState extends ConsumerState<GroupMembersPanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FollowAllMembersButton(group: group),
-              ),
+              if (widget.showFollowAllButton)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FollowAllMembersButton(group: group),
+                ),
               if (members.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
@@ -195,6 +230,23 @@ class _GroupMembersPanelState extends ConsumerState<GroupMembersPanel> {
                     onUnfollow: () => _toggleFollow(m, follow: false),
                     groupNames: groupNamesOf(m, names),
                     highlight: widget.highlightKeys.contains(m.key),
+                    isFavorite: favoriteKey == m.key,
+                    // 申請中のメンバーは最推しにできない（フォローできないため）
+                    onToggleFavorite: widget.withActions && m.isApproved
+                        ? () => _toggleFavorite(
+                            m,
+                            favorite: favoriteKey != m.key,
+                            isFollowing: following.isFollowing(m),
+                          )
+                        : null,
+                    menu: widget.withActions
+                        ? oshiMenuItems(
+                            context,
+                            m,
+                            isFollowing: following.isFollowing(m),
+                            onUnfollow: () => _toggleFollow(m, follow: false),
+                          )
+                        : const [],
                   ),
               Padding(
                 padding: const EdgeInsets.only(top: 4),

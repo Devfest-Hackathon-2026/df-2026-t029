@@ -154,13 +154,41 @@ void main() {
   testWidgets('フォロー中の先頭の推しが、最初から選ばれている', (tester) async {
     final repo = FakeTradePostRepository();
     await pumpBoard(tester, repo);
-    expect(repo.watchedOpen.first, (
-      OshiKind.person,
-      'p1',
-      50,
-    )); // 個人から並べる（Fb-1）
-    expect(find.text('個人1（個人）'), findsOneWidget);
+    // 最初は「フォロー中の推し すべて」（Fc 5.1）。個人も所属グループも読む
+    expect(find.text('フォロー中の推し すべて'), findsOneWidget);
+    expect(
+      {for (final w in repo.watchedOpen) '${w.$1.name}/${w.$2}'},
+      {'person/p1', 'group/g1'},
+    );
     expect(find.text('推しを選んでください'), findsNothing);
+  });
+
+  testWidgets('補足: 絞り込みの下に、いつも出る', (tester) async {
+    await pumpBoard(tester, FakeTradePostRepository());
+    expect(_key('hint_trade_board'), findsOneWidget);
+    expect(find.text('「譲」は手放せるグッズ、「求」はほしいグッズです。'), findsOneWidget);
+    expect(
+      tester.getTopLeft(_key('trade_board_oshi')).dy,
+      lessThan(tester.getTopLeft(_key('hint_trade_board')).dy),
+    );
+  });
+
+  testWidgets('更新日時は「更新 」＋日付だけ（年は今年なら省略）', (tester) async {
+    final repo = FakeTradePostRepository()
+      ..openByTarget = {
+        (OshiKind.group, 'g1'): [post('new', 3)],
+      };
+    await pumpBoard(tester, repo);
+    await selectOshi(tester, 'グループ1（グループ）');
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Text &&
+            RegExp(r'^更新 (\d{4}/)?11/3\(火\)$').hasMatch(w.data ?? ''),
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('更新：'), findsNothing);
   });
 
   testWidgets('フォロー中の推しが0件なら、推しを探す案内を出す', (tester) async {
@@ -198,9 +226,12 @@ void main() {
         .map((c) => (c.key as ValueKey<String>).value)
         .toList();
     expect(cards, ['trade_board_post_new', 'trade_board_post_mine']);
-    expect(find.text('交換希望・譲渡（売ります）／価格：定価'), findsOneWidget);
-    expect(find.text('譲：アクスタ'), findsOneWidget);
-    expect(find.text('受け渡し：郵送・手渡し'), findsNWidgets(2));
+    // タグと受け渡しは、1行にまとめて出る（Fd 4）
+    expect(find.text('交換希望・譲渡（売ります）／価格：定価 ・ 受け渡し：郵送・手渡し'), findsOneWidget);
+    expect(find.text('交換希望 ・ 受け渡し：郵送・手渡し'), findsOneWidget);
+    // 「譲」の札と本文は別の Text（S1）
+    expect(find.text('譲'), findsOneWidget);
+    expect(find.text('アクスタ'), findsOneWidget);
     // 自分の投稿には印を付ける
     expect(find.text('自分'), findsOneWidget);
   });
@@ -306,13 +337,32 @@ void main() {
         ],
       };
 
+    // シートの ListView は見えない部分を作らないので、スクロールして作らせる
+    Future<void> revealInSheet(WidgetTester tester, Finder f) async {
+      if (f.evaluate().isEmpty) {
+        await tester.scrollUntilVisible(
+          f,
+          200,
+          scrollable: find.byType(Scrollable).last,
+        );
+      }
+      await tester.ensureVisible(f);
+      await tester.pumpAndSettle();
+    }
+
+    // シートは長いので、押す前に見える位置までスクロールする
+    Future<void> tapVisible(WidgetTester tester, Finder f) async {
+      await revealInSheet(tester, f);
+      await tester.tap(f);
+    }
+
     Future<void> openSheet(WidgetTester tester) async {
       await tester.tap(_key('trade_board_filter'));
       await tester.pumpAndSettle();
     }
 
     Future<void> apply(WidgetTester tester) async {
-      await tester.tap(_key('board_filter_apply'));
+      await tapVisible(tester, _key('board_filter_apply'));
       await tester.pumpAndSettle();
     }
 
@@ -321,7 +371,7 @@ void main() {
       String key,
       String label,
     ) async {
-      await tester.tap(_key(key));
+      await tapVisible(tester, _key(key));
       await tester.pumpAndSettle();
       await tester.tap(find.text(label).last);
       await tester.pumpAndSettle();
@@ -367,8 +417,8 @@ void main() {
       await selectOshi(tester, 'グループ1（グループ）');
 
       await openSheet(tester);
-      await tester.tap(_key('board_filter_tag_sell'));
-      await tester.tap(_key('board_filter_tag_buy'));
+      await tapVisible(tester, _key('board_filter_tag_sell'));
+      await tapVisible(tester, _key('board_filter_tag_buy'));
       await tester.pump();
       await apply(tester);
       expect(shown(tester), ['sell']);
@@ -390,7 +440,7 @@ void main() {
       await pumpBoard(tester, repoWithPosts(), myRepo: FakeMyLiveRepository());
       await selectOshi(tester, 'グループ1（グループ）');
       await openSheet(tester);
-      await tester.tap(_key('board_filter_performance'));
+      await tapVisible(tester, _key('board_filter_performance'));
       await tester.pumpAndSettle();
       expect(find.text('ツアー 2026/11/20(金) 18:00 会場f1'), findsNothing);
     });
@@ -403,7 +453,7 @@ void main() {
       await pumpBoard(tester, repo);
       await selectOshi(tester, 'グループ1（グループ）');
       await openSheet(tester);
-      await tester.tap(_key('board_filter_tag_buy'));
+      await tapVisible(tester, _key('board_filter_tag_buy'));
       await tester.pump();
       await apply(tester);
       expect(find.text('条件に合う投稿はありません'), findsOneWidget);
@@ -413,7 +463,7 @@ void main() {
       await pumpBoard(tester, repoWithPosts());
       await selectOshi(tester, 'グループ1（グループ）');
       await openSheet(tester);
-      await tester.tap(_key('board_filter_tag_sell'));
+      await tapVisible(tester, _key('board_filter_tag_sell'));
       await tester.pump();
       await apply(tester);
       expect(_key('board_chip_tags'), findsOneWidget);
@@ -426,11 +476,11 @@ void main() {
       await pumpBoard(tester, repoWithPosts());
       await selectOshi(tester, 'グループ1（グループ）');
       await openSheet(tester);
-      await tester.tap(_key('board_filter_tag_sell'));
+      await tapVisible(tester, _key('board_filter_tag_sell'));
       await tester.pump();
       await apply(tester);
       await openSheet(tester);
-      await tester.tap(_key('board_filter_clear'));
+      await tapVisible(tester, _key('board_filter_clear'));
       await tester.pumpAndSettle();
       expect(_key('board_chip_tags'), findsNothing);
       expect(shown(tester), hasLength(4));

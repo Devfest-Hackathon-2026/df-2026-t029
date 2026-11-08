@@ -42,6 +42,7 @@ class FavoriteOshiCard extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const HakoSectionHeader('最推し'),
+        const HakoHint('いちばん応援している推しです。', key: Key('hint_oshi_favorite')),
         InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: isGroup ? () => showGroupMembersSheet(context, oshi) : null,

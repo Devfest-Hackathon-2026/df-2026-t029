@@ -2,8 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:oshiashi/providers/oshi_providers.dart';
+import 'package:oshiashi/repositories/auth_repository.dart';
 import 'package:oshiashi/theme/brand_colors.dart';
 import 'package:oshiashi/theme/hako_app_widgets.dart';
+
+// AccountMenuButton が authStateProvider を読むので、Firebase 未初期化にならないよう差し替える
+final _overrides = [
+  authStateProvider.overrideWith((ref) => Stream<User?>.value(null)),
+  currentUidProvider.overrideWithValue(null),
+];
 
 void _size(WidgetTester tester, Size size) {
   tester.view.physicalSize = size;
@@ -20,6 +29,7 @@ Future<void> _pumpApp(
   _size(tester, size);
   await tester.pumpWidget(
     ProviderScope(
+      overrides: _overrides,
       child: MaterialApp(
         home: HakoHue(
           color: hue,
@@ -124,6 +134,7 @@ void main() {
           );
       await tester.pumpWidget(
         ProviderScope(
+          overrides: _overrides,
           child: HakoHue(
             color: BrandColors.hall5,
             child: MaterialApp.router(routerConfig: r),
@@ -254,6 +265,7 @@ void main() {
       _size(tester, const Size(1000, 800));
       await tester.pumpWidget(
         ProviderScope(
+          overrides: _overrides,
           child: MaterialApp(
             home: HakoPageScaffold(
               title: 'おしあし',
@@ -273,6 +285,7 @@ void main() {
       _size(tester, const Size(390, 800));
       await tester.pumpWidget(
         ProviderScope(
+          overrides: _overrides,
           child: MaterialApp(
             home: HakoPageScaffold(
               title: 'おしあし',
@@ -293,6 +306,7 @@ void main() {
       _size(tester, const Size(1000, 800));
       await tester.pumpWidget(
         ProviderScope(
+          overrides: _overrides,
           child: MaterialApp(
             home: HakoPageScaffold(title: 'おしあし', body: const Text('本文')),
           ),
@@ -514,6 +528,126 @@ void main() {
       expect(find.text('まだありません'), findsOneWidget);
       expect(find.text('見出し'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('HakoHint（電球の行）', () {
+    testWidgets('電球のアイコンと文字。電球は読み上げない', (tester) async {
+      await _pumpApp(tester, const HakoHint('いちばん応援している推しです。'));
+      expect(find.text('いちばん応援している推しです。'), findsOneWidget);
+      expect(find.byIcon(Icons.lightbulb_outline), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.byIcon(Icons.lightbulb_outline),
+          matching: find.byType(ExcludeSemantics),
+        ),
+        findsWidgets,
+      );
+      expect(tester.getSize(find.byIcon(Icons.lightbulb_outline)).width, 18);
+    });
+
+    testWidgets('長い文でも折り返すだけではみ出さない（幅 320・文字 1.3 倍）', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _pumpApp(
+        tester,
+        HakoHint('とても長い補足の文です。' * 20),
+        size: const Size(320, 800),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('HakoGiveWantLine（譲・求のラベル）', () {
+    const labels = {
+      HakoGiveWantKind.give: '譲',
+      HakoGiveWantKind.want: '求',
+      HakoGiveWantKind.receive: 'もらえる',
+      HakoGiveWantKind.offer: '出せる',
+    };
+
+    labels.forEach((kind, label) {
+      testWidgets('$label: 札と本文が別の Text', (tester) async {
+        await _pumpApp(tester, HakoGiveWantLine(kind: kind, text: 'アクスタ（A）'));
+        expect(find.text(label), findsOneWidget);
+        expect(find.text('アクスタ（A）'), findsOneWidget);
+      });
+    });
+
+    testWidgets('札の色: 譲・もらえる=淡い桃、求・出せる=淡い黄。枠は墨 2px・角丸 6', (tester) async {
+      const colors = {
+        HakoGiveWantKind.give: BrandColors.hall6Soft,
+        HakoGiveWantKind.receive: BrandColors.hall6Soft,
+        HakoGiveWantKind.want: BrandColors.hall3Soft,
+        HakoGiveWantKind.offer: BrandColors.hall3Soft,
+      };
+      for (final e in colors.entries) {
+        await _pumpApp(tester, HakoGiveWantLine(kind: e.key, text: '本文'));
+        final badge = tester.widget<Container>(
+          find
+              .ancestor(
+                of: find.text(labels[e.key]!),
+                matching: find.byType(Container),
+              )
+              .first,
+        );
+        final d = badge.decoration! as BoxDecoration;
+        expect(d.color, e.value, reason: '${e.key}');
+        expect(d.borderRadius, BorderRadius.circular(6));
+        expect((d.border! as Border).top.width, 2);
+        expect((d.border! as Border).top.color, BrandColors.ink);
+      }
+    });
+
+    testWidgets('淡い色の値（計画書 4.7）', (tester) async {
+      expect(BrandColors.hall3Soft, const Color(0xFFFBF0B4));
+      expect(BrandColors.hall1Soft, const Color(0xFFFBD6CE));
+      expect(BrandColors.hall5Soft, const Color(0xFFD3E5FA));
+      expect(BrandColors.hall6Soft, const Color(0xFFFADCE9));
+      expect(BrandColors.hall4Soft, const Color(0xFFCDEFDF));
+    });
+
+    testWidgets('読み上げ: 譲→「譲（手放せるグッズ）」、求→「求（ほしいグッズ）」、他はそのまま', (tester) async {
+      final handle = tester.ensureSemantics();
+      const expected = {
+        HakoGiveWantKind.give: '譲（手放せるグッズ）',
+        HakoGiveWantKind.want: '求（ほしいグッズ）',
+        HakoGiveWantKind.receive: 'もらえる',
+        HakoGiveWantKind.offer: '出せる',
+      };
+      for (final e in expected.entries) {
+        await _pumpApp(tester, HakoGiveWantLine(kind: e.key, text: '本文'));
+        expect(find.bySemanticsLabel(e.value), findsOneWidget, reason: e.value);
+      }
+      handle.dispose();
+    });
+
+    testWidgets('本文が長くても折り返すだけ（幅 320・文字 1.3 倍）で、札は崩れない', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      for (final kind in HakoGiveWantKind.values) {
+        await _pumpApp(
+          tester,
+          // 実際の画面と同じく、高さが決まっていない並びの中に置く
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [HakoGiveWantLine(kind: kind, text: 'とても長い品目の名前、' * 15)],
+          ),
+          size: const Size(320, 800),
+        );
+        expect(tester.takeException(), isNull, reason: '$kind');
+        // 札は縦に伸びず、最小の大きさ（24）以上で、1行ぶんの高さに収まる
+        final badge = tester.getSize(
+          find
+              .ancestor(
+                of: find.text(labels[kind]!),
+                matching: find.byType(Container),
+              )
+              .first,
+        );
+        expect(badge.height, lessThan(60), reason: '$kind');
+        expect(badge.width, greaterThanOrEqualTo(24), reason: '$kind');
+      }
     });
   });
 }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../common/empty_state.dart';
 import '../common/user_avatar.dart';
+import '../common/storage_image.dart';
 import '../../models/oshi.dart';
 import '../../models/trade_post.dart';
 import '../../models/goods.dart';
@@ -13,10 +14,9 @@ import '../../providers/oshi_color_providers.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/hako_app_widgets.dart';
 import '../../utils/trade_board.dart';
+import '../../utils/updated_at_format.dart';
 import 'board_filter_sheet.dart';
 import 'trade_post_summary.dart';
-import 'trade_post_summary_lines.dart';
-import 'trade_post_thumb.dart';
 
 /// 交換の掲示板（交換トップの「掲示板」タブ）。
 /// 推しを選び、募集中の投稿を更新日時の新しい順に出す
@@ -42,8 +42,8 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    
-      final following = ref.watch(followingOshisProvider);
+
+    final following = ref.watch(followingOshisProvider);
     // null は「フォロー中すべて」（最初はこれ。Fc 5.1）。
     // 選んでいた推しのフォローを外したときも「フォロー中すべて」として扱う
     final selected = ref.watch(boardTargetProvider);
@@ -83,6 +83,15 @@ class _TradeBoardViewState extends ConsumerState<TradeBoardView>
                       _filterButton(target),
                     ],
                   ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: HakoPageScaffold.padding(context).left,
+          ),
+          child: const HakoHint(
+            '「譲」は手放せるグッズ、「求」はほしいグッズです。',
+            key: Key('hint_trade_board'),
           ),
         ),
         _filterChips(),
@@ -302,10 +311,7 @@ class _OshiSelector extends StatelessWidget {
           isExpanded: true,
           value: selectedKey,
           items: [
-            const DropdownMenuItem(
-              value: _allKey,
-              child: Text('フォロー中すべて'),
-            ),
+            const DropdownMenuItem(value: _allKey, child: Text('フォロー中の推し すべて')),
             for (final o in oshis)
               DropdownMenuItem(
                 value: o.key,
@@ -319,7 +325,9 @@ class _OshiSelector extends StatelessWidget {
   }
 }
 
-/// 掲示板の投稿1件。対象の推しに色があれば、左端に 4px の帯を出す（Fc 5.3）
+/// 掲示板の投稿1件（Fd 4）。
+/// 名前と更新日 → 写真（横に並べる）→ 譲 → 求 → そのほか（対象の推し・タグ・受け渡し）。
+/// 対象の推しに色があれば、左端に 4px の帯を出す（Fc 5.3）
 class _BoardCard extends ConsumerWidget {
   const _BoardCard({
     required this.post,
@@ -335,11 +343,26 @@ class _BoardCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final targets = targetNames(post, all);
+    final gives = giveSummary(post);
+    final wants = wantSummary(post);
+    final photos = allPhotosOf(post);
+    final updatedAt = post.updatedAt;
+    final tags = tagLine(post);
+    final handover = post.handover.map((h) => h.label).join('・');
+    final meta = [
+      if (tags.isNotEmpty) tags,
+      if (handover.isNotEmpty) '受け渡し：$handover',
+    ].join(' ・ ');
+    final muted = theme.textTheme.bodySmall?.copyWith(color: BrandColors.sub);
     final color = resolvePostColor(
       post,
       ref.watch(oshiColorsProvider).value ?? const {},
       all,
     );
+
+    Widget mutedLine(String text) =>
+        Text(text, style: muted, maxLines: 1, overflow: TextOverflow.ellipsis);
+
     return Card(
       key: Key('trade_board_post_${post.id}'),
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -353,47 +376,119 @@ class _BoardCard extends ConsumerWidget {
                   border: Border(left: BorderSide(color: color, width: 4)),
                 ),
           padding: const EdgeInsets.all(12),
-          // 写真があれば右に1枚目を出す（G-7）
-          child: TradePostWithThumb(
-            post: post,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    UserAvatar(uid: post.uid, name: post.displayName),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        post.displayName,
-                        style: theme.textTheme.titleSmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. 名前の行：アイコン・名前（自分）／右端に更新日
+              Row(
+                children: [
+                  UserAvatar(uid: post.uid, name: post.displayName),
+                  const SizedBox(width: 8),
+                  // 名前（と「自分」）で残りの幅を使い、更新日を右端に寄せる
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            post.displayName,
+                            style: theme.textTheme.titleSmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isMine) ...[
+                          const SizedBox(width: 8),
+                          const Chip(
+                            label: Text('自分'),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ],
                     ),
-                    if (isMine) ...[
-                      const SizedBox(width: 8),
-                      const Chip(
-                        label: Text('自分'),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
-                  ],
-                ),
-                if (targets.isNotEmpty)
-                  Text(
-                    targets,
-                    style: theme.textTheme.bodySmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                const SizedBox(height: 4),
-                TradePostSummaryLines(post: post, showHandover: true),
+                  const SizedBox(width: 8),
+                  Text(
+                    updatedAt == null
+                        ? '保存中…'
+                        : '更新 ${formatUpdatedAt(updatedAt, withTime: false)}',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+              // 2. 写真
+              if (photos.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _PhotoRow(paths: photos),
               ],
-            ),
+              // 3・4. 譲・求
+              if (gives.isNotEmpty || wants.isNotEmpty)
+                const SizedBox(height: 10),
+              if (gives.isNotEmpty)
+                HakoGiveWantLine(kind: HakoGiveWantKind.give, text: gives),
+              if (wants.isNotEmpty)
+                HakoGiveWantLine(kind: HakoGiveWantKind.want, text: wants),
+              // 5. そのほか（小さく）
+              const SizedBox(height: 6),
+              if (targets.isNotEmpty) mutedLine(targets),
+              if (meta.isNotEmpty) mutedLine(meta),
+              if (post.isTextOnly) mutedLine('品目なし（自動のマッチングの対象外）'),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 写真を2枚ぶんの枠で横に並べる（Fd 4）。
+/// 1枚なら左の枠だけ。3枚以上なら2枚目の上に「+n」
+class _PhotoRow extends StatelessWidget {
+  const _PhotoRow({required this.paths});
+
+  final List<String> paths;
+
+  @override
+  Widget build(BuildContext context) {
+    final rest = paths.length - 2;
+
+    Widget frame(String path, {String? overlay}) => AspectRatio(
+      aspectRatio: 4 / 3,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            StorageImage(path: path),
+            if (overlay != null)
+              ColoredBox(
+                color: BrandColors.ink.withValues(alpha: 0.55),
+                child: Center(
+                  child: Text(
+                    overlay,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: frame(paths[0])),
+        const SizedBox(width: 8),
+        Expanded(
+          child: paths.length >= 2
+              ? frame(paths[1], overlay: rest > 0 ? '+$rest' : null)
+              : const SizedBox.shrink(),
+        ),
+      ],
     );
   }
 }

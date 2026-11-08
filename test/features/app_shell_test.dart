@@ -67,27 +67,51 @@ Future<GoRouter> pumpShell(
   return router;
 }
 
-/// タブ [label] のピルの色（選択中はページの色、そうでなければ透明）
-Color? _pill(WidgetTester tester, String label) {
-  final item = find.ancestor(
-    of: find.text(label),
-    matching: find.byType(InkWell),
-  );
-  final box = tester.widget<Container>(
-    find.descendant(of: item.first, matching: find.byType(Container)).first,
-  );
+/// 丸いアイコンの色（選択中は濃い色、そうでなければ淡い色）
+const _hues = [
+  BrandColors.hall3,
+  BrandColors.hall1,
+  BrandColors.hall5,
+  BrandColors.hall6,
+  BrandColors.hall4,
+];
+const _softs = [
+  BrandColors.hall3Soft,
+  BrandColors.hall1Soft,
+  BrandColors.hall5Soft,
+  BrandColors.hall6Soft,
+  BrandColors.hall4Soft,
+];
+
+Finder _tab(int i) => find.byKey(Key('shell_tab_$i'));
+
+/// タブ [i] の丸（直径 44 の円）
+Finder _circle(int i) => find.descendant(
+  of: _tab(i),
+  matching: find.byWidgetPredicate(
+    (w) =>
+        w is AnimatedContainer &&
+        w.decoration is BoxDecoration &&
+        (w.decoration as BoxDecoration).shape == BoxShape.circle,
+  ),
+);
+
+Color? _circleColor(WidgetTester tester, int i) {
+  final box = tester.widget<AnimatedContainer>(_circle(i));
   return (box.decoration! as BoxDecoration).color;
 }
 
-/// 選択中のタブの番号（ピルが塗られているもの）。なければ -1
+/// 選択中のタブの番号（丸が濃い色のもの）。なければ -1
 int _selected(WidgetTester tester) {
   final on = [
     for (var i = 0; i < _tabLabels.length; i++)
-      if (_pill(tester, _tabLabels[i]) != Colors.transparent) i,
+      if (_circleColor(tester, i) == _hues[i]) i,
   ];
   expect(on.length, lessThanOrEqualTo(1));
   return on.isEmpty ? -1 : on.single;
 }
+
+Finder _key(String k) => find.byKey(Key(k));
 
 void main() {
   group('tabIndexFor', () {
@@ -131,8 +155,9 @@ void main() {
       }
       expect(
         tester.getSize(find.byKey(const Key('shell_bottom_bar'))).height,
-        72,
+        80,
       );
+      expect(kShellBottomBarHeight, 80);
     });
 
     testWidgets('選択中のタブはパスで決まる', (tester) async {
@@ -166,22 +191,68 @@ void main() {
       }
     });
 
-    testWidgets('選択中のピルの色はページの色（ホーム=黄・推し=赤・ライブ=青）', (tester) async {
-      const hues = {
-        '/': BrandColors.hall3,
-        '/oshi': BrandColors.hall1,
-        '/lives': BrandColors.hall5,
-        '/trade': BrandColors.hall6,
-        '/memories': BrandColors.hall4,
-      };
-      for (final e in hues.entries) {
-        await pumpShell(tester, width: 390, initial: e.key);
-        expect(
-          _pill(tester, _tabLabels[_tabPaths.indexOf(e.key)]),
-          e.value,
-          reason: e.key,
-        );
+    testWidgets('選択中の丸は濃い色（ページの色）、ほかは淡い色', (tester) async {
+      for (var i = 0; i < 5; i++) {
+        await pumpShell(tester, width: 390, initial: _tabPaths[i]);
+        for (var j = 0; j < 5; j++) {
+          expect(
+            _circleColor(tester, j),
+            j == i ? _hues[j] : _softs[j],
+            reason: 'path=${_tabPaths[i]} tab=$j',
+          );
+        }
       }
+    });
+
+    testWidgets('選択中の丸だけ、上に 6 浮く', (tester) async {
+      await pumpShell(tester, width: 390, initial: '/oshi');
+      final selectedTop = tester.getTopLeft(_circle(1)).dy;
+      for (final j in [0, 2, 3, 4]) {
+        expect(tester.getTopLeft(_circle(j)).dy - selectedTop, 6, reason: '$j');
+      }
+      expect(tester.getSize(_circle(1)), const Size(44, 44));
+    });
+
+    testWidgets('選択中の丸には墨の硬い影（下に 3・ぼかし 0）、ほかには無い', (tester) async {
+      await pumpShell(tester, width: 390, initial: '/lives');
+      List<BoxShadow>? shadow(int i) =>
+          (tester.widget<AnimatedContainer>(_circle(i)).decoration!
+                  as BoxDecoration)
+              .boxShadow;
+      expect(shadow(2), [
+        const BoxShadow(color: BrandColors.ink, offset: Offset(0, 3)),
+      ]);
+      expect(shadow(0), isEmpty);
+    });
+
+    testWidgets('タブのキー shell_tab_0〜4 はタップを受ける部品で、5つが順に左から並ぶ', (tester) async {
+      await pumpShell(tester, width: 390);
+      var left = -1.0;
+      for (var i = 0; i < 5; i++) {
+        expect(_tab(i), findsOneWidget);
+        expect(tester.widget(_tab(i)), isA<InkWell>());
+        final x = tester.getTopLeft(_tab(i)).dx;
+        expect(x, greaterThan(left));
+        left = x;
+      }
+    });
+
+    testWidgets('読み上げ: タブはボタンで、選択中は selected', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpShell(tester, width: 390, initial: '/oshi');
+      expect(
+        tester.getSemantics(_tab(1)),
+        matchesSemantics(
+          label: '推し',
+          isButton: true,
+          isSelected: true,
+          hasSelectedState: true,
+          hasTapAction: true,
+          hasFocusAction: true,
+          isFocusable: true,
+        ),
+      );
+      handle.dispose();
     });
 
     testWidgets('アカウントのメニュー（上のバー）: プロフィールへ移る', (tester) async {

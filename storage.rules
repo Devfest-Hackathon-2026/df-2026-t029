@@ -1,9 +1,13 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // メモリーの写真（M-5）: 本人だけ。作成は 5MB 未満の画像だけ。上書きはしない
+    // メモリーの写真（M-5・add_K 4.2）: 本人のほか、公開メモリーがあればログイン済みなら読める。
+    // 作成は本人の 5MB 未満の画像だけ。上書きはしない
     match /users/{userId}/memories/{performanceId}/{fileName} {
-      allow read: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        firestore.exists(/databases/(default)/documents/publicMemories/$(userId + '_' + performanceId))
+      );
       allow create: if request.auth != null && request.auth.uid == userId
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|webp|gif)');

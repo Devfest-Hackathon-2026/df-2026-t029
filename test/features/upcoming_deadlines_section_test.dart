@@ -32,13 +32,19 @@ Future<void> pumpSection(
   FakeApplicationRepository? appRepo,
   FakeMyLiveRepository? myRepo,
   bool settle = true,
+  bool withResults = false,
 }) async {
   final router = GoRouter(
     routes: [
       GoRoute(
         path: '/',
         builder: (_, _) => Scaffold(
-          body: ListView(children: const [UpcomingDeadlinesSection()]),
+          body: ListView(
+            children: [
+              const UpcomingDeadlinesSection(),
+              if (withResults) const UpcomingDeadlinesSection(results: true),
+            ],
+          ),
         ),
         routes: [
           GoRoute(
@@ -349,6 +355,57 @@ void main() {
     );
   });
 
+  testWidgets('受付名に「当選者のみ」が入っていれば【当選者のみ】を足さない（二重にしない）', (tester) async {
+    await pumpSection(
+      tester,
+      appRepo: FakeApplicationRepository({
+        'won1': const Application(
+          receptionId: 'won1',
+          liveId: 'l1',
+          status: ApplicationStatus.won,
+        ),
+      }),
+      oshiRepo: FakeOshiRepository(oshis),
+      followRepo: following(),
+      liveRepo: FakeLiveRepository(
+        lives: [live1],
+        receptions: [
+          recOf(
+            'r1',
+            'l1',
+            applyEndAt: h(48),
+            name: 'アップグレード（当選者のみ）',
+            winnersOnly: true,
+          ),
+          recOf(
+            'r2',
+            'l1',
+            applyEndAt: h(72),
+            name: '当選者のみアプグレ',
+            winnersOnly: true,
+          ),
+        ],
+      ),
+    );
+    final tile1 = _key('home_deadline_tile_r1');
+    expect(
+      find.descendant(of: tile1, matching: find.text('アップグレード（当選者のみ）')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: tile1, matching: find.textContaining('【当選者のみ】')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: _key('home_deadline_tile_r2'),
+        matching: find.text('当選者のみアプグレ'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('当選者のみ 【当選者のみ】'), findsNothing);
+  });
+
   testWidgets('24時間以内は、色だけでなくアイコンと文字でも示す', (tester) async {
     await pumpSection(
       tester,
@@ -383,7 +440,7 @@ void main() {
     );
   });
 
-  testWidgets('申込状況が変わると、次の締切が切り替わる', (tester) async {
+  testWidgets('申込状況が変わると、次の締切と当落発表の区画が切り替わる', (tester) async {
     final appRepo = FakeApplicationRepository();
     await pumpSection(
       tester,
@@ -402,30 +459,98 @@ void main() {
         ],
       ),
       appRepo: appRepo,
+      withResults: true,
     );
     Finder text(String t) => find.descendant(
       of: _key('home_deadline_tile_r1'),
       matching: find.text(t),
     );
+    Finder resultText(String t) => find.descendant(
+      of: _key('home_result_tile_r1'),
+      matching: find.text(t),
+    );
     expect(text('申込期限まであと2日'), findsOneWidget);
+    expect(_key('home_result_tile_r1'), findsNothing);
+    expect(_key('home_results_empty'), findsOneWidget);
 
+    // 申込済み: 次の締切からは消え、当落発表の区画に出る
     final r = recOf('r1', 'l1', applyEndAt: h(48));
     await appRepo.setStatus('u1', r, ApplicationStatus.applied);
     await tester.pumpAndSettle();
-    expect(text('当落発表 2026/11/20(金) 18:00'), findsOneWidget);
+    expect(_key('home_deadline_tile_r1'), findsNothing);
+    expect(_key('home_deadlines_empty'), findsOneWidget);
+    expect(resultText('当落発表 2026/11/20(金) 18:00'), findsOneWidget);
+    expect(_key('home_results_empty'), findsNothing);
 
+    // 当選: 入金期限が次の締切に出て、当落発表の区画からは消える
     await appRepo.setStatus('u1', r, ApplicationStatus.won);
     await tester.pumpAndSettle();
     expect(text('入金期限まであと5時間'), findsOneWidget);
+    expect(_key('home_result_tile_r1'), findsNothing);
+    expect(_key('home_results_empty'), findsOneWidget);
 
+    // 入金済み: どちらの区画にも出ない
     await appRepo.setStatus('u1', r, ApplicationStatus.paid);
     await tester.pumpAndSettle();
     expect(_key('home_deadline_tile_r1'), findsNothing);
     expect(_key('home_deadlines_empty'), findsOneWidget);
+    expect(_key('home_result_tile_r1'), findsNothing);
+    expect(_key('home_results_empty'), findsOneWidget);
 
+    // 未申込に戻す
     await appRepo.setStatus('u1', r, null);
     await tester.pumpAndSettle();
     expect(text('申込期限まであと2日'), findsOneWidget);
+    expect(_key('home_result_tile_r1'), findsNothing);
+  });
+
+  testWidgets('当落発表の区画: 予定が無ければ空の表示', (tester) async {
+    await pumpSection(
+      tester,
+      oshiRepo: FakeOshiRepository(oshis),
+      followRepo: following(),
+      withResults: true,
+    );
+    expect(_key('home_results_empty'), findsOneWidget);
+    expect(find.text('当落発表の予定はありません'), findsOneWidget);
+  });
+
+  testWidgets('当落発表の区画: 当落発表だけが出て、申込・入金は出ない', (tester) async {
+    final appRepo = FakeApplicationRepository();
+    await pumpSection(
+      tester,
+      oshiRepo: FakeOshiRepository(oshis),
+      followRepo: following(),
+      liveRepo: FakeLiveRepository(
+        lives: [live1],
+        receptions: [
+          recOf(
+            'r1',
+            'l1',
+            applyEndAt: h(48),
+            resultAt: DateTime(2026, 11, 20, 18),
+            paymentDeadline: h(5),
+          ),
+        ],
+      ),
+      appRepo: appRepo,
+      withResults: true,
+    );
+    // 未申込: 申込期限は次の締切の区画だけ。当落発表の区画は空
+    expect(_key('home_deadline_tile_r1'), findsOneWidget);
+    expect(_key('home_results_empty'), findsOneWidget);
+
+    await appRepo.setStatus(
+      'u1',
+      recOf('r1', 'l1', applyEndAt: h(48)),
+      ApplicationStatus.applied,
+    );
+    await tester.pumpAndSettle();
+    // 当落発表の区画にあるのは当落発表のタイルだけ（申込・入金のタイルは無い）
+    expect(_key('home_result_tile_r1'), findsOneWidget);
+    expect(find.byKey(const Key('home_deadline_tile_r1')), findsNothing);
+    expect(find.text('申込期限まであと2日'), findsNothing);
+    expect(find.text('入金期限まであと5時間'), findsNothing);
   });
 
   testWidgets('受付が増えると一覧に出る（購読が続いている）', (tester) async {

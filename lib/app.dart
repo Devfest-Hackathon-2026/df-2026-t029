@@ -36,6 +36,7 @@ import 'features/shell/app_shell.dart';
 import 'features/expense/expense_page.dart';
 import 'features/common/foreground_notification_listener.dart';
 import 'features/travel/trip_list_page.dart';
+import 'features/memory/shared_memory_detail_page.dart';
 
 import 'repositories/auth_repository.dart';
 
@@ -43,6 +44,7 @@ import 'providers/profile_providers.dart';
 import 'providers/theme_providers.dart';
 
 import 'theme/app_theme.dart';
+import 'theme/hako_app_widgets.dart';
 
 import 'utils/auth_redirect.dart';
 
@@ -187,6 +189,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: 'trips',
                 builder: (context, state) => const TripListPage(),
               ),
+              // みんなのメモリーの詳細（add_K 6.3）。ホームの下に置き、戻るとメモリーへ戻る
+              GoRoute(
+                path: 'shared-memories/:id',
+                builder: (context, state) =>
+                    SharedMemoryDetailPage(id: state.pathParameters['id']!),
+              ),
             ],
           ),
           GoRoute(path: '/register', builder: (context, state) => const ScanPage()),
@@ -221,8 +229,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/chats/:id',
-            builder: (context, state) =>
-                ChatPage(chatId: state.pathParameters['id']!),
+            // PC で横に伸びすぎないように 960 で中央に置く（Fe 3.5）
+            builder: (context, state) => HakoCenteredPage(
+              child: ChatPage(chatId: state.pathParameters['id']!),
+            ),
           ),
           GoRoute(
             path: '/trade/new',
@@ -237,9 +247,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/trade/:id',
             // ?attach= は、返信に最初から添付しておく自分の投稿（マッチから開いたとき）
-            builder: (context, state) => TradePostDetailPage(
-              postId: state.pathParameters['id']!,
-              initialAttachId: state.uri.queryParameters['attach'],
+            // PC で横に伸びすぎないように 960 で中央に置く（Fe 3.5）
+            builder: (context, state) => HakoCenteredPage(
+              child: TradePostDetailPage(
+                postId: state.pathParameters['id']!,
+                initialAttachId: state.uri.queryParameters['attach'],
+              ),
             ),
           ),
         ],
@@ -254,6 +267,7 @@ class App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
+      debugShowCheckedModeBanner: false,
       title: 'おしあし',
       theme: buildAppTheme(ref.watch(themeSeedColorProvider)),
       scrollBehavior: const _AppScrollBehavior(),

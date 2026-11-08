@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:oshiashi/providers/oshi_providers.dart';
+import 'package:oshiashi/providers/profile_providers.dart';
 import 'package:oshiashi/features/scan/scan_page.dart';
 
 Future<void> pumpScan(WidgetTester tester, {double width = 390}) async {
@@ -22,7 +24,14 @@ Future<void> pumpScan(WidgetTester tester, {double width = 390}) async {
   );
   addTearDown(router.dispose);
   await tester.pumpWidget(
-    ProviderScope(child: MaterialApp.router(routerConfig: router)),
+    ProviderScope(
+      overrides: [
+        // 上のバーのアカウントのボタンが読む（Firebase を使わない）
+        currentUidProvider.overrideWithValue(null),
+        myProfileProvider.overrideWithValue(const AsyncData(null)),
+      ],
+      child: MaterialApp.router(routerConfig: router),
+    ),
   );
   await tester.pumpAndSettle();
 }

@@ -96,6 +96,12 @@ class _DetailView extends StatelessWidget {
               attended ? '参戦済み' : '参戦予定',
               key: const Key('memory_detail_state'),
             ),
+            // 公開中なら札を出す（add_K 5.2）
+            if (m.isPublic)
+              HakoTagChip(
+                m.publicSeat ? '公開中（座席も）' : '公開中',
+                key: const Key('memory_detail_public'),
+              ),
             OutlinedButton.icon(
               key: const Key('memory_detail_edit_button'),
               onPressed: onEdit,

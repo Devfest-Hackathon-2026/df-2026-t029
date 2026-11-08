@@ -11,6 +11,7 @@ import 'oshi_list_tile.dart';
 import 'oshi_color_sheet.dart';
 // import 'group_members_sheet.dart';
 import 'group_members_panel.dart';
+import 'oshi_menu.dart';
 
 /// 推しページに出す、フォロー中の推しの一覧。
 /// グループ／個人の絞り込み（Fc 3.1）と、最推しの星（Fc 3.2）を持つ。
@@ -30,8 +31,8 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
   /// 絞り込み（null ならすべて）。覚えておかない（Fc 3.1）
   OshiKind? _kind;
 
-  /// その場で開いているグループ（OshiSummary.key）。覚えておかない（Fc 4.1）
-  final Set<String> _expanded = {};
+  /// 閉じたグループ（OshiSummary.key）。グループは最初から開いておく（Fd 5.5）。覚えておかない
+  final Set<String> _collapsed = {};
 
   void _showError(String error) {
     ScaffoldMessenger.of(context)
@@ -90,9 +91,27 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
     final groups = list.where((o) => o.kind == OshiKind.group).length;
     final persons = list.length - groups;
     final kind = _kind;
-    final shown = kind == null
-        ? list
-        : list.where((o) => o.kind == kind).toList();
+    // 「すべて」のとき、所属グループのどれかをフォローしている個人は
+    // 単独の行にせず、そのグループの ▼ の中に出す（Fd 5.4）
+    final followedGroupIds = {
+      for (final o in list)
+        if (o.kind == OshiKind.group) o.id,
+    };
+    final shown = switch (kind) {
+      null => [
+        for (final o in list)
+          if (o.kind == OshiKind.group ||
+              !o.groupIds.any(followedGroupIds.contains))
+            o,
+      ],
+      _ => list.where((o) => o.kind == kind).toList(),
+    };
+    // グループ ID → そのグループのメンバーのうちフォロー中の人数（Fd 5.4）
+    int followedMembersOf(OshiSummary group) => list
+        .where(
+          (o) => o.kind == OshiKind.person && o.groupIds.contains(group.id),
+        )
+        .length;
 
     return Column(
       key: const Key('home_following_list'),
@@ -154,14 +173,14 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
               isBusy: _busy.contains(oshi.key),
               onFollow: () {},
               onUnfollow: () => _unfollow(oshi),
-              // グループの行を押すと、その場でメンバーを開く・閉じる（Fc 4.1）
+              // グループの行を押すと、その場でメンバーを閉じる・開く（Fc 4.1・Fd 5.5）
               onTap: oshi.kind == OshiKind.group
                   ? () => setState(() {
-                      if (!_expanded.remove(oshi.key)) _expanded.add(oshi.key);
+                      if (!_collapsed.remove(oshi.key)) _collapsed.add(oshi.key);
                     })
                   : null,
               membersExpanded: oshi.kind == OshiKind.group
-                  ? _expanded.contains(oshi.key)
+                  ? !_collapsed.contains(oshi.key)
                   : null,
               groupNames: groupNamesOf(oshi, names),
               isFavorite: favoriteKey.value == oshi.key,
@@ -171,8 +190,26 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
               ),
               // 札を押すと色を選ぶ（Fc 5.3）
               onBadgeTap: () => showOshiColorSheet(context, oshi),
+              // まとめてフォローと ⋮（Fd 5.1・5.3）
+              showFollowAll: oshi.kind == OshiKind.group,
+              menu: oshiMenuItems(
+                context,
+                oshi,
+                isFollowing: true,
+                onUnfollow: () => _unfollow(oshi),
+              ),
+              // フォロー中のメンバーの人数（0人なら出さない。Fd 5.4）
+              extraChips: [
+                if (oshi.kind == OshiKind.group && followedMembersOf(oshi) > 0)
+                  'フォロー中のメンバー ${followedMembersOf(oshi)}人',
+              ],
             ),
-            if (_expanded.contains(oshi.key)) GroupMembersPanel(group: oshi),
+            if (oshi.kind == OshiKind.group && !_collapsed.contains(oshi.key))
+              GroupMembersPanel(
+                group: oshi,
+                showFollowAllButton: false,
+                withActions: true,
+              ),
           ],
       ],
     );
