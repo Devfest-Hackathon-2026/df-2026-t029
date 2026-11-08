@@ -40,6 +40,9 @@ class HomePage extends ConsumerWidget {
             const HomeOshiDays(),
             const HomeSectionHeader(title: '次の締切'),
             const UpcomingDeadlinesSection(),
+            // 当落発表は次の締切と分ける（Fe 3.3）
+            const HomeSectionHeader(title: '当落発表'),
+            const UpcomingDeadlinesSection(results: true),
             const HomeUpcomingLives(),
             // 次の遠征（add_E 6章）
             const HomeNextTrip(),
