@@ -45,6 +45,26 @@ function cleanXAccount(v) {
   return m ? m[1] : null;
 }
 
+
+/**
+ * 公式 YouTube（add_P 3.3）。URL から「@ハンドル」か「UC で始まるチャンネル ID」を取り出す。
+ * 取り出せなければ null
+ */
+function cleanYoutubeAccount(v) {
+  const s = cleanText(v, 300);
+  if (!s) return null;
+  const id = s.match(/youtube\.com\/channel\/(UC[\w-]{22})/) ?? s.match(/^(UC[\w-]{22})$/);
+  if (id) return id[1];
+  const handle = s.match(/youtube\.com\/(@[^\s/?#]{1,100})/i) ?? s.match(/^(@[^\s/?#]{1,100})$/);
+  if (!handle) return null;
+  // 日本語のハンドルは URL で % に変わっているので戻す
+  try {
+    return decodeURIComponent(handle[1]);
+  } catch (e) {
+    return handle[1];
+  }
+}
+
 /** 日本時間の日付「YYYY-MM-DD」 */
 function jstDate(date) {
   return new Date(date.getTime() + 9 * HOUR).toISOString().slice(0, 10);
@@ -178,6 +198,7 @@ function normalizeResult(raw, now) {
   return {
     officialUrl: cleanUrl(raw?.officialUrl),
     officialX: cleanXAccount(raw?.officialX),
+    officialYoutube: cleanYoutubeAccount(raw?.officialYoutube),
     schedulePageUrl: cleanUrl(raw?.schedulePageUrl),
     lives,
   };
