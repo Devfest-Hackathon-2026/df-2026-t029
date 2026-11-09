@@ -11,6 +11,78 @@ enum ShareLayer { image, caption }
 
 enum ShareDesign { ticket, photoMain }
 
+/// 投稿用の写真の最大枚数（画像に入る枚数）
+const int kShareMaxPhotos = 4;
+
+/// チケットのデザインで、自動で絞る前に出すセトリの最大曲数
+const int kTicketSetlistCeiling = 24;
+
+/// 画像の中の大きさ（1.0＝ふつう）。投稿先ごと
+class ShareSizes {
+  const ShareSizes({this.photo = 1.0, this.info = 1.0, this.setlist = 1.0});
+
+  static const normal = ShareSizes();
+  static const double photoMin = 0.5, photoMax = 1.5; // 写真
+  static const double textMin = 0.6, textMax = 1.4; // 日付・会場、セトリ
+
+  final double photo, info, setlist;
+
+  static double _fit(double v, double min, double max) {
+    if (v.isNaN) return 1.0;
+    final clamped = v.clamp(min, max).toDouble();
+    return (clamped * 20).round() / 20; // 0.05 の刻み
+  }
+
+  /// 範囲に収め、0.05 の刻みに丸める。渡さなかった項目は今のまま
+  ShareSizes copyWith({double? photo, double? info, double? setlist}) =>
+      ShareSizes(
+        photo: _fit(photo ?? this.photo, photoMin, photoMax),
+        info: _fit(info ?? this.info, textMin, textMax),
+        setlist: _fit(setlist ?? this.setlist, textMin, textMax),
+      );
+
+  /// 3つとも 1.0
+  bool get isNormal => photo == 1.0 && info == 1.0 && setlist == 1.0;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ShareSizes &&
+      other.photo == photo &&
+      other.info == info &&
+      other.setlist == setlist;
+
+  @override
+  int get hashCode => Object.hash(photo, info, setlist);
+}
+
+/// チケットの自動で絞った結果（画面が注意文に使う）
+class ShareFit {
+  const ShareFit({
+    required this.setShown,
+    required this.setTotal,
+    required this.memoDropped,
+  });
+
+  /// 画像に見えているセトリの曲数
+  final int setShown;
+
+  /// 全曲数
+  final int setTotal;
+
+  /// 入りきらず、感想の枠ごと出さなかった
+  final bool memoDropped;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ShareFit &&
+      other.setShown == setShown &&
+      other.setTotal == setTotal &&
+      other.memoDropped == memoDropped;
+
+  @override
+  int get hashCode => Object.hash(setShown, setTotal, memoDropped);
+}
+
 /// 画像の形。比率・保存する大きさ・セトリと感想の上限（4.7）
 class ShareFormat {
   const ShareFormat(
@@ -55,6 +127,7 @@ class ShareConfig {
     this.formatIndex = 0,
     this.design = ShareDesign.ticket,
     this.backgroundIndex = 0,
+    this.sizes = ShareSizes.normal,
   });
 
   /// 4.6 の表の既定
@@ -78,6 +151,9 @@ class ShareConfig {
   /// 0:きいろ 1:みどり 2:ピンク 3:赤 4:青 5:オレンジ 6:紫（黒はなし）
   final int backgroundIndex;
 
+  /// 画像の中の大きさ
+  final ShareSizes sizes;
+
   bool isOn(SharePart p, ShareLayer l) => parts[p]?.contains(l) ?? false;
 
   /// 押せる組み合わせ（photo・mark は image のみ、tags は caption のみ、
@@ -94,6 +170,7 @@ class ShareConfig {
       formatIndex: formatIndex,
       design: design,
       backgroundIndex: backgroundIndex,
+      sizes: sizes,
     );
   }
 
@@ -101,11 +178,13 @@ class ShareConfig {
     int? formatIndex,
     ShareDesign? design,
     int? backgroundIndex,
+    ShareSizes? sizes,
   }) => ShareConfig(
     parts: parts,
     formatIndex: formatIndex ?? this.formatIndex,
     design: design ?? this.design,
     backgroundIndex: backgroundIndex ?? this.backgroundIndex,
+    sizes: sizes ?? this.sizes,
   );
 }
 
@@ -272,9 +351,18 @@ class ShareImageText {
   final bool memoCut;
 }
 
-/// 形ごとの上限で、セトリと感想を切る。感想は改行を空白にまとめてから数える
-ShareImageText layoutShareText(ShareContent c, ShareFormat f) {
-  final shown = c.setlist.take(f.maxSetlist).toList();
+/// 形ごとの上限で、セトリと感想を切る。感想は改行を空白にまとめてから数える。
+/// ticket のときセトリは kTicketSetlistCeiling 曲まで（自動で絞る前の数）、
+/// photoMain は f.maxSetlist 曲まで。感想はどちらも f.maxMemoChars 文字で切る
+ShareImageText layoutShareText(
+  ShareContent c,
+  ShareFormat f, {
+  ShareDesign design = ShareDesign.ticket,
+}) {
+  final maxSet = design == ShareDesign.ticket
+      ? kTicketSetlistCeiling
+      : f.maxSetlist;
+  final shown = c.setlist.take(maxSet).toList();
   final memo = oneLine(c.impression ?? '');
   final runes = memo.runes.toList();
   final cut = runes.length > f.maxMemoChars;
@@ -282,4 +370,46 @@ ShareImageText layoutShareText(ShareContent c, ShareFormat f) {
       ? '${String.fromCharCodes(runes.take(f.maxMemoChars))}…'
       : memo;
   return ShareImageText(shown, c.setlist.length - shown.length, memoShown, cut);
+}
+
+/// プレビューの下に出す注意文（4.7 の表）。無ければ空。
+/// [fit] はチケットのとき ShareTicketView の onFit の最新値（無ければ入る数で判断する）
+List<String> shareImageNotes(
+  ShareContent c,
+  ShareConfig cfg,
+  ShareFormat f,
+  ShareFit? fit,
+) {
+  final notes = <String>[];
+  final ticket = cfg.design == ShareDesign.ticket;
+  final text = layoutShareText(c, f, design: cfg.design);
+  final memoOn =
+      cfg.isOn(SharePart.memo, ShareLayer.image) &&
+      oneLine(c.impression ?? '').isNotEmpty;
+  final memoDropped = ticket && memoOn && (fit?.memoDropped ?? false);
+
+  if (cfg.isOn(SharePart.setlist, ShareLayer.image) && c.setlist.isNotEmpty) {
+    if (ticket) {
+      final shown = fit?.setShown ?? text.setShown.length;
+      final total = fit?.setTotal ?? c.setlist.length;
+      if (shown < total) {
+        notes.add(
+          'セトリは、画像には先頭$shown曲まで入ります。全曲は文章にのせられます。'
+          '写真や文字を小さくすると、もっと入ります。',
+        );
+      }
+    } else if (text.setMore > 0) {
+      notes.add(
+        'セトリは、画像には先頭${text.setShown.length}曲まで入ります。'
+        '全曲は文章にのせられます。',
+      );
+    }
+  }
+
+  if (memoDropped) {
+    notes.add('感想は、画像に入りきらないため、画像にはのせていません。写真や文字を小さくすると入ります。');
+  } else if (memoOn && text.memoCut) {
+    notes.add('感想は、画像には${f.maxMemoChars}文字までです。全文は文章にのせられます。');
+  }
+  return notes;
 }

@@ -242,16 +242,22 @@ void main() {
     );
 
     for (final design in designs) {
-      testWidgets('${design.name}: セトリは先頭3曲＋「ほか7曲」、感想は…で切る', (tester) async {
+      testWidgets('${design.name}: セトリの上限と感想は…で切る', (tester) async {
         await pumpView(
           tester,
           content: long,
           config: _cfg(ShareTarget.x, design: design),
         );
-        expect(_text('ほか7曲'), findsWidgets);
-        expect(_text('曲0'), findsWidgets);
-        expect(_text('曲2'), findsWidgets);
-        expect(_text('曲3'), findsNothing);
+        if (design == ShareDesign.photoMain) {
+          // photoMain は形ごとの上限（X 横長は3曲）
+          expect(_text('ほか7曲'), findsWidgets);
+          expect(_text('曲0'), findsWidgets);
+          expect(_text('曲2'), findsWidgets);
+          expect(_text('曲3'), findsNothing);
+        } else {
+          // ticket は 24 曲まで出し、入る分は自動で絞る（10曲なら形の上限では切らない）
+          expect(_text('曲0'), findsWidgets);
+        }
         expect(_text('${'あ' * 36}…'), findsWidgets);
         expect(_text('あ' * 37), findsNothing);
       });

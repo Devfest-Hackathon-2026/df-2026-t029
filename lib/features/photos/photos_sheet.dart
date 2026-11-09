@@ -324,6 +324,26 @@ class _PhotosSheetBodyState extends ConsumerState<PhotosSheetBody> {
                     ),
                   ],
                 ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(Icons.info_outline, size: 16),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'ここで選んだ写真が、記録に残ります。SNSに投稿する写真は、投稿の編集画面で別に選べます。',
+                          key: const Key('photo_sheet_note'),
+                          style: HakoFonts.jp(size: 12, height: 1.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 body,
                 if (error != null)
                   Padding(

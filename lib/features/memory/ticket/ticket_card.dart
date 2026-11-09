@@ -243,7 +243,7 @@ class _Perforation extends StatelessWidget {
   }
 }
 
-/// 写真の欄。全体がボタン（タップで「写真を直す」シート）
+/// 写真の欄。写真があるときは「写真を直す」ボタン、0枚のときは全体がボタン
 class _PhotosArea extends StatelessWidget {
   const _PhotosArea({
     required this.paths,
@@ -257,7 +257,7 @@ class _PhotosArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final top = paths.take(3).toList();
+    final top = paths.take(4).toList();
     final Widget content;
     if (top.isEmpty) {
       content = Container(
@@ -315,30 +315,150 @@ class _PhotosArea extends StatelessWidget {
         ),
       );
     } else {
-      Widget cell(int i) => i < top.length
-          ? StorageImage(path: top[i])
-          : const ColoredBox(color: Color(0xFFD8D2BF));
+      Widget cell(int i) => StorageImage(path: top[i]);
+      const gap = SizedBox(width: 2, height: 2);
+      final Widget grid;
+      switch (top.length) {
+        case 1:
+          grid = cell(0);
+        case 2:
+          grid = Row(
+            children: [
+              Expanded(child: cell(0)),
+              gap,
+              Expanded(child: cell(1)),
+            ],
+          );
+        case 3:
+          grid = Row(
+            children: [
+              Expanded(flex: 2, child: cell(0)),
+              gap,
+              Expanded(
+                child: Column(
+                  children: [
+                    Expanded(child: cell(1)),
+                    gap,
+                    Expanded(child: cell(2)),
+                  ],
+                ),
+              ),
+            ],
+          );
+        default:
+          grid = Column(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(child: cell(0)),
+                    gap,
+                    Expanded(child: cell(1)),
+                  ],
+                ),
+              ),
+              gap,
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(child: cell(2)),
+                    gap,
+                    Expanded(child: cell(3)),
+                  ],
+                ),
+              ),
+            ],
+          );
+      }
+      final more = paths.length - 4;
       content = Container(
         height: 210,
         decoration: const BoxDecoration(
           color: BrandColors.ink,
           border: Border(bottom: BorderSide(color: BrandColors.ink, width: 2)),
         ),
-        child: Row(
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            Expanded(flex: 2, child: cell(0)),
-            const SizedBox(width: 2),
-            Expanded(
-              child: Column(
-                children: [
-                  Expanded(child: cell(1)),
-                  const SizedBox(height: 2),
-                  Expanded(child: cell(2)),
-                ],
+            grid,
+            if (more > 0)
+              Positioned(
+                right: 8,
+                bottom: 8,
+                child: DecoratedBox(
+                  key: const Key('memory_ticket_photos_more'),
+                  decoration: BoxDecoration(
+                    color: BrandColors.ink.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    child: Text(
+                      '＋$more',
+                      style: HakoFonts.jp(
+                        size: 13,
+                        weight: FontWeight.w800,
+                        color: Colors.white,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            Positioned(
+              left: 8,
+              bottom: 8,
+              child: Semantics(
+                button: true,
+                label: '写真を直す',
+                excludeSemantics: true,
+                onTap: onTap,
+                child: Material(
+                  color: Colors.white,
+                  shape: const StadiumBorder(
+                    side: BorderSide(color: BrandColors.ink, width: 2),
+                  ),
+                  child: InkWell(
+                    key: const Key('memory_ticket_photos'),
+                    customBorder: const StadiumBorder(),
+                    onTap: onTap,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.edit_outlined, size: 16),
+                            const SizedBox(width: 6),
+                            Text(
+                              '写真を直す',
+                              style: HakoFonts.jp(
+                                size: 13,
+                                weight: FontWeight.w800,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
         ),
+      );
+    }
+    if (top.isNotEmpty) {
+      return Container(
+        key: const Key('memory_detail_photos'),
+        constraints: const BoxConstraints(minHeight: 44),
+        child: content,
       );
     }
     return Semantics(

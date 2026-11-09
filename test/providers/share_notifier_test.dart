@@ -188,6 +188,104 @@ void main() {
     });
   });
 
+  group('投稿用の写真（sharePhotos）', () {
+    final rec6 = ['a', 'b', 'c', 'd', 'e', 'f'];
+
+    test('未操作＝記録の先頭4枚。5枚以上でも4枚、0枚は空', () {
+      expect(effectiveSharePhotos(state(), rec6), ['a', 'b', 'c', 'd']);
+      expect(effectiveSharePhotos(state(), ['a', 'b']), ['a', 'b']);
+      expect(effectiveSharePhotos(state(), const []), isEmpty);
+      expect(isSharePhotosTouched(state()), isFalse);
+    });
+
+    test('未操作で記録が4枚以上なら、足せず false', () {
+      expect(notifier().addSharePhoto('e', rec6), isFalse);
+      expect(isSharePhotosTouched(state()), isFalse);
+    });
+
+    test('外すと操作済みになり、そのあと足せる（3枚→4枚）', () {
+      notifier().removeSharePhoto('b', rec6);
+      expect(isSharePhotosTouched(state()), isTrue);
+      expect(effectiveSharePhotos(state(), rec6), ['a', 'c', 'd']);
+      expect(notifier().addSharePhoto('e', rec6), isTrue);
+      expect(effectiveSharePhotos(state(), rec6), ['a', 'c', 'd', 'e']);
+      expect(notifier().addSharePhoto('f', rec6), isFalse); // 4枚
+    });
+
+    test('重複・記録に無いパスは false で何も変わらない', () {
+      notifier().removeSharePhoto('a', rec6);
+      expect(notifier().addSharePhoto('b', rec6), isFalse); // すでにある
+      expect(notifier().addSharePhoto('zzz', rec6), isFalse); // 記録に無い
+      expect(effectiveSharePhotos(state(), rec6), ['b', 'c', 'd']);
+    });
+
+    test('記録から外れた写真は落ち、記録に足された写真は一覧に入らない', () {
+      notifier().removeSharePhoto('a', rec6); // 操作済み: b c d
+      final changed = ['c', 'd', 'x', 'y'];
+      expect(effectiveSharePhotos(state(), changed), ['c', 'd']);
+    });
+
+    test('resetSharePhotos で記録と同じに戻る', () {
+      notifier().removeSharePhoto('a', rec6);
+      notifier().resetSharePhotos();
+      expect(isSharePhotosTouched(state()), isFalse);
+      expect(effectiveSharePhotos(state(), rec6), ['a', 'b', 'c', 'd']);
+    });
+
+    test('全部外した（空）も操作済みで、空のまま', () {
+      for (final p in ['a', 'b', 'c', 'd']) {
+        notifier().removeSharePhoto(p, rec6);
+      }
+      expect(effectiveSharePhotos(state(), rec6), isEmpty);
+      expect(isSharePhotosTouched(state()), isTrue);
+    });
+
+    test('投稿先ごとに別。selectTarget で残る', () {
+      notifier().removeSharePhoto('a', rec6); // X
+      notifier().selectTarget(ShareTarget.instagram);
+      expect(effectiveSharePhotos(state(), rec6), ['a', 'b', 'c', 'd']);
+      expect(isSharePhotosTouched(state()), isFalse);
+      notifier().selectTarget(ShareTarget.x);
+      expect(effectiveSharePhotos(state(), rec6), ['b', 'c', 'd']);
+    });
+
+    test('ほかの操作（toggle・文章・保存の印）で sharePhotos が消えない', () {
+      notifier().removeSharePhoto('a', rec6);
+      notifier().toggle(SharePart.setlist, ShareLayer.caption);
+      notifier().markImageSaved();
+      notifier().markCaptionCopied();
+      expect(effectiveSharePhotos(state(), rec6), ['b', 'c', 'd']);
+    });
+  });
+
+  group('大きさ（sizes）', () {
+    test('setSizes は範囲・刻みに収め、投稿先ごとに別', () {
+      notifier().setSizes(const ShareSizes(photo: 9, info: 0.1, setlist: 1.12));
+      final s = state().config.sizes;
+      expect([s.photo, s.info, s.setlist], [1.5, 0.6, 1.1]);
+      notifier().selectTarget(ShareTarget.instagram);
+      expect(state().config.sizes.isNormal, isTrue);
+      notifier().selectTarget(ShareTarget.x);
+      expect(state().config.sizes.photo, 1.5);
+    });
+
+    test('resetSizes で戻る。ほかの設定は残る', () {
+      notifier().setSizes(const ShareSizes(photo: 1.2));
+      notifier().setDesign(ShareDesign.photoMain);
+      notifier().resetSizes();
+      expect(state().config.sizes.isNormal, isTrue);
+      expect(state().config.design, ShareDesign.photoMain);
+    });
+
+    test('toggle・形・背景を変えても sizes が残る', () {
+      notifier().setSizes(const ShareSizes(setlist: 0.8));
+      notifier().toggle(SharePart.memo, ShareLayer.image);
+      notifier().setBackground(2);
+      notifier().setFormat(1);
+      expect(state().config.sizes.setlist, 0.8);
+    });
+  });
+
   group('Instagram の番号の丸', () {
     test('markImageSaved・markCaptionCopied', () {
       notifier().markImageSaved();

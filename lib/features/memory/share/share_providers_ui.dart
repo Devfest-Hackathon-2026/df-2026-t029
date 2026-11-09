@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../providers/photo_providers.dart';
 import '../../../utils/file_download.dart';
+import '../../../utils/share_ticket.dart' show kShareMaxPhotos;
 import 'share_ticket_view.dart';
 
 /// URL を新しいタブで開く。開けたら true。テストでは差し替える
@@ -50,9 +51,10 @@ final sharePhotoFetcherProvider =
     );
 
 /// [sharePhotoBytesProvider] のキー。写真の Storage のパス（表紙から先頭3枚）をつなげる
-String sharePhotoBytesKey(Iterable<String> paths) => paths.take(3).join('|');
+String sharePhotoBytesKey(Iterable<String> paths) =>
+    paths.take(kShareMaxPhotos).join('|');
 
-/// 記録の写真（表紙から先頭3枚）のバイト列。シェア画像（[ShareTicketView]）に渡す。
+/// 記録の写真（表紙から先頭4枚）のバイト列。シェア画像（[ShareTicketView]）に渡す。
 /// 取れなかった写真は飛ばす（空でも失敗にしない）。
 /// 使い方: `ref.watch(sharePhotoBytesProvider(sharePhotoBytesKey(memory.images)))`
 final sharePhotoBytesProvider = FutureProvider.autoDispose

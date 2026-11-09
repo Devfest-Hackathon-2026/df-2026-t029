@@ -14,7 +14,10 @@ import 'package:oshiashi/providers/memory_providers.dart';
 import 'package:oshiashi/providers/memory_ticket_providers.dart';
 import 'package:oshiashi/providers/oshi_providers.dart';
 import 'package:oshiashi/providers/photo_pick_providers.dart';
+import 'package:oshiashi/services/google_photos_service.dart';
+import 'package:oshiashi/services/photo_pick_ai.dart';
 
+import 'google_photos_test_helpers.dart';
 import 'live_test_helpers.dart';
 import 'memory_form_page_test.dart' show FakeMemoryRepository;
 import 'photo_test_helpers.dart';
@@ -115,6 +118,10 @@ Future<_Env> pumpTicket(
         currentUidProvider.overrideWithValue('u1'),
         memoryRepositoryProvider.overrideWithValue(env.repo),
         nowProvider.overrideWithValue(_now),
+        googlePhotosApiProvider.overrideWithValue(
+          FakeGooglePhotosApi(clock: () => _now),
+        ),
+        photoPickAiProvider.overrideWithValue(FakePhotoPickAi()),
         memoryEditorProvider.overrideWithValue(
           MemoryEditor(
             uid: 'u1',
@@ -200,6 +207,52 @@ void main() {
       expect(find.text('写真はまだありません'), findsOneWidget);
       expect(find.text('Googleフォトとつなぐ'), findsOneWidget);
       expect(_key('memory_ticket_photos'), findsOneWidget);
+    });
+
+    for (final n in [1, 2, 3, 4]) {
+      testWidgets('写真$n枚: 欄が出て「＋n」は出ない。「写真を直す」ボタンがある', (tester) async {
+        await pumpTicket(
+          tester,
+          _mem(images: [for (var i = 0; i < n; i++) 'p$i.jpg']),
+        );
+        expect(_key('memory_detail_photos'), findsOneWidget);
+        expect(_key('memory_ticket_photos_more'), findsNothing);
+        expect(find.text('写真を直す'), findsOneWidget);
+        expect(find.text('写真はまだありません'), findsNothing);
+        expect(_key('memory_ticket_photos'), findsOneWidget);
+      });
+    }
+
+    testWidgets('写真5枚以上: 4枚まで並べ、残りは「＋n」', (tester) async {
+      await pumpTicket(
+        tester,
+        _mem(images: [for (var i = 0; i < 7; i++) 'p$i.jpg']),
+      );
+      expect(find.text('＋3'), findsOneWidget);
+      await pumpTicket(
+        tester,
+        _mem(images: [for (var i = 0; i < 5; i++) 'p$i.jpg']),
+      );
+      expect(find.text('＋1'), findsOneWidget);
+    });
+
+    testWidgets('「写真を直す」ボタンは 44px 以上で、押すとシートが開く', (tester) async {
+      await pumpTicket(tester, _mem(images: const ['a.jpg', 'b.jpg']));
+      final size = tester.getSize(_key('memory_ticket_photos'));
+      expect(size.height, greaterThanOrEqualTo(44));
+      expect(_key('photo_sheet'), findsNothing);
+      await tapKey(tester, 'memory_ticket_photos');
+      expect(_key('photo_sheet'), findsOneWidget);
+    });
+
+    testWidgets('写真があるとき、欄の全体（写真の部分）を押してもシートは開かない', (tester) async {
+      await pumpTicket(tester, _mem(images: const ['a.jpg', 'b.jpg']));
+      await tester.ensureVisible(_key('memory_detail_photos'));
+      await tester.pumpAndSettle();
+      final r = tester.getRect(_key('memory_detail_photos'));
+      await tester.tapAt(Offset(r.center.dx, r.top + 20));
+      await tester.pumpAndSettle();
+      expect(_key('photo_sheet'), findsNothing);
     });
 
     testWidgets('写真0枚でつないでいれば「写真を追加」', (tester) async {
