@@ -29,7 +29,7 @@ initializeApp();
 setGlobalOptions({region: "asia-northeast1", maxInstances: 1});
 
 /** 公開先の URL（通知を押したときに開く。秘密ではない） */
-const APP_URL = "https://oshiashi-test.web.app";
+const APP_URL = "https://oshiashi.web.app";
 
 const HOUR = 60 * 60 * 1000;
 
