@@ -14,11 +14,16 @@ const {getFirestore, FieldValue, Timestamp} = require("firebase-admin/firestore"
 const {getMessaging} = require("firebase-admin/messaging");
 
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
-const {onDocumentWritten} = require("firebase-functions/v2/firestore");
+const {onDocumentWritten, onDocumentUpdated} = require("firebase-functions/v2/firestore");
+const {runLiveFetch} = require("./live_fetch/run");
 const {defineSecret} = require("firebase-functions/params");
 const {findPrefecture} = require("./prefectures");
+const {refreshOshiNews} = require("./oshi_news/run");
+const {searchOfficialYoutube} = require("./oshi_news/search");
+const {searchPersonVideos} = require("./oshi_news/video_search");
 
 const WEATHER_API_KEY = defineSecret("WEATHER_API_KEY");
+const YOUTUBE_API_KEY = defineSecret("YOUTUBE_API_KEY");
 
 initializeApp();
 setGlobalOptions({region: "asia-northeast1", maxInstances: 1});
@@ -549,5 +554,255 @@ exports.notifyNewMatches = onDocumentWritten(
       }
       logger.info(
           `新しいマッチの通知: 投稿 ${postId}、相手 ${firstByUid.size} 人、送信 ${sent} 件`);
+    },
+);
+
+// ---------------------------------------------------------------------------
+// ライブ情報の自動取得（add_L 4章）
+// ---------------------------------------------------------------------------
+
+/** 取得の関数の共通の設定（Gemini の呼び出しを待つため長め） */
+const LIVE_FETCH_OPTIONS = {timeoutSeconds: 300, memory: "512MiB"};
+
+/**
+ * 手動の取得（Callable。add_L 4.1）。
+ * 入力：{kind: "group" | "person", id}
+ * 出力：{status, added, lives, officialUrl, searchQueries}
+ */
+exports.fetchOshiLives = onCall(LIVE_FETCH_OPTIONS, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "ログインしてください");
+  }
+  const {kind, id} = request.data ?? {};
+  if ((kind !== "group" && kind !== "person") ||
+      typeof id !== "string" || !id || id.includes("/")) {
+    throw new HttpsError("invalid-argument", "推しの指定が正しくありません");
+  }
+
+  let result;
+  try {
+    result = await runLiveFetch(kind, id, {mode: "manual"});
+  } catch (e) {
+    // くわしいエラーは run.js でログに出している
+    throw new HttpsError("internal", "取得できませんでした");
+  }
+  if (result.status === "busy") {
+    throw new HttpsError("resource-exhausted", "少し時間をおいてからもう一度お試しください");
+  }
+  return {
+    status: result.status,
+    added: result.added ?? {lives: 0, performances: 0, receptions: 0},
+    lives: result.lives ?? [],
+    officialUrl: result.officialUrl ?? null,
+    searchQueries: result.searchQueries ?? [],
+  };
+});
+
+/**
+ * 推しが承認されたら取得する（add_L 4.2）。
+ * 更新前が approved 以外で、更新後が approved のときだけ。デモ用（demo-）は除く
+ */
+async function fetchOnApproved(event, kind) {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  const id = event.params.id;
+  if (!after || after.status !== "approved" || before?.status === "approved") return;
+  if (id.startsWith("demo-")) return;
+  try {
+    await runLiveFetch(kind, id, {mode: "approved"});
+  } catch (e) {
+    // 再試行しない。くわしいエラーは run.js でログに出している
+  }
+}
+
+exports.onGroupApprovedFetchLives = onDocumentUpdated(
+    {document: "groups/{id}", retry: false, ...LIVE_FETCH_OPTIONS},
+    (event) => fetchOnApproved(event, "group"),
+);
+
+exports.onOshiApprovedFetchLives = onDocumentUpdated(
+    {document: "oshis/{id}", retry: false, ...LIVE_FETCH_OPTIONS},
+    (event) => fetchOnApproved(event, "person"),
+);
+
+/** 毎日の取得で1回に扱う推しの数・使ってよい時間（add_L 4.3） */
+const DAILY_MAX_TARGETS = 30;
+const DAILY_TIME_BUDGET_MS = 420 * 1000;
+
+/**
+ * 毎日の取得（add_L 4.3）。
+ * 承認済みで、フォローしている人が1人以上いる推しを、前回の取得が古い順に最大30件。
+ * ページが変わっていなければ Gemini は呼ばない（run.js）
+ */
+exports.dailyLiveFetch = onSchedule(
+    {schedule: "10 4 * * *", timeZone: "Asia/Tokyo", timeoutSeconds: 540, memory: "512MiB"},
+    async () => {
+      const db = getFirestore();
+      const startedMs = Date.now();
+
+      const targets = [];
+      const kinds = [
+        {kind: "group", collection: "groups", field: "followingGroupIds"},
+        {kind: "person", collection: "oshis", field: "followingOshiIds"},
+      ];
+      for (const k of kinds) {
+        const snap = await db.collection(k.collection)
+            .where("status", "==", "approved").get();
+        for (const d of snap.docs) {
+          if (d.id.startsWith("demo-")) continue;
+          // グループに入っている個人は対象外（L-4d）
+          if (k.kind === "person" && (d.data().groupIds ?? []).length > 0) continue;
+          const followed = await db.collection("users")
+              .where(k.field, "array-contains", d.id).limit(1).get();
+          if (followed.empty) continue;
+          targets.push({
+            kind: k.kind,
+            id: d.id,
+            lastMs: d.data().liveFetch?.finishedAt?.toMillis?.() ?? 0,
+          });
+        }
+      }
+      targets.sort((a, b) => a.lastMs - b.lastMs);
+
+      const counts = {};
+      let done = 0;
+      for (const t of targets.slice(0, DAILY_MAX_TARGETS)) {
+        if (Date.now() - startedMs > DAILY_TIME_BUDGET_MS) break;
+        try {
+          const r = await runLiveFetch(t.kind, t.id, {mode: "daily"});
+          counts[r.status] = (counts[r.status] ?? 0) + 1;
+        } catch (e) {
+          // 1件の失敗で全体を止めない
+          counts.error = (counts.error ?? 0) + 1;
+        }
+        done++;
+      }
+      logger.info(`毎日のライブ情報の取得: 対象 ${targets.length} 件、` +
+        `処理 ${done} 件、結果 ${JSON.stringify(counts)}`);
+    },
+);
+
+/** 新着の取得で1回に扱う推しの数（add_P 4.3） */
+const NEWS_MAX_TARGETS = 50;
+
+/** YouTube の検索で1回に扱う推しの数（1件100ユニット。add_P P-2b の B） */
+const SEARCH_MAX_TARGETS = 5;
+
+/** 推しの officialYoutube（無ければ空文字） */
+function officialYoutubeOf(data) {
+  return typeof data?.officialYoutube === "string" ? data.officialYoutube.trim() : "";
+}
+
+/**
+ * 3時間ごとの YouTube の新着の取得（add_P 4.3）。
+ * 承認済みで、フォローしている人が1人以上いる推しのうち、
+ * - officialYoutube があるもの：前回調べたのが古い順に最大50件、新着を取る
+ * - 無いもの：最大5件、YouTube の検索で公式を探す（7日に1回まで。P-2b の B）
+ */
+exports.scheduledOshiNews = onSchedule(
+    {
+      schedule: "20 */3 * * *",
+      timeZone: "Asia/Tokyo",
+      timeoutSeconds: 300,
+      secrets: [YOUTUBE_API_KEY],
+    },
+    async () => {
+      const db = getFirestore();
+      const apiKey = YOUTUBE_API_KEY.value();
+
+      const targets = [];
+      const searchTargets = [];
+      const kinds = [
+        {kind: "group", collection: "groups", field: "followingGroupIds"},
+        {kind: "person", collection: "oshis", field: "followingOshiIds"},
+      ];
+      for (const k of kinds) {
+        const snap = await db.collection(k.collection)
+            .where("status", "==", "approved").get();
+        for (const d of snap.docs) {
+          if (d.id.startsWith("demo-")) continue;
+          const followed = await db.collection("users")
+              .where(k.field, "array-contains", d.id).limit(1).get();
+          if (followed.empty) continue;
+          const data = d.data();
+          if (officialYoutubeOf(data)) {
+            targets.push({
+              kind: k.kind,
+              id: d.id,
+              lastMs: data.youtube?.checkedAt?.toMillis?.() ?? 0,
+            });
+          } else {
+            searchTargets.push({
+              kind: k.kind,
+              id: d.id,
+              lastMs: data.youtubeSearch?.checkedAt?.toMillis?.() ?? 0,
+            });
+          }
+        }
+      }
+      targets.sort((a, b) => a.lastMs - b.lastMs);
+      searchTargets.sort((a, b) => a.lastMs - b.lastMs);
+
+      const counts = {};
+      for (const t of targets.slice(0, NEWS_MAX_TARGETS)) {
+        // refreshOshiNews は例外を出さない（1件の失敗で止めない）
+        const r = await refreshOshiNews(db, t.kind, t.id, apiKey);
+        counts[r.status] = (counts[r.status] ?? 0) + 1;
+      }
+      const searchCounts = {};
+      for (const t of searchTargets.slice(0, SEARCH_MAX_TARGETS)) {
+        const r = await searchOfficialYoutube(db, t.kind, t.id, apiKey);
+        searchCounts[r.status] = (searchCounts[r.status] ?? 0) + 1;
+      }
+      logger.info(`YouTube の新着の取得: 対象 ${targets.length} 件、` +
+        `結果 ${JSON.stringify(counts)}／公式の検索: 対象 ${searchTargets.length} 件、` +
+        `結果 ${JSON.stringify(searchCounts)}`);
+    },
+);
+
+/**
+ * officialYoutube が変わったら、すぐに新着を取る（add_P 4.3）。
+ * youtube の書き込みでは officialYoutube が変わらないので、繰り返し動かない
+ */
+async function refreshOnYoutubeChanged(event, kind) {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!after || after.status !== "approved") return;
+  const now = officialYoutubeOf(after);
+  if (!now || now === officialYoutubeOf(before)) return;
+  await refreshOshiNews(getFirestore(), kind, event.params.id, YOUTUBE_API_KEY.value());
+}
+
+exports.onGroupYoutubeChanged = onDocumentUpdated(
+    {document: "groups/{id}", retry: false, secrets: [YOUTUBE_API_KEY]},
+    (event) => refreshOnYoutubeChanged(event, "group"),
+);
+
+exports.onOshiYoutubeChanged = onDocumentUpdated(
+    {document: "oshis/{id}", retry: false, secrets: [YOUTUBE_API_KEY]},
+    (event) => refreshOnYoutubeChanged(event, "person"),
+);
+
+/**
+ * 個人の動画を YouTube の検索で探す（Callable。fix_Ff 6.2）。
+ * 入力：{id}（個人の ID）
+ * 出力：{status, query, videos: [{videoId, title, channelTitle, publishedAt}]}
+ */
+exports.searchOshiVideos = onCall(
+    {secrets: [YOUTUBE_API_KEY]},
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "ログインしてください");
+      }
+      const {id} = request.data ?? {};
+      if (typeof id !== "string" || !id || id.includes("/")) {
+        throw new HttpsError("invalid-argument", "推しの指定が正しくありません");
+      }
+      try {
+        return await searchPersonVideos(getFirestore(), id, YOUTUBE_API_KEY.value());
+      } catch (e) {
+        logger.error(`動画の検索に失敗しました person:${id}`, e);
+        throw new HttpsError("internal", "動画を探せませんでした");
+      }
     },
 );

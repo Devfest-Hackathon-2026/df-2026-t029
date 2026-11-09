@@ -29,6 +29,11 @@ final followRepositoryProvider = Provider<FollowRepository>(
   (ref) => FirestoreFollowRepository(FirebaseFirestore.instance),
 );
 
+/// まとめてフォローのリポジトリ（Ff 2.2）
+final followBatchRepositoryProvider = Provider<FollowBatchRepository>(
+  (ref) => FollowBatchRepository(FirebaseFirestore.instance),
+);
+
 /// ログイン中のユーザーの uid（未ログインなら null）。
 /// uid が変わったときだけ、下のプロバイダが購読し直す。
 ///

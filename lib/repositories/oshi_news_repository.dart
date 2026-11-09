@@ -1,0 +1,61 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+
+import '../models/oshi_news.dart';
+
+/// 推しのお知らせ（`oshiNews`。add_P 5.1）。読むだけ
+abstract class OshiNewsRepository {
+  /// [keys] の推しのお知らせを、新しい順に [limit] 件。[keys] が空なら空のリスト。
+  /// [keys] は30件まで（Firestore の whereIn の上限）
+  Stream<List<OshiNews>> watchByOshiKeys(
+    List<String> keys, {
+    required int limit,
+  });
+}
+
+/// Firestore 版の [OshiNewsRepository]
+class FirestoreOshiNewsRepository implements OshiNewsRepository {
+  FirestoreOshiNewsRepository(this._db);
+
+  final FirebaseFirestore _db;
+
+  @override
+  Stream<List<OshiNews>> watchByOshiKeys(
+    List<String> keys, {
+    required int limit,
+  }) {
+    if (keys.isEmpty) return Stream.value(const []);
+    return _db
+        .collection('oshiNews')
+        .where('oshiKey', whereIn: keys.take(30).toList())
+        .orderBy('publishedAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map(
+          (snap) => [
+            for (final doc in snap.docs)
+              ?OshiNews.fromFirestore(doc.id, doc.data()),
+          ],
+        );
+  }
+}
+
+/// 個人の動画の YouTube 検索（fix_Ff 6.3）
+abstract class OshiVideoSearchRepository {
+  Future<PersonVideos> search(String personId);
+}
+
+/// Cloud Functions（searchOshiVideos）版の [OshiVideoSearchRepository]
+class FunctionsOshiVideoSearchRepository implements OshiVideoSearchRepository {
+  FunctionsOshiVideoSearchRepository(this._functions);
+
+  final FirebaseFunctions _functions;
+
+  @override
+  Future<PersonVideos> search(String personId) async {
+    final result = await _functions
+        .httpsCallable('searchOshiVideos')
+        .call<Map<Object?, Object?>>({'id': personId});
+    return PersonVideos.fromMap(result.data);
+  }
+}

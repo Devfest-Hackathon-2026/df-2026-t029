@@ -12,11 +12,54 @@ import '../../theme/hako_fonts.dart';
 import '../../utils/deadline.dart';
 import '../calendar/calendar_add_sheet.dart';
 import '../oshi/oshi_list_tile.dart' show OshiKindBadge;
+import '../live_fetch/live_fetch_dialog.dart';
 import 'live_list_entries.dart' show PerformerNames;
+import 'merged_live.dart';
 import 'live_timeline.dart';
 
 /// 1つの区画に最初に出す件数（Fd 3.3）
 const _initialCount = 5;
+
+/// 推しの今後のライブの区画（Ff-9）：グループに入っているメンバーは、所属グループ
+/// （groupIds の1つ目）の区画にまとめる。グループをフォローしていなくても区画を作る。
+/// 最推し（または最推しのメンバーを含む区画）が先頭、ほかはフォロー中の推しの順
+List<({OshiSummary oshi, List<OshiSummary> members})> oshiSectionsOf(
+  List<OshiSummary> following,
+  List<OshiSummary> all,
+  String? favoriteKey,
+) {
+  final groupsById = {
+    for (final o in all)
+      if (o.kind == OshiKind.group) o.id: o,
+  };
+  final sections = <String, ({OshiSummary oshi, List<OshiSummary> members})>{};
+  for (final o in following) {
+    if (o.kind == OshiKind.person && o.groupIds.isNotEmpty) {
+      final g = groupsById[o.groupIds.first];
+      if (g != null) {
+        sections
+            .putIfAbsent(g.key, () => (oshi: g, members: <OshiSummary>[]))
+            .members
+            .add(o);
+        continue;
+      }
+    }
+    sections.putIfAbsent(o.key, () => (oshi: o, members: <OshiSummary>[]));
+  }
+  final list = sections.values.toList();
+  bool hasFavorite(({OshiSummary oshi, List<OshiSummary> members}) s) =>
+      s.oshi.key == favoriteKey || s.members.any((m) => m.key == favoriteKey);
+  return [...list.where(hasFavorite), ...list.where((s) => !hasFavorite(s))];
+}
+
+/// 「フォロー中のメンバー：A・B ほかn人」
+String _membersLine(List<OshiSummary> members) {
+  final names = [for (final m in members) m.name];
+  final head = names.take(2).join('・');
+  return names.length > 2
+      ? 'フォロー中のメンバー：$head ほか${names.length - 2}人'
+      : 'フォロー中のメンバー：$head';
+}
 
 /// ライブ一覧の下の、フォロー中の推しごとの「◯◯の今後のライブ」（Fd 3.3）。
 /// 最推しがいれば先頭、ほかはフォロー中の推しの順
@@ -27,6 +70,7 @@ class OshiUpcomingLivesList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final following = ref.watch(followingOshisProvider);
     final favoriteKey = ref.watch(favoriteOshiKeyProvider).value;
+    final all = ref.watch(allOshisProvider).value ?? const <OshiSummary>[];
     final muted = HakoFonts.jp(size: 13, color: BrandColors.sub, height: 1.5);
 
     return switch (following) {
@@ -56,13 +100,12 @@ class OshiUpcomingLivesList extends ConsumerWidget {
         key: const Key('oshi_upcoming_list'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final o in [
-            ...list.where((o) => o.key == favoriteKey),
-            ...list.where((o) => o.key != favoriteKey),
-          ])
+          // メンバーはグループの区画にまとめる（Ff-9）
+          for (final s in oshiSectionsOf(list, all, favoriteKey))
             OshiUpcomingLivesSection(
-              key: ValueKey('oshi_upcoming_${o.key}'),
-              oshi: o,
+              key: ValueKey('oshi_upcoming_${s.oshi.key}'),
+              oshi: s.oshi,
+              members: s.members,
             ),
         ],
       ),
@@ -77,9 +120,16 @@ class OshiUpcomingLivesList extends ConsumerWidget {
 /// 推し1つ分の「◯◯の今後のライブ」（Fd 3.3）。
 /// 個人の区画には所属グループのライブも入る（「ライブを追加する」画面と同じ）
 class OshiUpcomingLivesSection extends ConsumerStatefulWidget {
-  const OshiUpcomingLivesSection({super.key, required this.oshi});
+  const OshiUpcomingLivesSection({
+    super.key,
+    required this.oshi,
+    this.members = const [],
+  });
 
   final OshiSummary oshi;
+
+  /// この区画にまとめたメンバー（グループの区画のとき。Ff-9）
+  final List<OshiSummary> members;
 
   @override
   ConsumerState<OshiUpcomingLivesSection> createState() =>
@@ -95,7 +145,10 @@ class _OshiUpcomingLivesSectionState
   final Set<String> _busy = {};
 
   ({FollowTargets targets, String query}) get _args =>
-      (targets: FollowTargets.fromFollowing([widget.oshi]), query: '');
+      (
+        targets: FollowTargets.fromFollowing([widget.oshi, ...widget.members]),
+        query: '',
+      );
 
   Future<void> _add(String liveId) async {
     if (_busy.contains(liveId)) return;
@@ -160,9 +213,23 @@ class _OshiUpcomingLivesSectionState
                   ),
                 ),
               ),
+              if (canFetchLives(oshi))
+                TextButton.icon(
+                  key: Key('oshi_upcoming_fetch_${oshi.key}'),
+                  onPressed: () => showLiveFetchDialog(context, oshi),
+                  icon: const Icon(Icons.travel_explore, size: 18),
+                  label: const Text('公式サイトから探す'),
+                ),
             ],
           ),
         ),
+        // まとめたメンバー（Ff-9）
+        if (widget.members.isNotEmpty)
+          Padding(
+            key: Key('oshi_upcoming_members_${oshi.key}'),
+            padding: const EdgeInsets.only(left: 36, bottom: 4),
+            child: Text(_membersLine(widget.members), style: muted),
+          ),
         switch (result) {
           AsyncError() => Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -191,7 +258,6 @@ class _OshiUpcomingLivesSectionState
       ],
     );
   }
-
   Widget _buildLives(
     List<LiveListEntry> upcoming,
     Set<String> added,
@@ -204,34 +270,38 @@ class _OshiUpcomingLivesSectionState
         child: Text('今後のライブは登録されていません', style: muted),
       );
     }
-    final shown = _showAll ? upcoming : upcoming.take(_initialCount).toList();
+    // 同じライブは1件にまとめる（Ff-10）
+    final merged = mergeSameLives(upcoming, names);
+    final shown = _showAll ? merged : merged.take(_initialCount).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < shown.length; i++)
           LiveTimelineItem(
-            entry: shown[i],
-            performers: names?.of(shown[i].live) ?? const [],
+            entry: shown[i].entry,
+            performers: shown[i].performers,
             isFirst: i == 0,
             isLast: i == shown.length - 1,
-            trailing: _trailing(shown[i].live.id!, added),
+            trailing: _trailing(shown[i], added),
           ),
-        if (!_showAll && upcoming.length > _initialCount)
+        if (!_showAll && merged.length > _initialCount)
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
               key: Key('oshi_upcoming_show_all_${widget.oshi.key}'),
               onPressed: () => setState(() => _showAll = true),
-              child: Text('すべて見る（${upcoming.length}件）'),
+              child: Text('すべて見る（${merged.length}件）'),
             ),
           ),
       ],
     );
   }
 
-  /// 右端：自分の一覧にあれば「追加済」（押せない）、なければ「追加する！」
-  Widget _trailing(String liveId, Set<String> added) {
-    if (added.contains(liveId)) {
+  /// 右端：まとめたどれかが自分の一覧にあれば「追加済」（押せない）、なければ「追加する！」
+  /// （代表の1件を入れる。Ff-10）
+  Widget _trailing(MergedLive m, Set<String> added) {
+    final liveId = m.entry.live.id!;
+    if (m.containsAny(added)) {
       return Row(
         key: Key('oshi_upcoming_added_$liveId'),
         mainAxisSize: MainAxisSize.min,

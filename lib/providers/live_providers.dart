@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../features/live/live_list_entries.dart' show PerformerNames;
+import '../features/live/merged_live.dart';
 import '../features/live_form/live_draft_to_models.dart';
+import '../repositories/new_lives_read_repository.dart';
 import '../models/application.dart';
 import '../models/history_entry.dart';
 import '../models/live.dart';
@@ -115,6 +118,72 @@ final liveSearchProvider = Provider.autoDispose
         (lives, performances) =>
             searchLives(lives, performances, args.query, now),
       );
+    });
+
+/// ホームの「推しの新しいライブ」に出す日数と件数（Ff 5.1）
+const newOshiLiveDays = 14;
+const newOshiLivesMax = 5;
+
+/// 「推しの新しいライブ」の既読のリポジトリ（fix_Ff Ff-7）
+final newLivesReadRepositoryProvider = Provider<NewLivesReadRepository>(
+  (ref) => FirestoreNewLivesReadRepository(FirebaseFirestore.instance),
+);
+
+/// 既読にしたライブの ID（Ff-7）。未ログインなら空
+final readNewLiveIdsProvider = StreamProvider<Set<String>>((ref) {
+  final uid = ref.watch(currentUidProvider);
+  if (uid == null) return Stream.value(const <String>{});
+  return ref.watch(newLivesReadRepositoryProvider).watch(uid);
+}, retry: firestoreRetry);
+
+/// 推しの新しいライブ（Ff 5.1・Ff-7・Ff-10）：フォロー中の推しのライブのうち、
+/// 終わっていない・登録から14日以内のものを、同じライブは1件にまとめ、
+/// 自分のライブ一覧にある・既読のものを除いて、登録の新しい順に最大5件。
+/// どれかがエラーならエラー、読み込み中なら読み込み中
+final newOshiLivesProvider =
+    Provider.autoDispose<AsyncValue<List<MergedLive>>>((ref) {
+      final following = ref.watch(followingOshisProvider);
+      if (following case AsyncError(:final error, :final stackTrace)) {
+        return AsyncError(error, stackTrace);
+      }
+      final oshis = following.value;
+      if (oshis == null) return const AsyncLoading();
+      final targets = FollowTargets.fromFollowing(oshis);
+      if (targets.isEmpty) return const AsyncData([]);
+
+      final result = ref.watch(liveSearchProvider((targets: targets, query: '')));
+      final mine = ref.watch(myLiveIdsProvider).value;
+      final read = ref.watch(readNewLiveIdsProvider).value;
+      if (mine == null || read == null) return const AsyncLoading();
+      final all = ref.watch(allOshisProvider).value;
+      final names = all == null ? null : PerformerNames(all);
+      final since = ref
+          .watch(nowProvider)
+          .subtract(const Duration(days: newOshiLiveDays));
+
+      List<MergedLive> pick(List<LiveListEntry> entries) {
+        final recent = [
+          for (final e in entries)
+            if (!e.isEnded &&
+                e.nextStartAt != null &&
+                e.live.id != null &&
+                (e.live.createdAt?.isAfter(since) ?? false))
+              e,
+        ]..sort((a, b) => b.live.createdAt!.compareTo(a.live.createdAt!));
+        return [
+          for (final m in mergeSameLives(recent, names))
+            if (!m.containsAny(mine) && !m.containsAny(read)) m,
+        ].take(newOshiLivesMax).toList();
+      }
+
+      return switch (result) {
+        AsyncError(:final error, :final stackTrace) => AsyncError(
+          error,
+          stackTrace,
+        ),
+        AsyncValue(value: final entries?) => AsyncData(pick(entries)),
+        _ => const AsyncLoading(),
+      };
     });
 
 /// ログイン中のユーザーの申込状況（receptionId → 申込状況）。

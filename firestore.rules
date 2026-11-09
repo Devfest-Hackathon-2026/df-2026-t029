@@ -305,6 +305,11 @@ service cloud.firestore {
         isValidPersonRequest(request.resource.data);
       allow update, delete: if false;
     }
+    // お知らせ（add_P 3.2）。書くのは Functions だけ
+    match /oshiNews/{newsId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
 
     // =============================================================
     // ライブ・公演・受付・申込状況の検査（Step2）
@@ -335,9 +340,27 @@ service cloud.firestore {
         data.updatedAt == request.time;
     }
 
+    // AI が登録したことを示す項目（add_L 3.1）。書くのは Functions だけ。
+    // アプリからは作れず、更新でも変えられない
+    function aiFieldsOf(collectionName) {
+      return collectionName == 'lives'
+        ? ['source', 'sourceUrls', 'searchQueries']
+        : ['source', 'sourceUrls'];
+    }
+
+    function hasNoAiFields(collectionName, data) {
+      return !data.keys().hasAny(aiFieldsOf(collectionName));
+    }
+
+    function keepsAiFields(collectionName) {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(aiFieldsOf(collectionName));
+    }
+
     function liveFields() {
       return ['title', 'groupIds', 'oshiIds', 'officialUrl',
-              'createdBy', 'createdAt', 'updatedBy', 'updatedAt'];
+              'createdBy', 'createdAt', 'updatedBy', 'updatedAt',
+              'source', 'sourceUrls', 'searchQueries'];
     }
 
     // 項目・型・長さ（作成・更新で共通）
@@ -355,7 +378,8 @@ service cloud.firestore {
     }
 
     function isValidLive(data) {
-      return isValidLiveFields(data) && isValidAuditOnCreate(data);
+      return isValidLiveFields(data) && isValidAuditOnCreate(data) &&
+        hasNoAiFields('lives', data);
     }
 
     // ライブの更新（Step4）: 出演者は減らせない（外すと、その推しをフォロー
@@ -364,7 +388,8 @@ service cloud.firestore {
       return isValidLiveFields(data) &&
         isValidAuditOnUpdate(data) &&
         data.groupIds.hasAll(resource.data.groupIds) &&
-        data.oshiIds.hasAll(resource.data.oshiIds);
+        data.oshiIds.hasAll(resource.data.oshiIds) &&
+        keepsAiFields('lives');
     }
 
     // 公演・受付の作成: 同じバッチ（＝同じ request.time）で、このユーザーが
@@ -427,20 +452,23 @@ service cloud.firestore {
     function isValidPerformanceFields(data) {
       return data.keys().hasOnly(['liveId', 'groupIds', 'oshiIds', 'startAt',
           'openAt', 'venue', 'prefecture',
-          'createdBy', 'createdAt', 'updatedBy', 'updatedAt']) &&
+          'createdBy', 'createdAt', 'updatedBy', 'updatedAt',
+          'source', 'sourceUrls', 'startTimeUnknown']) &&
         data.keys().hasAll(['liveId', 'groupIds', 'oshiIds', 'startAt',
           'venue', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt']) &&
         isStringOfSize(data.liveId, 1, 128) &&
         data.startAt is timestamp &&
         isOptionalTimestamp(data, 'openAt') &&
         isNonBlankString(data.venue, 100) &&
-        isValidOptionalString(data, 'prefecture', 1, 10);
+        isValidOptionalString(data, 'prefecture', 1, 10) &&
+        (!('startTimeUnknown' in data) || data.startTimeUnknown is bool);
     }
 
     function isValidPerformance(data) {
       return isValidPerformanceFields(data) &&
         isValidAuditOnCreate(data) &&
-        belongsToLiveWrittenNow(data);
+        belongsToLiveWrittenNow(data) &&
+        hasNoAiFields('performances', data);
     }
 
     function receptionTypes() {
@@ -481,7 +509,8 @@ service cloud.firestore {
       return data.keys().hasOnly(['liveId', 'groupIds', 'oshiIds', 'type',
           'name', 'applyStartAt', 'applyEndAt', 'resultAt', 'paymentDeadline',
           'prices', 'winnersOnly',
-          'createdBy', 'createdAt', 'updatedBy', 'updatedAt']) &&
+          'createdBy', 'createdAt', 'updatedBy', 'updatedAt',
+          'source', 'sourceUrls']) &&
         data.keys().hasAll(['liveId', 'groupIds', 'oshiIds', 'type', 'name',
           'applyEndAt', 'winnersOnly',
           'createdBy', 'createdAt', 'updatedBy', 'updatedAt']) &&
@@ -499,7 +528,8 @@ service cloud.firestore {
     function isValidReception(data) {
       return isValidReceptionFields(data) &&
         isValidAuditOnCreate(data) &&
-        belongsToLiveWrittenNow(data);
+        belongsToLiveWrittenNow(data) &&
+        hasNoAiFields('receptions', data);
     }
 
     function applicationStatuses() {
@@ -688,7 +718,8 @@ service cloud.firestore {
         isValidPerformance(request.resource.data);
       allow update: if isAuthenticated() &&
         isValidPerformanceFields(request.resource.data) &&
-        isValidChildUpdate(request.resource.data);
+        isValidChildUpdate(request.resource.data) &&
+        keepsAiFields('performances');
       allow delete: if false;
 
       match /history/{historyId} {
@@ -705,7 +736,8 @@ service cloud.firestore {
         isValidReception(request.resource.data);
       allow update: if isAuthenticated() &&
         isValidReceptionFields(request.resource.data) &&
-        isValidChildUpdate(request.resource.data);
+        isValidChildUpdate(request.resource.data) &&
+        keepsAiFields('receptions');
       allow delete: if false;
 
       match /history/{historyId} {

@@ -34,6 +34,7 @@ class Reception {
     this.paymentDeadline,
     this.prices = const [],
     this.winnersOnly = false,
+    this.source,
   });
 
   final String? id; // 保存前は null
@@ -48,6 +49,12 @@ class Reception {
   final DateTime? paymentDeadline;
   final List<Price> prices;
   final bool winnersOnly;
+
+  /// 'ai' なら AI が登録した（add_L 3.1）。読むだけで、アプリからは書かない
+  final String? source;
+
+  /// AI が登録した受付か（add_L 5.3）
+  bool get isAi => source == 'ai';
 
   factory Reception.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
@@ -68,6 +75,7 @@ class Reception {
           Price.fromMap(Map<String, dynamic>.from(p as Map)),
       ],
       winnersOnly: data['winnersOnly'] as bool? ?? false,
+      source: data['source'] as String?,
     );
   }
 

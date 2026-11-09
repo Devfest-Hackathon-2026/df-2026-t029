@@ -330,7 +330,8 @@ class _ResultTile extends StatelessWidget {
         )
         .venue;
     final rest = count > 1 ? '（全$count公演）' : '';
-    return '次の公演 ${formatDateTime(next)} $venue$rest';
+    final p = entry.nextPerformance;
+    return '次の公演 ${p != null ? formatPerformanceStart(p) : formatDateTime(next)} $venue$rest';
   }
 
   @override

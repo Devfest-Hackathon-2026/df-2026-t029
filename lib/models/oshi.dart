@@ -73,6 +73,9 @@ class OshiSummary {
     this.agency,
     this.officialUrl,
     this.officialX,
+    this.officialYoutube,
+    this.youtubeChannelId,
+    this.youtubeTitle,
     this.createdBy = '',
   });
 
@@ -90,10 +93,32 @@ class OshiSummary {
 
   /// `@` なしの X アカウント名
   final String? officialX;
+
+  /// 公式 YouTube（`@ハンドル` か `UC...`。add_P 3.1）
+  final String? officialYoutube;
+
+  /// Functions が決めたチャンネル ID（`youtube.channelId`）
+  final String? youtubeChannelId;
+
+  /// チャンネル名（`youtube.title`）
+  final String? youtubeTitle;
   final String createdBy;
 
   bool get isPending => status == OshiStatus.pending;
   bool get isApproved => status == OshiStatus.approved;
+
+  /// 公式 YouTube のチャンネルの URL（add_P 5.2）。分からなければ null
+  String? get youtubeUrl {
+    final channelId = youtubeChannelId;
+    if (channelId != null) return 'https://www.youtube.com/channel/$channelId';
+    final v = officialYoutube;
+    if (v == null) return null;
+    if (v.startsWith('@')) {
+      return 'https://www.youtube.com/@${Uri.encodeComponent(v.substring(1))}';
+    }
+    if (v.startsWith('UC')) return 'https://www.youtube.com/channel/$v';
+    return null;
+  }
 
   /// Firestore のドキュメントから作る。
   ///
@@ -108,6 +133,8 @@ class OshiSummary {
     final name = _string(data['name'])?.trim() ?? '';
     final status = OshiStatus.fromCode(data['status']);
     if (name.isEmpty || status == null) return null;
+    final youtube = data['youtube'];
+    final yt = youtube is Map ? youtube : const <String, dynamic>{};
     return OshiSummary(
       id: id,
       kind: kind,
@@ -121,6 +148,9 @@ class OshiSummary {
       agency: _nonEmpty(data['agency']),
       officialUrl: _nonEmpty(data['officialUrl']),
       officialX: _nonEmpty(data['officialX']),
+      officialYoutube: _nonEmpty(data['officialYoutube']),
+      youtubeChannelId: _nonEmpty(yt['channelId']),
+      youtubeTitle: _nonEmpty(yt['title']),
       createdBy: _string(data['createdBy']) ?? '',
     );
   }
@@ -142,6 +172,9 @@ class OshiSummary {
       other.agency == agency &&
       other.officialUrl == officialUrl &&
       other.officialX == officialX &&
+      other.officialYoutube == officialYoutube &&
+      other.youtubeChannelId == youtubeChannelId &&
+      other.youtubeTitle == youtubeTitle &&
       other.createdBy == createdBy;
 
   @override
@@ -156,6 +189,9 @@ class OshiSummary {
     agency,
     officialUrl,
     officialX,
+    officialYoutube,
+    youtubeChannelId,
+    youtubeTitle,
     createdBy,
   );
 

@@ -10,7 +10,7 @@ DevFest GDGoC Japan Hackathon 2026 に提出する Flutter Web アプリ。推�
 - 仕様書（決定事項と未決定事項）: @markdown/app_config.md
 - データベース設計案: @markdown/Database_config.md
 - チームレビュー記録（すべて提案で、確定ではない）: `notes/2026-11-05_おしあし_チームレビュー.md`
-- 機能ごとの実装計画: `markdown/feature_*_plan.md`（Step1: `feature_A_oshi_plan.md`、Step2: `feature_step2_live_plan.md`、Step4: `feature_step4_merge_plan.md`、Step4.5: `feature_step4_5_mylive_plan.md`、Step6・7: `feature_step6_7_plan.md`、紹介ページの作り直し（案C 改。ブランチ `redesign/before_login`）: `feature_before_login_c_plan.md`、ログイン後のヘルプシート（案C。ブランチ `redesign/after_login`）: `feature_after_login_help_plan.md`、プロフィールのメールアドレス変更（案C ボトムシート。ブランチ `feature/add_mail`）: `feature_add_mail_plan.md`）
+- 機能ごとの実装計画: `markdown/feature_*_plan.md`（Step1: `feature_A_oshi_plan.md`、Step2: `feature_step2_live_plan.md`、Step4: `feature_step4_merge_plan.md`、Step4.5: `feature_step4_5_mylive_plan.md`、Step6・7: `feature_step6_7_plan.md`、紹介ページの作り直し（案C 改。ブランチ `redesign/before_login`）: `feature_before_login_c_plan.md`、ログイン後のヘルプシート（案C。ブランチ `redesign/after_login`）: `feature_after_login_help_plan.md`、プロフィールのメールアドレス変更（案C ボトムシート。ブランチ `feature/add_mail`）: `feature_add_mail_plan.md`）、メモリーの統合（チケットを直接タップ・SNS投稿画像・Google フォト・Gemini の写真えらび。ブランチ `redesign/memory`）: `feature_memory_ticket_plan.md`）、投稿画面の作り直し（案2改。プレビュー固定＋3タブ。ブランチは開始時にユーザーへ確認）: `feature_memory_share_v3_plan.md`）
 
 ## 開発のステップ（Notion「開発タスク」）
 

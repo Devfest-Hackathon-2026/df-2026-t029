@@ -18,6 +18,7 @@ import 'features/live_form/live_form_page.dart';
 import 'features/live_merge/live_edit_page.dart';
 import 'features/oshi/oshi_request_page.dart';
 import 'features/oshi/oshi_search_page.dart';
+import 'features/oshi/oshi_detail_page.dart';
 import 'features/calendar/calendar_test_page.dart';
 import 'features/goods/goods_search_page.dart';
 import 'features/goods/goods_form_page.dart';
@@ -30,6 +31,8 @@ import 'features/profile/profile_page.dart';
 import 'features/memory/memory_form_page.dart';
 import 'features/memory/memory_detail_page.dart';
 import 'features/memory/memory_list_page.dart';
+import 'features/memory/share/memory_share_screen.dart';
+import 'features/photos/photos_test_page.dart';
 import 'features/welcome/welcome_page.dart';
 import 'features/oshi/oshi_page.dart';
 import 'features/shell/app_shell.dart';
@@ -94,6 +97,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/calendar-test',
         builder: (context, state) => const CalendarTestPage(),
       ),
+      // Google フォトの接続テスト（G0。本番の導線には出さない）
+      GoRoute(
+        path: '/photos-test',
+        builder: (context, state) => const PhotosTestPage(),
+      ),
       // ログイン後の画面は、タブの付いた外枠の中に出す（D-2）
       ShellRoute(
         builder: (context, state, child) =>
@@ -121,6 +129,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                       initialName: state.uri.queryParameters['name'] ?? '',
                       // グループのメンバーの一覧から開いたときは、そのグループの ID
                       initialGroupId: state.uri.queryParameters['group'],
+                    ),
+                  ),
+                  // 推しのページ（add_P 5.2）。kind は group・person
+                  GoRoute(
+                    path: ':kind/:id',
+                    builder: (context, state) => OshiDetailPage(
+                      kind: state.pathParameters['kind']!,
+                      id: state.pathParameters['id']!,
                     ),
                   ),
                 ],
@@ -173,6 +189,16 @@ final routerProvider = Provider<GoRouter>((ref) {
                         path: 'edit',
                         builder: (context, state) => MemoryFormPage(
                           performanceId: state.pathParameters['performanceId']!,
+                        ),
+                      ),
+                      // 投稿をまとめて編集（メモリーの統合）。?target=x|ig で投稿先を選んで開く
+                      GoRoute(
+                        path: 'share',
+                        builder: (context, state) => MemoryShareScreen(
+                          performanceId: state.pathParameters['performanceId']!,
+                          initialTarget: shareTargetFromQuery(
+                            state.uri.queryParameters['target'],
+                          ),
                         ),
                       ),
                     ],

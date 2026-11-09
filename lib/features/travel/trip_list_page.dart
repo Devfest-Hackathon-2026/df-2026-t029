@@ -15,6 +15,7 @@ import '../../utils/trip_plans.dart';
 import '../common/empty_state.dart';
 import '../live_form/live_draft_to_models.dart' show formatYen;
 import 'trip_sheet.dart';
+import 'venue_map_sheet.dart';
 import 'weather_line.dart';
 
 /// 遠征の一覧（/trips。add_E 6章）。これからの遠征（カード）と、これまでの遠征（行）。
@@ -182,6 +183,14 @@ class _UpcomingTripCard extends StatelessWidget {
                 spacing: 4,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
+                  // 会場の地図と帰りの経路（add_M 5.2）
+                  if (!isOnlineVenue(p))
+                    TextButton.icon(
+                      key: Key('trip_list_map_button_${p.id}'),
+                      onPressed: () => showVenueMapSheet(context, p),
+                      icon: const Icon(Icons.map_outlined, size: 18),
+                      label: const Text('地図'),
+                    ),
                   for (final link in travelLinksOf(p))
                     TextButton.icon(
                       key: Key('trip_list_link_${p.id}_${link.label}'),

@@ -51,6 +51,17 @@ class FakeMemoryRepository implements MemoryRepository {
   Future<void> update(String uid, LiveMemory memory) =>
       _write('update', memory);
 
+  /// markPosted の呼び出し（performanceId）
+  final List<String> postedIds = [];
+
+  @override
+  Future<void> markPosted(String uid, String performanceId) async {
+    calls.add('markPosted');
+    postedIds.add(performanceId);
+    await gate?.future;
+    if (error != null) throw error!;
+  }
+
   @override
   Future<void> delete(String uid, String performanceId) async {
     calls.add('delete');
