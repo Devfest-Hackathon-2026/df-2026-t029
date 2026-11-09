@@ -305,7 +305,11 @@ class GooglePhotosService implements GooglePhotosApi {
     final uri = json['pickerUri'] is String
         ? Uri.tryParse(json['pickerUri'] as String)
         : null;
-    if (id is! String || id.isEmpty || uri == null) {
+    // 選び終わったあと（mediaItemsSet が true）の応答には pickerUri・pollingConfig が
+    // 入らないことがある。選び終わったあとは pickerUri を使わないので、
+    // そのときだけ pickerUri が無くても読む（作成直後は必須のまま）
+    final picked = json['mediaItemsSet'] == true;
+    if (id is! String || id.isEmpty || (uri == null && !picked)) {
       throw const GooglePhotosException(GooglePhotosFailure.other);
     }
     // 要確認(G0): pollingConfig の入れ子と、"5s" の形
@@ -322,10 +326,10 @@ class GooglePhotosService implements GooglePhotosApi {
         const Duration(minutes: 30);
     return PickerSession(
       id: id,
-      pickerUri: uri,
+      pickerUri: uri ?? Uri(),
       pollInterval: interval,
       timeoutAt: _clock().add(timeoutIn),
-      mediaItemsSet: json['mediaItemsSet'] == true,
+      mediaItemsSet: picked,
     );
   }
 

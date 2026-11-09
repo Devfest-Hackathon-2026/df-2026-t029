@@ -290,6 +290,24 @@ void main() {
       );
     });
 
+    test('選び終わったあとの応答（pickerUri・pollingConfig なし）も読める', () async {
+      final s = make((_) async => _json({'id': 's1', 'mediaItemsSet': true}));
+      await s.authorize();
+      final session = await s.getSession('s1');
+      expect(session.id, 's1');
+      expect(session.mediaItemsSet, isTrue);
+      expect(session.pollInterval, const Duration(seconds: 5));
+    });
+
+    test('pickerUri が無く、選び終わってもいない応答は other', () async {
+      final s = make((_) async => _json({'id': 's1', 'mediaItemsSet': false}));
+      await s.authorize();
+      await expectLater(
+        s.getSession('s1'),
+        _throwsKind(GooglePhotosFailure.other),
+      );
+    });
+
     test('本文が JSON でなければ other', () async {
       final s = make((_) async => http.Response('not json', 200));
       await s.authorize();
