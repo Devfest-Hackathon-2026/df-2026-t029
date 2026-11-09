@@ -17,6 +17,7 @@ import 'home_new_trades.dart';
 import 'home_expense_summary.dart';
 import 'home_next_trip.dart';
 import 'home_oshi_days.dart';
+import 'home_oshi_news.dart';
 import '../shell/app_shell.dart';
 
 class HomePage extends ConsumerWidget {
@@ -74,6 +75,8 @@ class HomePage extends ConsumerWidget {
                   uid: ref.watch(currentUidProvider),
                   name: profile?.displayName ?? 'ゲスト',
                 ),
+                // 最推しのお知らせ（add_P 5.3）
+                const HomeOshiNews(),
                 // 推しの記念日（add_O 3.3）
                 const HomeOshiDays(),
                 // 新しい記録の投稿カード（メモリーの統合 4.9）。無いときは何も出ない

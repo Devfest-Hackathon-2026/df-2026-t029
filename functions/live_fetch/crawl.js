@@ -110,4 +110,4 @@ async function collectLivePages(startUrls) {
   return unique([...lists, ...details, ...moreLists]).slice(0, MAX_URLS);
 }
 
-module.exports = {collectLivePages};
+module.exports = {collectLivePages, fetchHtml, extractLinks};

@@ -42,6 +42,11 @@ const RESULT_SCHEMA = {
   properties: {
     officialUrl: {type: "string", description: "公式サイトのトップの URL"},
     officialX: {type: "string", description: "公式 X のユーザー名（@ なし）"},
+    officialYoutube: {
+      type: "string",
+      description: "公式 YouTube チャンネルの URL（https://www.youtube.com/@... か " +
+        "https://www.youtube.com/channel/UC...）。調査メモに書いてあるものだけ",
+    },
     schedulePageUrl: {type: "string", description: "ライブ情報を読んだページの URL"},
     lives: {
       type: "array",
@@ -131,7 +136,8 @@ function researchPrompt(target, today, pageUrls) {
       "- 日付は年まで書く。ページに年が無ければ、今日以降で最も近い日付になる年にする。時刻は日本時間。",
       "- ツアーは1つのライブにまとめ、会場・日ごとの公演を並べる。",
       "- 公式サイトの文章をそのまま長く写さず、項目だけを書く。",
-      "- 書き出す項目：公式サイトのトップの URL、公式 X のユーザー名、ライブ情報を読んだページ（一覧）の URL。" +
+      "- 書き出す項目：公式サイトのトップの URL、公式 X のユーザー名、" +
+        "公式 YouTube チャンネルの URL、ライブ情報を読んだページ（一覧）の URL。" +
         "ライブごとに、ライブ名、ライブの公式ページの URL、公演（日付・開場・開演・会場・都道府県・オンライン配信か）、" +
         "受付（種類・名前・申込開始・申込締切・当落発表・入金期限・席種と料金・当選した人だけが対象か）。",
       "- 公式サイトが見つからなければ「公式サイトは見つからなかった」と書く。",

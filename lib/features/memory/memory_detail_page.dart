@@ -10,7 +10,10 @@ import '../../providers/photo_pick_providers.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/hako_app_widgets.dart';
 import '../../theme/hako_fonts.dart';
+import '../../providers/oshi_providers.dart';
 import '../../utils/memory_ticket.dart';
+import '../../utils/youtube_search.dart';
+import '../live/official_url_link.dart' show urlLauncherProvider;
 import '../photos/photos_sheet.dart';
 import 'ticket/inline_editor.dart';
 import 'ticket/memory_progress.dart';
@@ -190,6 +193,11 @@ class _DetailViewState extends ConsumerState<_DetailView> {
   @override
   Widget build(BuildContext context) {
     final m = widget.memory;
+    // セトリの曲の YouTube 検索に使う推しの名前（add_P 5.4）
+    final artist = performerNameOf(
+      ref.watch(liveProvider(m.liveId)).value,
+      ref.watch(allOshisProvider).value ?? const [],
+    );
     // つないだか（このタブで同意した）。写真が0枚のときのボタンの文言だけに使う
     final connected = ref.watch(googlePhotosConsentedProvider);
     final impression = m.impression;
@@ -240,9 +248,26 @@ class _DetailViewState extends ConsumerState<_DetailView> {
               for (final (i, song) in m.setlist.indexed)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Text(
-                    '${i + 1}. $song',
-                    style: HakoFonts.jp(size: 14, height: 1.7),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${i + 1}. $song',
+                          style: HakoFonts.jp(size: 14, height: 1.7),
+                        ),
+                      ),
+                      // 曲を YouTube で探す（add_P 5.4）。枠を押したときの編集とは別
+                      IconButton(
+                        key: Key('memory_setlist_youtube_$i'),
+                        tooltip: 'YouTube で探す',
+                        visualDensity: VisualDensity.compact,
+                        iconSize: 20,
+                        onPressed: () => ref.read(urlLauncherProvider)(
+                          youtubeSearchUri(song, artist: artist),
+                        ),
+                        icon: const Icon(Icons.smart_display_outlined),
+                      ),
+                    ],
                   ),
                 ),
             ],
