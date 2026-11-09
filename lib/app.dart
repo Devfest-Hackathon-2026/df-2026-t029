@@ -18,6 +18,7 @@ import 'features/live_form/live_form_page.dart';
 import 'features/live_merge/live_edit_page.dart';
 import 'features/oshi/oshi_request_page.dart';
 import 'features/oshi/oshi_search_page.dart';
+import 'features/oshi/oshi_detail_page.dart';
 import 'features/calendar/calendar_test_page.dart';
 import 'features/goods/goods_search_page.dart';
 import 'features/goods/goods_form_page.dart';
@@ -128,6 +129,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                       initialName: state.uri.queryParameters['name'] ?? '',
                       // グループのメンバーの一覧から開いたときは、そのグループの ID
                       initialGroupId: state.uri.queryParameters['group'],
+                    ),
+                  ),
+                  // 推しのページ（add_P 5.2）。kind は group・person
+                  GoRoute(
+                    path: ':kind/:id',
+                    builder: (context, state) => OshiDetailPage(
+                      kind: state.pathParameters['kind']!,
+                      id: state.pathParameters['id']!,
                     ),
                   ),
                 ],
