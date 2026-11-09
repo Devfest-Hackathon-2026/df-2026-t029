@@ -8,7 +8,7 @@ const {research, structure} = require("./gemini");
 const {arrayOf, cleanUrl, jstDate, normalizeResult} = require("./normalize");
 const {upsertLives} = require("./upsert");
 const {isAllowed, pageHash} = require("./page_check");
-const {collectLivePages} = require("./crawl");
+const {collectLivePages, fetchPageTexts} = require("./crawl");
 const {writeLiveNews} = require("../oshi_news/news");
 const {findYoutubeOnSite} = require("./youtube_link");
 
@@ -104,7 +104,10 @@ async function runLiveFetch(kind, id, {mode}) {
     const startUrls = [knownUrl, cleanUrl(lf.schedulePageUrl)].filter(Boolean);
     const pageUrls = startUrls.length > 0 ? await collectLivePages(startUrls) : [];
     logger.info(`ライブ情報の取得 ${kind}:${id}: 読むページ ${pageUrls.length} 件`);
-    const {memo, searchQueries} = await research(target, today, pageUrls);
+    // 公式サイトが分かっていれば、ページの本文を取って Gemini に直接渡す
+    const pageTexts = knownUrl ? await fetchPageTexts(pageUrls) : [];
+    logger.info(`ライブ情報の取得 ${kind}:${id}: 本文を渡すページ ${pageTexts.length} 件`);
+    const {memo, searchQueries} = await research(target, today, pageUrls, pageTexts);
     const raw = await structure(memo, today);
     const geminiAt = Timestamp.now();
     const result = normalizeResult(raw, now);

@@ -87,6 +87,46 @@ async function candidateLinksOf(url) {
   return extractLinks(html, url).filter(isCandidate).map((l) => l.url);
 }
 
+/** HTML を読みやすい文字にする（script・style・タグを除き、空白を詰める） */
+function htmlToText(html) {
+  return html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|li|h\d|tr|section|article|dd|dt)>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, "\"")
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, "&")
+      .replace(/[ \t]+/g, " ")
+      .replace(/\n\s*\n+/g, "\n")
+      .trim();
+}
+
+/**
+ * [urls] のページの本文を取る（Gemini に直接渡すため）。
+ * robots.txt で許可されたものだけ。1ページ最大 maxChars 文字、合計 totalChars 文字まで。
+ * 返す形：[{url, text}]
+ */
+async function fetchPageTexts(urls, {maxChars = 6000, totalChars = 60000} = {}) {
+  const out = [];
+  let total = 0;
+  for (const url of urls) {
+    if (total >= totalChars) break;
+    if (!(await isAllowed(url))) continue;
+    const html = await fetchHtml(url);
+    if (!html) continue;
+    const text = htmlToText(html).slice(0, Math.min(maxChars, totalChars - total));
+    if (!text) continue;
+    out.push({url, text});
+    total += text.length;
+  }
+  return out;
+}
+
 /**
  * [startUrls]（公式サイトのトップ・前回読んだページ）から2段たどって、
  * Gemini に読ませるページの URL を最大20件返す。
@@ -110,4 +150,4 @@ async function collectLivePages(startUrls) {
   return unique([...lists, ...details, ...moreLists]).slice(0, MAX_URLS);
 }
 
-module.exports = {collectLivePages, fetchHtml, extractLinks};
+module.exports = {collectLivePages, fetchHtml, extractLinks, fetchPageTexts};

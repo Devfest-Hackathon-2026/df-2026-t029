@@ -106,7 +106,7 @@ const RESULT_SCHEMA = {
 };
 
 /** 1段目のプロンプト（add_L 3.5）。[pageUrls] は Functions がたどって集めたページ（L-4b） */
-function researchPrompt(target, today, pageUrls) {
+function researchPrompt(target, today, pageUrls, pageTexts = []) {
   const who = target.kind === "group" ? "グループ" : "人";
   const lines = [
     `今日は ${today}（日本時間）です。`,
@@ -118,7 +118,14 @@ function researchPrompt(target, today, pageUrls) {
   if (target.officialUrl) {
     lines.push(`- 公式サイト：${target.officialUrl}（運営が確認した公式サイト）`);
   }
-  if (pageUrls.length > 0) {
+  if (pageTexts.length > 0) {
+    // Functions が取得したページの本文をそのまま渡す（URL コンテキストの読み込みに頼らない）
+    lines.push(
+        "",
+        "公式サイトの、ライブ・イベントの一覧と詳細のページの本文です（取得済み）。これを読んで書き出してください：",
+    );
+    for (const p of pageTexts) lines.push("", `=== ${p.url} ===`, p.text);
+  } else if (pageUrls.length > 0) {
     lines.push(
         "",
         "公式サイトの、ライブ・イベントの一覧と詳細のページです。まずこれらをすべて読んでください：",
@@ -169,18 +176,21 @@ function structurePrompt(memo, today) {
 
 /**
  * 1段目：調べて文章で書き出す。
+ * [pageTexts]（Functions が取得したページの本文）があれば、ツールを使わずにそれだけを読ませる。
+ * 無ければ、公式サイトが分かっていれば URL コンテキストだけ、分からなければ Google 検索も使う。
  * 返り値：{memo, searchQueries}（searchQueries は Google 検索の語。最大5件）
  */
-async function research(target, today, pageUrls = []) {
+async function research(target, today, pageUrls = [], pageTexts = []) {
+  const config = {};
+  if (pageTexts.length === 0) {
+    config.tools = target.officialUrl ?
+      [{urlContext: {}}] :
+      [{googleSearch: {}}, {urlContext: {}}];
+  }
   const res = await ai().models.generateContent({
     model: GEMINI_MODEL,
-    contents: researchPrompt(target, today, pageUrls),
-    // 公式サイトが分かっているときは、そのサイトだけを読む（Google 検索で探し直さない）
-    config: {
-      tools: target.officialUrl ?
-        [{urlContext: {}}] :
-        [{googleSearch: {}}, {urlContext: {}}],
-    },
+    contents: researchPrompt(target, today, pageUrls, pageTexts),
+    config,
   });
   const memo = (res.text ?? "").trim();
   if (!memo) throw new Error("Gemini の調査の結果が空でした");
