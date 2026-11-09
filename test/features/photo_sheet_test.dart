@@ -185,6 +185,15 @@ void main() {
       expect(_key('photo_sheet_done'), findsOneWidget);
     });
 
+    testWidgets('説明の1行（記録に残る写真・投稿の写真は別）が出る', (tester) async {
+      await pumpSheet(tester);
+      expect(_key('photo_sheet_note'), findsOneWidget);
+      expect(
+        tester.widget<Text>(_key('photo_sheet_note')).data,
+        'ここで選んだ写真が、記録に残ります。SNSに投稿する写真は、投稿の編集画面で別に選べます。',
+      );
+    });
+
     testWidgets('「とじる」で、変更せずに閉じる', (tester) async {
       final env = await pumpSheet(tester);
       await tapKey(tester, 'photo_sheet_close');

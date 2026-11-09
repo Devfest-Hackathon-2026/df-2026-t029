@@ -88,6 +88,7 @@ LiveMemory _mem({
   String? impression = '最高でした',
   String? seat = _secretSeat,
   DateTime? postedAt,
+  List<String> images = const [],
 }) => LiveMemory(
   performanceId: 'a',
   liveId: 'la',
@@ -97,6 +98,7 @@ LiveMemory _mem({
   seat: seat,
   setlist: setlist,
   impression: impression,
+  images: images,
   postedAt: postedAt,
 );
 
@@ -122,11 +124,13 @@ Future<_Env> pumpShare(
   bool pending = false,
   String location = '/memories/a/share',
   double width = 390,
+  double height = 1800,
   double textScale = 1,
   bool disableAnimations = false,
+  bool viaPush = false,
   FakeMemoryRepository? repoOverride,
 }) async {
-  tester.view.physicalSize = Size(width, 1800);
+  tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final env = _Env()..repo = _ReactiveRepo([if (!missing) memory ?? _mem()]);
@@ -138,7 +142,7 @@ Future<_Env> pumpShare(
   );
   final api = FakeGooglePhotosApi(clock: () => _now);
   env.router = GoRouter(
-    initialLocation: location,
+    initialLocation: viaPush ? '/memories/a' : location,
     routes: [
       GoRoute(
         path: '/memories/:id/share',
@@ -216,6 +220,10 @@ Future<_Env> pumpShare(
     await tester.pump(const Duration(milliseconds: 50));
   } else {
     await tester.pumpAndSettle();
+    if (viaPush) {
+      unawaited(env.router.push('/memories/a/share'));
+      await tester.pumpAndSettle();
+    }
   }
   return env;
 }
@@ -300,12 +308,14 @@ void main() {
       tester.element(find.byType(MemoryShareScreen)),
     ).read(shareProvider('a'));
 
-    Future<void> openLook(WidgetTester tester) => tapKey(tester, 'share_look');
+    Future<void> openLook(WidgetTester tester) =>
+        tapKey(tester, 'share_ptab_parts');
 
-    testWidgets('折りたたみを開くと、形・デザイン・背景が出る。開いたまま操作できる', (tester) async {
+    testWidgets('「のせる部分」のタブに、形・デザイン・背景が出る（折りたたみの外）', (tester) async {
       await pumpShare(tester);
       await openLook(tester);
-      expect(find.text('画像の形・デザイン・背景色を変える'), findsOneWidget);
+      expect(find.text('画像の見た目'), findsOneWidget);
+      expect(_key('share_look'), findsNothing, reason: '折りたたみは無い');
       for (final k in [
         'share_format_0',
         'share_format_1',
@@ -434,11 +444,11 @@ void main() {
       expect(find.textContaining('SEAT', findRichText: true), findsNothing);
     });
 
-    testWidgets('動きを減らす設定では、折りたたみが動かずに開く', (tester) async {
+    testWidgets('動きを減らす設定でも、タブを切り替えるとすぐ中身が出る', (tester) async {
       await pumpShare(tester, disableAnimations: true);
-      await tester.ensureVisible(_key('share_look'));
+      await tester.ensureVisible(_key('share_ptab_parts'));
       await tester.pumpAndSettle();
-      await tester.tap(_key('share_look'));
+      await tester.tap(_key('share_ptab_parts'));
       await tester.pump();
       expect(tester.getSize(_key('share_bg_0')).height, greaterThan(0));
       expect(
@@ -469,10 +479,6 @@ void main() {
       await pumpShare(tester);
       expect(_key('share_post_x'), findsOneWidget);
       expect(_key('share_copy_caption'), findsNothing);
-      expect(
-        find.textContaining('のせる内容は、XとInstagramで別々に決められます'),
-        findsOneWidget,
-      );
     });
 
     testWidgets('Instagram のタブで3ステップに変わる', (tester) async {
@@ -532,17 +538,18 @@ void main() {
       expect(_caption(tester), contains('2026/12/19(土) @ 東京ドーム'));
     });
 
-    testWidgets('文章のチップのオンオフで文章が変わる', (tester) async {
+    testWidgets('「のせる部分」のスイッチで文章が変わる', (tester) async {
       await pumpShare(tester);
-      await tapKey(tester, 'share_chip_cap_setlist');
+      await tapKey(tester, 'share_ptab_parts');
+      await tapKey(tester, 'share_part_setlist_caption');
       expect(_caption(tester), contains('セトリ：曲A / 曲B'));
-      await tapKey(tester, 'share_chip_cap_setlist');
+      await tapKey(tester, 'share_part_setlist_caption');
       expect(_caption(tester), isNot(contains('セトリ')));
-      await tapKey(tester, 'share_chip_cap_memo');
+      await tapKey(tester, 'share_part_memo_caption');
       expect(_caption(tester), isNot(contains('最高でした')));
-      await tapKey(tester, 'share_chip_cap_tags');
+      await tapKey(tester, 'share_part_tags_caption');
       expect(_caption(tester), isNot(contains('#おしあし')));
-      await tapKey(tester, 'share_chip_cap_info');
+      await tapKey(tester, 'share_part_info_caption');
       expect(_caption(tester), '【参戦記録】ツアー2026');
     });
 
@@ -692,55 +699,538 @@ void main() {
     });
   });
 
-  group('編集シート', () {
-    testWidgets('セトリのペン: シートが開き、決定で記録に保存。座席は消えない', (tester) async {
-      final env = await pumpShare(tester);
-      await tapKey(tester, 'share_chip_edit_setlist');
-      expect(_key('share_edit_sheet'), findsOneWidget);
-      await tester.enterText(_key('share_edit_input'), '新曲A\n\n 新曲B ');
+  group('骨組みと3つのタブ（S2）', () {
+    Finder panel() => find.byType(CustomScrollView);
+    double previewH(WidgetTester t) => t.getSize(_key('share_preview')).height;
+
+    testWidgets('固定部分（投稿先のタブ・プレビュー）は、パネルをスクロールしても画面に残る', (tester) async {
+      await pumpShare(tester, height: 700);
+      final top = tester.getRect(_key('share_preview')).top;
+      await tester.drag(panel(), const Offset(0, -400));
       await tester.pumpAndSettle();
-      await tapKey(tester, 'share_edit_done');
-      expect(_key('share_edit_sheet'), findsNothing);
-      expect(env.repo.store['a']!.setlist, ['新曲A', '新曲B']);
-      expect(env.repo.store['a']!.seat, _secretSeat, reason: '座席を消さない');
-      expect(env.repo.store['a']!.impression, '最高でした');
+      expect(tester.getRect(_key('share_preview')).top, top);
+      expect(_key('share_tab_x'), findsOneWidget);
     });
 
-    testWidgets('感想のペン: 決定で保存。座席は消えない', (tester) async {
-      final env = await pumpShare(tester);
-      await tapKey(tester, 'share_chip_edit_memo');
-      await tester.enterText(_key('share_edit_input'), '最高の夜だった');
+    testWidgets('スクロールするとプレビューが縮み、下限はスクロール前の約50%。一番上に戻すと元に戻る', (tester) async {
+      await pumpShare(tester, height: 700);
+      final full = previewH(tester);
+      await tester.drag(panel(), const Offset(0, -60));
+      await tester.pump();
+      final mid = previewH(tester);
+      expect(mid, lessThan(full));
+      await tester.drag(panel(), const Offset(0, -2000));
       await tester.pumpAndSettle();
-      await tapKey(tester, 'share_edit_done');
-      expect(env.repo.store['a']!.impression, '最高の夜だった');
-      expect(env.repo.store['a']!.seat, _secretSeat);
+      final small = previewH(tester);
+      expect(small, lessThan(mid));
+      expect(small, closeTo(full * 0.5, full * 0.06), reason: '下限は約50%');
+      await tester.drag(panel(), const Offset(0, 4000));
+      await tester.pumpAndSettle();
+      expect(previewH(tester), closeTo(full, 0.5));
+    });
+
+    testWidgets('タブを切り替えると、スクロールは先頭に戻る（プレビューも元の高さ）', (tester) async {
+      await pumpShare(tester, height: 700);
+      final full = previewH(tester);
+      await tester.drag(panel(), const Offset(0, -2000));
+      await tester.pumpAndSettle();
+      expect(previewH(tester), lessThan(full));
+      await tester.tap(_key('share_ptab_parts'));
+      await tester.pumpAndSettle();
+      expect(previewH(tester), closeTo(full, 0.5));
+      await tester.drag(panel(), const Offset(0, -2000));
+      await tester.pumpAndSettle();
+      await tester.tap(_key('share_ptab_size'));
+      await tester.pumpAndSettle();
+      expect(previewH(tester), closeTo(full, 0.5));
+    });
+
+    testWidgets('幅 320・高さ 600・文字 1.3 倍: スクロールの前後ではみ出さない', (tester) async {
+      await pumpShare(
+        tester,
+        width: 320,
+        height: 600,
+        textScale: 1.3,
+        memory: _mem(
+          setlist: List.generate(20, (i) => '長い曲名' * 4 + '$i'),
+          impression: '長い感想' * 50,
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.drag(panel(), const Offset(0, -2000));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.drag(panel(), const Offset(0, 4000));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('縮んでも、投稿の欄・入力・タブが使える', (tester) async {
+      await pumpShare(tester, height: 700);
+      await tester.drag(panel(), const Offset(0, -2000));
+      await tester.pumpAndSettle();
+      expect(_key('share_postend'), findsOneWidget);
+      expect(_key('share_caption'), findsOneWidget);
+      await tester.enterText(_key('share_caption'), '縮んだまま入力');
+      await tester.pumpAndSettle();
+      expect(_caption(tester), '縮んだまま入力');
+      await tapKey(tester, 'share_tab_ig');
+      expect(_key('share_open_ig'), findsOneWidget);
+      await tapKey(tester, 'share_ptab_parts');
+      expect(_key('share_part_setlist_image'), findsOneWidget);
+    });
+
+    testWidgets('初期は「中身を直す」。3つのタブを切り替えられる', (tester) async {
+      await pumpShare(tester);
+      expect(_key('share_setlist_input'), findsOneWidget);
+      await tapKey(tester, 'share_ptab_parts');
+      expect(_key('share_setlist_input'), findsNothing);
+      expect(_key('share_part_setlist_image'), findsOneWidget);
+      await tapKey(tester, 'share_ptab_size');
+      expect(_key('share_size_setlist'), findsOneWidget);
+      await tapKey(tester, 'share_ptab_content');
+      expect(_key('share_setlist_input'), findsOneWidget);
+    });
+
+    testWidgets('投稿先を切り替えても、選んでいるタブは変わらない', (tester) async {
+      await pumpShare(tester);
+      await tapKey(tester, 'share_ptab_size');
+      await tapKey(tester, 'share_tab_ig');
+      expect(_key('share_size_setlist'), findsOneWidget);
+      await tapKey(tester, 'share_tab_x');
+      expect(_key('share_size_setlist'), findsOneWidget);
+    });
+
+    for (final tab in [
+      'share_ptab_content',
+      'share_ptab_parts',
+      'share_ptab_size',
+    ]) {
+      for (final t in ['x', 'ig']) {
+        testWidgets('$tab・$t: 投稿の文章と投稿の動作が、どのタブにもある', (tester) async {
+          if (t == 'x') {
+            await pumpShare(tester);
+          } else {
+            await pumpShareIg(tester);
+          }
+          await tapKey(tester, tab);
+          expect(_key('share_postend'), findsOneWidget);
+          expect(_key('share_caption'), findsOneWidget);
+          if (t == 'x') {
+            expect(_key('share_post_x'), findsOneWidget);
+          } else {
+            expect(_key('share_open_ig'), findsOneWidget);
+            expect(_key('share_copy_caption'), findsOneWidget);
+          }
+          expect(_key('share_save_image'), findsOneWidget);
+        });
+      }
+    }
+
+    testWidgets('廃止したもの（鉛筆・チップ・編集シート）は無い', (tester) async {
+      await pumpShare(tester);
+      for (final k in [
+        'share_edit_sheet',
+        'share_chip_edit_setlist',
+        'share_chip_cap_memo',
+        'share_part_setlist', // プレビューのタップ編集
+      ]) {
+        expect(_key(k), findsNothing, reason: k);
+      }
+    });
+  });
+
+  group('中身を直す（S3）', () {
+    ShareState shareState(WidgetTester tester) => ProviderScope.containerOf(
+      tester.element(find.byType(MemoryShareScreen)),
+    ).read(shareProvider('a'));
+
+    List<String> selected(WidgetTester tester, List<String> record) =>
+        effectiveSharePhotos(shareState(tester), record);
+
+    final rec6 = ['p1.jpg', 'p2.jpg', 'p3.jpg', 'p4.jpg', 'p5.jpg', 'p6.jpg'];
+
+    String text(WidgetTester tester, String k) =>
+        tester.widget<TextField>(_key(k)).controller!.text;
+
+    testWidgets('入力で自動の文章が変わる', (tester) async {
+      await pumpShare(tester);
+      await tester.enterText(_key('share_memo_input'), '下書きの感想');
+      await tester.pumpAndSettle();
+      expect(_caption(tester), contains('下書きの感想'));
+    });
+
+    testWidgets('下書きは、保存するまで記録に入らない', (tester) async {
+      final env = await pumpShare(tester);
+      await tester.enterText(_key('share_setlist_input'), '新曲A\n\n 新曲B ');
+      await tester.enterText(_key('share_memo_input'), '最高の夜だった');
+      await tester.pumpAndSettle();
       expect(env.repo.store['a']!.setlist, ['曲A', '曲B']);
-      // 文章も新しい内容になる
-      expect(_caption(tester), contains('最高の夜だった'));
+      expect(env.repo.store['a']!.impression, '最高でした');
+      expect(env.repo.calls, isEmpty);
     });
 
-    testWidgets('プレビューの部分（セトリ・感想）をタップしても開く', (tester) async {
-      await pumpShare(tester);
-      await tapKey(tester, 'share_part_setlist');
-      expect(_key('share_edit_sheet'), findsOneWidget);
-    });
-
-    testWidgets('保存に失敗したら SnackBar。シートは開いたまま', (tester) async {
+    testWidgets('保存ボタン: 変更が無いと押せず、保存で記録に入る（座席は残る）', (tester) async {
       final env = await pumpShare(tester);
-      await tapKey(tester, 'share_chip_edit_memo');
-      await tester.enterText(_key('share_edit_input'), '直した');
+      // 押せるかは、タップして書き込みの有無で確かめる
+      await tapKey(tester, 'share_text_save');
+      expect(env.repo.calls, isEmpty, reason: '変更が無いので押せない');
+      await tester.enterText(_key('share_setlist_input'), '新曲A\n\n 新曲B ');
+      await tester.enterText(_key('share_memo_input'), '最高の夜だった');
       await tester.pumpAndSettle();
-      env.repo.error = Exception('x');
-      await tapKey(tester, 'share_edit_done');
+      await tapKey(tester, 'share_text_save');
+      expect(find.text('記録に保存しました'), findsOneWidget);
+      expect(env.repo.store['a']!.setlist, ['新曲A', '新曲B']);
+      expect(env.repo.store['a']!.impression, '最高の夜だった');
+      expect(env.repo.store['a']!.seat, _secretSeat, reason: '座席を消さない');
+      // 保存したので、また押せない
+      env.repo.calls.clear();
+      await tapKey(tester, 'share_text_save');
+      expect(env.repo.calls, isEmpty);
+    });
+
+    testWidgets('保存に失敗したら文言を出し、入力は残る。記録は変わらない。例外は出さない', (tester) async {
+      final env = await pumpShare(tester);
+      await tester.enterText(_key('share_memo_input'), '直した');
+      await tester.pumpAndSettle();
+      env.repo.error = Exception('秘密の内部エラー');
+      await tapKey(tester, 'share_text_save');
       expect(find.text('保存できませんでした。もう一度お試しください'), findsOneWidget);
-      expect(_key('share_edit_sheet'), findsOneWidget);
+      expect(find.textContaining('秘密の内部エラー'), findsNothing);
+      expect(text(tester, 'share_memo_input'), '直した');
       expect(env.repo.store['a']!.impression, '最高でした');
     });
 
-    testWidgets('写真のペン: 「写真を直す」シートが開く', (tester) async {
+    testWidgets('保存は二重に押せない（保存中は1回しか書かない）', (tester) async {
+      final env = await pumpShare(tester);
+      await tester.enterText(_key('share_memo_input'), '直した');
+      await tester.pumpAndSettle();
+      final gate = Completer<void>();
+      env.repo.gate = gate;
+      await tester.ensureVisible(_key('share_text_save'));
+      await tester.tap(_key('share_text_save'));
+      await tester.pump();
+      await tester.tap(_key('share_text_save'), warnIfMissed: false);
+      await tester.pump();
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(env.repo.calls.where((c) => c == 'update'), hasLength(1));
+    });
+
+    testWidgets('タブを切り替えても、入力が残る', (tester) async {
       await pumpShare(tester);
-      await tapKey(tester, 'share_chip_edit_photo');
-      expect(_key('photo_sheet'), findsOneWidget);
+      await tester.enterText(_key('share_setlist_input'), '曲X\n曲Y');
+      await tester.enterText(_key('share_memo_input'), '途中の感想');
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'share_ptab_parts');
+      await tapKey(tester, 'share_ptab_size');
+      await tapKey(tester, 'share_ptab_content');
+      expect(text(tester, 'share_setlist_input'), '曲X\n曲Y');
+      expect(text(tester, 'share_memo_input'), '途中の感想');
+    });
+
+    testWidgets('投稿先を切り替えても、入力が残る', (tester) async {
+      await pumpShare(tester);
+      await tester.enterText(_key('share_memo_input'), '途中の感想');
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'share_tab_ig');
+      await tapKey(tester, 'share_tab_x');
+      expect(text(tester, 'share_memo_input'), '途中の感想');
+    });
+
+    testWidgets('下書きは X の URL に出る。保存する PNG の作成も動く', (tester) async {
+      final env = await pumpShare(tester);
+      await tester.enterText(_key('share_memo_input'), 'ここだけの下書き');
+      await tester.pumpAndSettle();
+      expect(_caption(tester), contains('ここだけの下書き'));
+      await tapKey(tester, 'share_post_x');
+      expect(
+        Uri.decodeFull(env.opened.single.toString()),
+        contains('ここだけの下書き'),
+      );
+      await tapKey(tester, 'share_save_image');
+      expect(env.captures, 1);
+      expect(find.textContaining('SEAT', findRichText: true), findsNothing);
+    });
+
+    group('写真', () {
+      testWidgets('記録が5枚以上でも、投稿には先頭4枚。残りは「ほかの候補」', (tester) async {
+        await pumpShare(tester, memory: _mem(images: rec6));
+        expect(selected(tester, rec6), rec6.take(4));
+        for (var i = 0; i < 4; i++) {
+          expect(_key('share_photo_remove_$i'), findsOneWidget);
+        }
+        expect(_key('share_photo_remove_4'), findsNothing);
+        expect(_key('share_photo_add_0'), findsOneWidget);
+        expect(_key('share_photo_add_1'), findsOneWidget);
+        expect(_key('share_photo_reset'), findsNothing);
+      });
+
+      testWidgets('外すと記録は変わらず、戻すボタンが出る。戻すと元に戻る', (tester) async {
+        final env = await pumpShare(tester, memory: _mem(images: rec6));
+        await tapKey(tester, 'share_photo_remove_1');
+        expect(selected(tester, rec6), ['p1.jpg', 'p3.jpg', 'p4.jpg']);
+        expect(_key('share_photo_reset'), findsOneWidget);
+        expect(env.repo.store['a']!.images, rec6, reason: '記録の写真は変わらない');
+        expect(env.repo.calls, isEmpty, reason: '記録に書き込まない');
+        await tapKey(tester, 'share_photo_reset');
+        expect(selected(tester, rec6), rec6.take(4));
+        expect(_key('share_photo_reset'), findsNothing);
+        expect(env.repo.calls, isEmpty);
+      });
+
+      testWidgets('足せる。4枚のときの5枚目はトーストで足せない。記録は変わらない', (tester) async {
+        final env = await pumpShare(tester, memory: _mem(images: rec6));
+        await tapKey(tester, 'share_photo_add_0');
+        expect(find.text('画像に入る写真は、4枚までです'), findsOneWidget);
+        expect(selected(tester, rec6), rec6.take(4));
+        await tapKey(tester, 'share_photo_remove_0');
+        // 候補は、外した p1・p5・p6 の順。p5 を足す
+        await tapKey(tester, 'share_photo_add_1');
+        expect(selected(tester, rec6), [
+          'p2.jpg',
+          'p3.jpg',
+          'p4.jpg',
+          'p5.jpg',
+        ]);
+        expect(env.repo.store['a']!.images, rec6);
+        expect(env.repo.calls, isEmpty);
+        expect(env.photos.deleted, isEmpty);
+        expect(env.photos.uploaded, isEmpty);
+      });
+
+      testWidgets('投稿先ごとに別（X で外しても Instagram は変わらない）', (tester) async {
+        await pumpShare(tester, memory: _mem(images: rec6));
+        await tapKey(tester, 'share_photo_remove_0');
+        expect(selected(tester, rec6), hasLength(3));
+        await tapKey(tester, 'share_tab_ig');
+        expect(selected(tester, rec6), rec6.take(4));
+        expect(_key('share_photo_reset'), findsNothing);
+        await tapKey(tester, 'share_tab_x');
+        expect(selected(tester, rec6), hasLength(3));
+      });
+
+      testWidgets('記録が0枚: 説明が出て、写真のタイルは無い', (tester) async {
+        await pumpShare(tester);
+        expect(find.textContaining('記録に写真がありません'), findsOneWidget);
+        expect(_key('share_photo_remove_0'), findsNothing);
+        expect(_key('share_photo_add_0'), findsNothing);
+      });
+
+      testWidgets('全部外すと「入れていません」。記録は変わらない', (tester) async {
+        final env = await pumpShare(tester, memory: _mem(images: ['p1.jpg']));
+        await tapKey(tester, 'share_photo_remove_0');
+        expect(find.textContaining('写真を入れていません'), findsOneWidget);
+        expect(_key('share_photo_add_0'), findsOneWidget);
+        expect(env.repo.store['a']!.images, ['p1.jpg']);
+      });
+
+      testWidgets('「記録の写真を直す」で写真のシートが開く', (tester) async {
+        await pumpShare(tester);
+        await tapKey(tester, 'share_photo_edit_record');
+        expect(_key('photo_sheet'), findsOneWidget);
+      });
+    });
+  });
+
+  group('のせる部分（S2）', () {
+    ShareState shareState(WidgetTester tester) => ProviderScope.containerOf(
+      tester.element(find.byType(MemoryShareScreen)),
+    ).read(shareProvider('a'));
+
+    testWidgets('スイッチで文章が変わる。手直しした文章はスイッチを変えても残る', (tester) async {
+      await pumpShare(tester);
+      await tapKey(tester, 'share_ptab_parts');
+      await tapKey(tester, 'share_part_setlist_caption');
+      expect(_caption(tester), contains('セトリ：曲A / 曲B'));
+      await tester.enterText(_key('share_caption'), '手直しした文章');
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'share_part_memo_caption');
+      expect(_caption(tester), '手直しした文章');
+    });
+
+    testWidgets('押せない組み合わせは「—」でスイッチが無い', (tester) async {
+      await pumpShare(tester);
+      await tapKey(tester, 'share_ptab_parts');
+      expect(_key('share_part_photo_image'), findsOneWidget);
+      expect(_key('share_part_photo_caption'), findsNothing);
+      expect(_key('share_part_tags_caption'), findsOneWidget);
+      expect(_key('share_part_tags_image'), findsNothing);
+      expect(_key('share_part_mark_image'), findsOneWidget);
+      expect(_key('share_part_mark_caption'), findsNothing);
+      expect(find.text('—'), findsWidgets);
+    });
+
+    testWidgets('画像のスイッチを切ると、設定が変わる', (tester) async {
+      await pumpShare(tester);
+      await tapKey(tester, 'share_ptab_parts');
+      final before = shareState(tester).config
+          .isOn(SharePart.setlist, ShareLayer.image);
+      await tapKey(tester, 'share_part_setlist_image');
+      expect(
+        shareState(tester).config.isOn(SharePart.setlist, ShareLayer.image),
+        !before,
+      );
+      await tapKey(tester, 'share_part_setlist_image');
+      expect(
+        shareState(tester).config.isOn(SharePart.setlist, ShareLayer.image),
+        before,
+      );
+    });
+
+    testWidgets('デザインは2つだけ。背景は7色', (tester) async {
+      await pumpShare(tester);
+      await tapKey(tester, 'share_ptab_parts');
+      expect(_key('share_design_ticket'), findsOneWidget);
+      expect(_key('share_design_photo'), findsOneWidget);
+      expect(_key('share_design_collage'), findsNothing);
+      for (var i = 0; i < 7; i++) {
+        expect(_key('share_bg_$i'), findsOneWidget);
+      }
+      expect(_key('share_bg_7'), findsNothing);
+    });
+  });
+
+  group('大きさ（S4）', () {
+    ShareState shareState(WidgetTester tester) => ProviderScope.containerOf(
+      tester.element(find.byType(MemoryShareScreen)),
+    ).read(shareProvider('a'));
+
+    Future<void> drive(WidgetTester tester, String key, double v) async {
+      tester.widget<Slider>(_key(key)).onChanged!(v);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('スライダーで config.sizes が変わる。戻すと ふつう', (tester) async {
+      await pumpShare(tester);
+      await tapKey(tester, 'share_ptab_size');
+      await drive(tester, 'share_size_photo', 130);
+      await drive(tester, 'share_size_info', 80);
+      await drive(tester, 'share_size_setlist', 120);
+      await tester.pumpAndSettle();
+      final s = shareState(tester).config.sizes;
+      expect([s.photo, s.info, s.setlist], [1.3, 0.8, 1.2]);
+      await tapKey(tester, 'share_size_reset');
+      expect(shareState(tester).config.sizes.isNormal, isTrue);
+      expect(find.text('大きさをふつうに戻しました'), findsOneWidget);
+    });
+
+    testWidgets('投稿先ごとに別（X で変えても Instagram は ふつう）', (tester) async {
+      await pumpShare(tester);
+      await tapKey(tester, 'share_ptab_size');
+      await drive(tester, 'share_size_photo', 140);
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'share_tab_ig');
+      expect(shareState(tester).config.sizes.isNormal, isTrue);
+      await tapKey(tester, 'share_tab_x');
+      expect(shareState(tester).config.sizes.photo, 1.4);
+    });
+
+    testWidgets('写真メインでは、写真のスライダーが出ず、説明が出る', (tester) async {
+      await pumpShare(tester);
+      await tapKey(tester, 'share_ptab_parts');
+      await tapKey(tester, 'share_design_photo');
+      await tapKey(tester, 'share_ptab_size');
+      expect(_key('share_size_photo_note'), findsOneWidget);
+      expect(_key('share_size_photo'), findsNothing);
+    });
+
+    testWidgets('セトリを画像にのせて長いと注意文が出て、少なくすると消える', (tester) async {
+      final memory = _mem(
+        setlist: List.generate(24, (i) => '曲名$i'),
+        impression: '長い感想' * 40,
+      );
+      await pumpShare(tester, memory: memory);
+      await tapKey(tester, 'share_ptab_parts');
+      // セトリを画像にのせる（のっていなければオンにする）
+      final c = ProviderScope.containerOf(
+        tester.element(find.byType(MemoryShareScreen)),
+      );
+      if (!c
+          .read(shareProvider('a'))
+          .config
+          .isOn(SharePart.setlist, ShareLayer.image)) {
+        await tapKey(tester, 'share_part_setlist_image');
+      }
+      await tapKey(tester, 'share_ptab_content');
+      expect(find.textContaining('画像には先頭'), findsWidgets);
+      await tester.enterText(_key('share_setlist_input'), '曲A');
+      await tester.enterText(_key('share_memo_input'), '短い');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('画像には先頭'), findsNothing);
+      expect(find.textContaining('入りきらない'), findsNothing);
+    });
+  });
+
+  group('戻るときの確認（P2b）', () {
+    Future<_Env> open(WidgetTester tester) async {
+      // 本物の画面遷移（記録の画面から push で開く）
+      final env = await pumpShare(tester, viaPush: true);
+      expect(_key('share_memo_input'), findsOneWidget);
+      return env;
+    }
+
+    Future<void> dirty(WidgetTester tester) async {
+      await tester.enterText(_key('share_memo_input'), '保存していない');
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('端末の「戻る」: 未保存の入力があると確認が出る。「とどまる」で残る', (tester) async {
+      final env = await open(tester);
+      await dirty(tester);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(_key('share_leave_dialog'), findsOneWidget);
+      await tester.tap(_key('share_leave_stay'));
+      await tester.pumpAndSettle();
+      expect(_key('share_memo_input'), findsOneWidget);
+      expect(env.repo.calls, isEmpty);
+    });
+
+    testWidgets('端末の「戻る」: 「保存せずに戻る」で戻る。記録は変わらない', (tester) async {
+      final env = await open(tester);
+      await dirty(tester);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(_key('share_leave_ok'));
+      await tester.pumpAndSettle();
+      expect(find.text('route:detail'), findsOneWidget);
+      expect(env.repo.store['a']!.impression, '最高でした');
+    });
+
+    // 回帰（R1-1）: 戻るボタンが PopScope をすり抜けていた。onBack で確認を通す
+    testWidgets('上のバーの戻るボタン: 未保存の入力があると確認が出る。「保存せずに戻る」で戻る', (tester) async {
+      await open(tester);
+      await dirty(tester);
+      await tester.tap(_key('hako_back'));
+      await tester.pumpAndSettle();
+      expect(_key('share_leave_dialog'), findsOneWidget, reason: '確認なしで戻ってしまう');
+      await tester.tap(_key('share_leave_stay'));
+      await tester.pumpAndSettle();
+      expect(_key('share_memo_input'), findsOneWidget);
+      await tester.tap(_key('hako_back'));
+      await tester.pumpAndSettle();
+      await tester.tap(_key('share_leave_ok'));
+      await tester.pumpAndSettle();
+      expect(find.text('route:detail'), findsOneWidget);
+    });
+
+    testWidgets('入力が無ければ、確認なしで戻る', (tester) async {
+      await open(tester);
+      await tester.tap(_key('hako_back'));
+      await tester.pumpAndSettle();
+      expect(_key('share_leave_dialog'), findsNothing);
+      expect(find.text('route:detail'), findsOneWidget);
+    });
+
+    testWidgets('保存したあとは、確認なしで戻る', (tester) async {
+      await open(tester);
+      await dirty(tester);
+      await tapKey(tester, 'share_text_save');
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(_key('share_leave_dialog'), findsNothing);
+      expect(find.text('route:detail'), findsOneWidget);
     });
   });
 
@@ -769,9 +1259,10 @@ void main() {
             ? await pumpShare(tester)
             : await pumpShareIg(tester);
         await expectNoSeat(tester, env);
-        // すべての文章のチップをオンにしても出ない
+        // すべての文章のスイッチをオンにしても出ない
+        await tapKey(tester, 'share_ptab_parts');
         for (final name in ['info', 'setlist', 'memo', 'tags']) {
-          final k = 'share_chip_cap_$name';
+          final k = 'share_part_${name}_caption';
           await tapKey(tester, k);
         }
         await expectNoSeat(tester, env);
@@ -789,12 +1280,31 @@ void main() {
 
     testWidgets('セトリ・感想を保存しても、座席は記録に残り、画面には出ない', (tester) async {
       final env = await pumpShare(tester);
-      await tapKey(tester, 'share_chip_edit_setlist');
-      await tester.enterText(_key('share_edit_input'), '曲Z');
+      await tester.enterText(_key('share_setlist_input'), '曲Z');
       await tester.pumpAndSettle();
-      await tapKey(tester, 'share_edit_done');
+      await tapKey(tester, 'share_text_save');
       expect(env.repo.store['a']!.seat, _secretSeat);
       await expectNoSeat(tester, env);
+    });
+
+    testWidgets('下書き（保存前）の入力でも、座席は画像・文章に出ない', (tester) async {
+      final env = await pumpShare(tester);
+      await tester.enterText(_key('share_setlist_input'), '下書き曲');
+      await tester.enterText(_key('share_memo_input'), '下書き感想');
+      await tester.pumpAndSettle();
+      await expectNoSeat(tester, env);
+    });
+
+    testWidgets('3つのタブのどれでも、座席は出ない', (tester) async {
+      final env = await pumpShare(tester);
+      for (final k in [
+        'share_ptab_parts',
+        'share_ptab_size',
+        'share_ptab_content',
+      ]) {
+        await tapKey(tester, k);
+        await expectNoSeat(tester, env);
+      }
     });
   });
 
@@ -813,6 +1323,15 @@ void main() {
           await tapKey(tester, 'share_tab_ig');
           e = tester.takeException();
           expect(e, isNull, reason: '$e');
+          for (final k in [
+            'share_ptab_parts',
+            'share_ptab_size',
+            'share_ptab_content',
+          ]) {
+            await tapKey(tester, k);
+            e = tester.takeException();
+            expect(e, isNull, reason: '$k: $e');
+          }
         });
       }
     }
