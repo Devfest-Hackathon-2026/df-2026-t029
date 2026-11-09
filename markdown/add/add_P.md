@@ -24,12 +24,12 @@
 | 名前 | add_P（推しのページとお知らせ） |
 | 担当 | B（横山）。推しの画面・ホームは A（とし）と共有する |
 | ブランチ | `dev` から `features/P` |
-| 状況 | 仕様書を作成（11/9） |
+| 状況 | **P-1〜P-6 完了（11/9、CUTIE STREET で確認。10章・11章）**。P-2a・P-2b（公式 YouTube の決め方）と P-4a（名前から推しのページ）を足した。決めたことは10章にまとめ、関係する章も直した |
 
 ### 1.1 できるようになること
 
 1. 推しごとのページ（`/oshi/:kind/:id`）ができる。公式サイト・公式 X・公式 YouTube へのリンク、YouTube の最新の動画（いちばん新しいものは埋め込みで再生）、色・誕生日・推して◯日、今後のライブ、（グループなら）メンバーを1か所で見られる。
-2. 推しの公式 YouTube チャンネルは、add_L の取得のときに Gemini が探して埋める（公式サイト・公式 X と同じく、空のときだけ）。
+2. 推しの公式 YouTube チャンネルは、空のときだけ自動で埋める（2.3）。まず add_L の取得のときに公式サイトに貼ってあるリンクから拾い、無ければ YouTube の検索で探して公式サイト・公式 X と照合できたものだけを入れる。
 3. 3時間ごとに、フォローされている推しの YouTube の新しい動画を調べ、推しごとの「お知らせ」（共通データ）に入れる。add_L の取得で新しいライブが見つかったときも、お知らせに入れる。
 4. ホームのいちばん上（あいさつの下）に「お知らせ」が出る。最推しと、その所属グループの新着だけを、新しい順に並べる。
 5. メモリーのセトリで、曲を押すとその曲の YouTube の検索結果を開く。
@@ -40,7 +40,7 @@
 |---|---|
 | YouTube Data API v3 | `channels.list`（ハンドル `@xxx` からチャンネルを特定）と `playlistItems.list`（アップロードした動画の新しい順）。どちらも1回1ユニット（1日1万ユニットの無料枠） |
 | YouTube の埋め込みプレーヤー | 推しのページで最新の動画を再生する（`youtube-nocookie.com/embed`） |
-| Gemini（Vertex AI・add_L） | 公式サイトから公式 YouTube チャンネルを探す（3.3 のスキーマに1項目足す） |
+| YouTube Data API v3（検索） | `search.list`（1回100ユニット）で公式 YouTube の候補を探す（公式サイトにリンクが無い推しだけ。2.3 の B） |
 | Cloud Functions（第2世代） | 新着の取得（定期実行と、YouTube が登録されたときのトリガー）、お知らせの書き込み（Admin SDK） |
 | Cloud Scheduler | 3時間ごとの新着の取得（`onSchedule`） |
 
@@ -49,8 +49,20 @@
 ### 2.1 対象にする推し
 
 - 新着を取るのは、`status` が `approved` で、**公式 YouTube が分かっていて**、**フォローしている人が1人以上いる**推し（add_L 4.3 と同じ数え方）。
-- add_L の自動取得はグループとソロの個人だけだが（add_L 2.2）、公式 YouTube は**コンソールで入れればメンバーでも取る**（Gemini では埋まらないだけ）。
-- デモ用データ（`demo-`）は、公式 YouTube が無いので自然に対象外になる。デモでは実在の推し（CUTIE STREET）で見せる。
+- add_L の自動取得はグループとソロの個人だけだが（add_L 2.2）、公式 YouTube は**コンソールで入れる・YouTube の検索（2.3 の B）で見つかれば、メンバーでも取る**。
+- デモ用データ（`demo-`）は対象外（新着の取得・YouTube の検索とも）。デモでは実在の推し（CUTIE STREET）で見せる。
+
+### 2.3 公式 YouTube の決め方（P-2b。10.1）
+
+`officialYoutube` が空の推しだけ、次の順に決める。**Gemini が見つけた YouTube は使わない**（本物か確かめられないため）。
+
+| 順 | 方法 | いつ | ニセモノ |
+|---|---|---|---|
+| A | 公式サイトのトップと、プロフィールらしいページ（最大3件）を Functions が開き、`youtube.com/@ハンドル`・`/channel/UC...` のリンクを拾う（`functions/live_fetch/youtube_link.js`） | add_L の取得（`runLiveFetch`）が `ok` で終わったとき | 入らない（公式サイトが貼っているリンク） |
+| B | 名前で YouTube を検索し（チャンネルだけ・上位5件）、**説明欄に公式サイトのドメインか公式 X（`x.com/…`・`twitter.com/…`）があり、チャンネル名に推しの名前を含む**ものだけを採用する。複数あれば登録者の多いもの（`functions/oshi_news/search.js`） | 3時間ごとの `scheduledOshiNews` で、1回最大5件。1つの推しにつき7日に1回まで。公式サイトも公式 X も無い推しは探さない | ほぼ入らない（照合できなければ入れない） |
+
+- A・B で `officialYoutube` が入ると、4.3 のトリガーがすぐに新着を取る。
+- コンソールで直接入れてもよい（`@ハンドル` か `UC...`）。
 
 ### 2.2 お知らせの範囲
 
@@ -67,8 +79,9 @@
 
 | 項目 | 型 | 内容 |
 |---|---|---|
-| `officialYoutube` | string | 公式 YouTube。ハンドル（`@cutiestreet` のように `@` 付き）か、チャンネル ID（`UC` で始まる24文字）。**空のときだけ** Gemini が見つけたものを入れる（3.3）。コンソールで直接入れてもよい |
+| `officialYoutube` | string | 公式 YouTube。ハンドル（`@CUTIE_STREET` のように `@` 付き）か、チャンネル ID（`UC` で始まる24文字）。**空のときだけ** 2.3 の A・B で入れる。コンソールで直接入れてもよい |
 | `youtube` | map | 新着の取得の状態（下）。Functions だけが書く |
+| `youtubeSearch` | map | 2.3 の B の状態。`status`（`found`・`notFound`・`error`）・`checkedAt`（7日に1回の判定に使う）。Functions だけが書く |
 
 `youtube` の中身：
 
@@ -100,13 +113,14 @@
 - **ルール**：`allow read: if isAuthenticated();`、`allow write: if false;`（書くのは Functions だけ）。
 - **インデックス**：`oshiNews` に `oshiKey`（昇順）・`publishedAt`（降順）の複合インデックスを `firestore.indexes.json` に足す（`oshiKey in [...]` と `orderBy('publishedAt', descending: true)` のため）。
 
-### 3.3 Gemini のスキーマ（add_L 3.3 に1項目足す）
+### 3.3 Gemini のスキーマ（add_L 3.3 に1項目足す。今は使わない）
 
 | 項目 | 型 | 内容 |
 |---|---|---|
-| `officialYoutube` | string \| null | 公式 YouTube チャンネルの URL（`https://www.youtube.com/@...` か `https://www.youtube.com/channel/UC...`）。公式サイトにリンクがあるものだけ |
+| `officialYoutube` | string \| null | 公式 YouTube チャンネルの URL（`https://www.youtube.com/@...` か `https://www.youtube.com/channel/UC...`）。調査メモに書いてあるものだけ |
 
-- `normalize.js` で、URL から `@ハンドル` か `UC...` を取り出す（取り出せなければ null）。`run.js` で、推しの `officialYoutube` が空のときだけ書く（`officialX` と同じ）。
+- P-2 で足したが、P-2b で**結果を使わなくした**（2.3。10.1）。スキーマと1段目の「書き出す項目」には残っている（取得のダイアログの「Google で検索」に YouTube の語が出るのはこのため。害は無い）。
+- `normalize.js` の `cleanYoutubeAccount`（URL から `@ハンドル` か `UC...` を取り出す）は、2.3 の A で使う。
 
 ## 4. 決定事項：Cloud Functions
 
@@ -114,10 +128,13 @@
 
 | ファイル | 中身 |
 |---|---|
-| `functions/oshi_news/youtube.js` | YouTube Data API の呼び出し：`resolveChannel(officialYoutube, apiKey)`・`latestVideos(channelId, apiKey)` |
+| `functions/oshi_news/youtube.js` | YouTube Data API の呼び出し：`resolveChannel(officialYoutube, apiKey)`・`latestVideos(channelId, apiKey)`・`searchChannelCandidates(query, apiKey)`（2.3 の B） |
 | `functions/oshi_news/news.js` | お知らせの書き込み：`writeVideoNews(db, oshi, videos)`・`writeLiveNews(db, oshi, lives)` |
 | `functions/oshi_news/run.js` | `refreshOshiNews(db, kind, id, apiKey)`：チャンネルを決める → 新着を取る → 書き込む → `youtube` を更新 |
-| `functions/live_fetch/gemini.js`・`normalize.js`・`run.js` | 3.3（`officialYoutube`）と 4.4（新しいライブのお知らせ） |
+| `functions/oshi_news/search.js` | `searchOfficialYoutube(db, kind, id, apiKey)`：2.3 の B（検索・照合・`officialYoutube` と `youtubeSearch` を書く） |
+| `functions/live_fetch/youtube_link.js` | `findYoutubeOnSite(officialUrl)`：2.3 の A |
+| `functions/live_fetch/crawl.js`・`normalize.js` | `fetchHtml`・`extractLinks`・`cleanYoutubeAccount` を外から使えるようにした |
+| `functions/live_fetch/gemini.js`・`run.js` | 3.3、2.3 の A の呼び出し、4.4（新しいライブのお知らせ） |
 | `functions/index.js` | 下の関数を足す |
 
 ### 4.1 YouTube Data API の呼び出し（`youtube.js`）
@@ -137,12 +154,14 @@
 
 | 関数 | 種類 | 中身 |
 |---|---|---|
-| `scheduledOshiNews` | `onSchedule({schedule: '20 */3 * * *', timeZone: 'Asia/Tokyo', timeoutSeconds: 300, secrets: [YOUTUBE_API_KEY]})` | 承認済みで `officialYoutube` があり、フォローしている人が1人以上いる推し（add_L 4.3 の `dailyLiveFetch` と同じ探し方）に、1件ずつ `refreshOshiNews`。1回で最大50件。1件の失敗で止めない |
+| `scheduledOshiNews` | `onSchedule({schedule: '20 */3 * * *', timeZone: 'Asia/Tokyo', timeoutSeconds: 300, secrets: [YOUTUBE_API_KEY]})` | 承認済みで `demo-` で始まらず、フォローしている人が1人以上いる推し（add_L 4.3 の `dailyLiveFetch` と同じ探し方）のうち、`officialYoutube` があるものは前回調べたのが古い順に最大50件 `refreshOshiNews`、無いものは最大5件 `searchOfficialYoutube`（2.3 の B）。1件の失敗で止めない |
 | `onGroupYoutubeChanged`・`onOshiYoutubeChanged` | `onDocumentUpdated('groups/{id}')`・`('oshis/{id}')`、`retry: false`、`secrets: [YOUTUBE_API_KEY]` | 更新後が承認済みで、`officialYoutube` が更新の前後で変わったときだけ `refreshOshiNews`（Gemini が埋めた直後・コンソールで入れた直後に、すぐ動画が出るようにする）。`youtube` の書き込みでは `officialYoutube` が変わらないので、繰り返し動かない |
 
 - シークレット：`const YOUTUBE_API_KEY = defineSecret("YOUTUBE_API_KEY");`（`WEATHER_API_KEY` と同じ形）。
 
-### 4.4 新しいライブのお知らせ（add_L の `run.js`）
+### 4.4 新しいライブのお知らせ・公式 YouTube（add_L の `run.js`）
+
+- `officialYoutube` が空なら、`finish(ref, "ok", update)` の前に `findYoutubeOnSite(officialUrl)`（2.3 の A）を呼び、見つかれば `update.officialYoutube` に入れる。失敗しても取得は成功として扱う。
 
 - `upsertLives` の結果の `lives` のうち `isNew: true` のものを、`writeLiveNews` で `type: 'live'` のお知らせにする（`publishedAt` は今）。取得のモード（`manual`・`approved`・`daily`）は問わない。
 - お知らせの書き込みに失敗しても、ライブの取得は成功として扱う（ログだけ出す）。
@@ -171,7 +190,8 @@
   7. **メンバー**（グループのとき）：今ある `GroupMembersPanel`（`lib/features/oshi/group_members_panel.dart`）を使う。
 - PC の幅（本文 900 以上）では、1〜3 と 6〜7 を左、4〜5 を右の2列にする（Fe 3.4 と同じ基準）。
 - **入口**：
-  - 推しの行の ⋮（`lib/features/oshi/oshi_menu.dart`）の先頭に「推しのページ」（`Icons.account_circle_outlined`）。⋮ のある所（フォロー中・検索・メンバー）すべてで出る。
+  - **推しの名前**（P-4a。10.3）：`OshiListTile`（`lib/features/oshi/oshi_list_tile.dart`）の名前に下線と「›」を付け、押すと推しのページ。フォロー中・検索・メンバーのどの一覧でも効く。個人の行は行のどこを押しても開く。グループの行は、行を押したときの動き（メンバーの開閉）を今のまま残す。申請中の推しは開かない。
+  - 推しの行の ⋮（`lib/features/oshi/oshi_menu.dart`）の先頭に「推しのページ」（`Icons.account_circle_outlined`）。推しのページの中の ⋮ では出さない（`showPageLink: false`）。
   - 最推しの箱（`lib/features/oshi/favorite_oshi_card.dart`）を押すと推しのページ（今のグループのメンバーのシートの代わり。メンバーはページの中で見られる）。チップ「メンバーを見る ›」は「推しのページ ›」にする。
   - ホームのお知らせの推しの名前。
 
@@ -191,30 +211,33 @@
 
 ### 5.5 埋め込みの共通部品
 
-- `lib/features/common/web_iframe.dart` の `WebIframe({required String src, double aspectRatio = 16 / 9})`：`HtmlElementView.fromTagName(tagName: 'iframe', onElementCreated: ...)` で `src`・`allow`（`autoplay; encrypted-media; picture-in-picture`）・`allowFullscreen`・枠なしを設定し、`AspectRatio` で包む。add_M の地図でも使う。
+- `lib/features/common/web_iframe.dart` の `WebIframe({required String src, double aspectRatio = 16 / 9, String title = ''})`。`file_download.dart` と同じく、Web 版（`web_iframe_web.dart`）とそれ以外（`web_iframe_stub.dart`。灰色の箱。`flutter test` が VM で動くため）に分ける。Web 版は`HtmlElementView.fromTagName(tagName: 'iframe', onElementCreated: ...)` で `src`・`allow`（`autoplay; encrypted-media; picture-in-picture`）・`allowFullscreen`・枠なしを設定し、`AspectRatio` で包む。add_M の地図でも使う。
 - YouTube の埋め込みの URL は `https://www.youtube-nocookie.com/embed/{videoId}`。
 - サムネイルは `Image.network(url, webHtmlElementStrategy: WebHtmlElementStrategy.prefer)`（外部の画像の CORS を避ける）。読めないときは灰色の箱。
 
 ## 6. 人が行う設定
 
-1. Google Cloud コンソールで **YouTube Data API v3** を有効にする。
-2. 「認証情報」で API キーを作り、**API の制限で YouTube Data API v3 だけ**に絞る（サーバーから使うので、アプリケーションの制限は付けない）。
-3. `firebase functions:secrets:set YOUTUBE_API_KEY`（キーは聞かれたところで貼り付ける）。
-4. `firebase deploy --only functions,firestore:rules,firestore:indexes`。
-5. CUTIE STREET で確かめる：⋮ の「公式サイトからライブを探す」で `officialYoutube` が埋まるのを待つか、コンソールで `groups/{CUTIE STREET の ID}` に `officialYoutube`（`@...`）を直接入れる。
-6. `markdown/deploy_手順.md` に 1〜4 を追記する。
+1. Google Cloud コンソールで **YouTube Data API v3** を有効にする（11/9 済み）。
+2. 「認証情報」で API キー（`YouTubeAPI_key`）を作り、**API の制限で YouTube Data API v3 だけ**に絞る（サーバーから使うので、アプリケーションの制限は付けない。11/9 済み）。
+3. `firebase functions:secrets:set YOUTUBE_API_KEY`（キーは聞かれたところで貼り付ける。11/9 済み。1回目は別の値が入っていて入れ直した。10.2）。
+4. `firebase deploy --only functions,firestore:rules,firestore:indexes`（11/9 済み）。**ルールは `oshiNews` の無いブランチからデプロイすると消える**（10.2）。`dev` にマージするまでは features/P からデプロイする。
+5. CUTIE STREET で確かめる：⋮ の「公式サイトからライブを探す」で `officialYoutube` が埋まるのを待つか、コンソールで `groups/{CUTIE STREET の ID}` に `officialYoutube`（`@...`）を直接入れる（11/9 済み。2.3 の A で `@CUTIE_STREET` が入った）。
+6. `markdown/deploy_手順.md` に 1〜4 を追記する（P-7）。
 
 ## 7. 開発ステップ
 
 | Step | 内容 | 状況 |
 |---|---|---|
-| P-1 | Functions：`oshi_news/`（4.1・4.2）、`index.js` の3つの関数（4.3）、ルールとインデックス（3.2）。人が 6章の 1〜4 を行う | 未 |
-| P-2 | Functions：add_L に `officialYoutube`（3.3）と新しいライブのお知らせ（4.4） | 未 |
-| P-3 | アプリのデータ：`OshiSummary` の項目（3.1）、`OshiNews`・リポジトリ・プロバイダ（5.1）、`WebIframe`（5.5） | 未 |
-| P-4 | 推しのページと入口（5.2） | 未 |
-| P-5 | ホームのお知らせ（5.3） | 未 |
-| P-6 | セトリの曲から YouTube（5.4） | 未 |
-| P-7 | 確認（8章）と `deploy_手順.md` への追記 | 未 |
+| P-1 | Functions：`oshi_news/`（4.1・4.2）、`index.js` の3つの関数（4.3）、ルールとインデックス（3.2）。人が 6章の 1〜4 を行う | 完了 |
+| P-2 | Functions：add_L に `officialYoutube`（3.3）と新しいライブのお知らせ（4.4） | 完了 |
+| P-2a | 公式 YouTube が公式サイトに無いときは、Gemini に Google 検索で探させる | 完了（P-2b で取り下げ。決まりの1行を戻した。10.1） |
+| P-2b | 公式 YouTube を公式サイトのリンクから拾い（A）、無ければ YouTube の検索で照合して探す（B）（2.3） | 完了 |
+| P-3 | アプリのデータ：`OshiSummary` の項目（3.1）、`OshiNews`・リポジトリ・プロバイダ（5.1）、`WebIframe`（5.5） | 完了 |
+| P-4 | 推しのページと入口（5.2） | 完了 |
+| P-4a | 推しの名前（個人は行も）を押すと推しのページ（5.2。10.3） | 完了 |
+| P-5 | ホームのお知らせ（5.3） | 完了 |
+| P-6 | セトリの曲から YouTube（5.4） | 完了 |
+| P-7 | 確認（8章）と `deploy_手順.md` への追記 | 確認は一部（11章）。追記は 11/9 |
 
 ## 8. 確認すること
 
@@ -224,12 +247,41 @@
 4. 「公式サイトからライブを探す」で新しいライブが登録されると、お知らせに「ライブ情報」が出て、押すとライブ詳細が開く。
 5. メモリーのセトリで、曲のアイコンを押すと「推しの名前 曲名」の YouTube の検索結果が開く。
 6. `scheduledOshiNews` をコンソールから手動で動かすと、エラー無く終わり、同じ動画が二重に入らない。
+7. 推しの一覧（フォロー中・検索・メンバー）で、名前を押すと推しのページが開く（P-4a）。
 
 ## 9. 未決定事項
 
 - お知らせのプッシュ通知（add_S の通知に、最推しの新着を足すか）。
 - 推しのページの共通のプロフィール（メンバーカラー・誕生日を、個人の設定ではなく共通データとして Gemini で埋めるか）。今は個人の設定を出す。
-- 推しの申請フォームに公式 YouTube の欄を足すか（今はコンソールか Gemini だけ）。
+- 推しの申請フォームに公式 YouTube の欄を足すか（今はコンソール・公式サイトのリンク・YouTube の検索だけ）。
 - 公式サイトのお知らせ（ニュース）の新着。今は新しいライブだけ。
 - 共有されたメモリー（`shared-memories`）のセトリにも YouTube を出すか。
 - お知らせを古いものから消すか（今は残す。件数は推しごとに多くない）。
+- Gemini のスキーマと「書き出す項目」に残っている `officialYoutube`（3.3）を消すか。今は害が無いので残す。
+- 2.3 の A は、公式サイトに最初に出てくる YouTube のリンクを採る。事務所・レーベルのチャンネルが先に出るサイトでは、それを拾うおそれがある。
+- 古い形の URL（`youtube.com/c/…`・`/user/…`）は拾わない。
+
+## 10. P-2a〜P-4a で決めたこと（11/9）
+
+### 10.1 公式 YouTube の決め方（P-2a → P-2b）
+
+- P-2 の後、CUTIE STREET で取得しても `officialYoutube` が入らなかった。Gemini は X・YouTube の語で Google 検索をしていたが、プロンプトで「公式サイトにリンクがあるものだけ」と絞っていた。
+- P-2a で「無ければ Google 検索で探す」と緩めたが、検索で見つけたチャンネルが本物か確かめる方法が無い（YouTube Data API では公式マーク＝認証バッジが取れない、検索は関連度順で切り抜き・ファン・同名のチャンネルが混ざる）。
+- 本当の原因は、公式サイトをたどる `crawl.js` が、パスに `profile` を含むページを開かない設定だったこと。CUTIE STREET の YouTube のリンクはプロフィールにあり、Gemini に見えていなかった。
+- そこで P-2b で、Gemini の結果を使わず、**公式サイトのリンクから直接拾う（A）→ 無ければ YouTube の検索で公式サイト・公式 X と照合する（B）** にした（2.3）。P-2a の決まりの1行は戻した。
+
+### 10.2 確認のときに起きたこと
+
+- **API キーの取り違え**：1回目の `YOUTUBE_API_KEY` が別の値で、`channels.list` が `400 API key not valid` で失敗した（`youtube.status: 'error'`）。`YouTubeAPI_key` のキーで入れ直し、`secrets:set` の途中の「古い版を使う関数をデプロイし直す」で反映した。
+- **ルールの上書き**：本番のルールが 11/9 15:38 に `oshiNews` の無い版で公開され、アプリの読み取りが `permission-denied` になった（画面では動画の区画が出ないだけでエラーは出ない）。features/P から `firebase deploy --only firestore:rules` でデプロイし直して直った。`dev` にマージするまで、ほかのブランチからルールをデプロイしない。
+
+### 10.3 推しのページの入口（P-4a）
+
+- ⋮ の中にしか入口が無く、見つけにくかった（最推しの箱からしか開けなかった）。名前に下線と「›」を付けて押せるようにした（5.2）。
+
+## 11. 確認したこと（11/9、Mac の Chrome・`localhost:8080`・アカウント「けん」）
+
+- 6章の 1〜2 は Claude in Chrome で行った（API の有効化、`YouTubeAPI_key` の作成と制限）。3 は人が行った。
+- CUTIE STREET（`groups/QW4JiCQIrCjR39ZgryMZ`）：手動の取得で、2.3 の A により `officialYoutube: "@CUTIE_STREET"` が入った。キーを入れ直した後、Cloud Scheduler で `scheduledOshiNews` を強制実行すると、`oshiNews` に動画が10件入った（ID は `group_QW4JiCQIrCjR39ZgryMZ_yt_<動画の ID>`）。
+- 推しのページ（最推しの箱から）：公式（サイト・X・YouTube）、最新の動画（右の列に埋め込みのプレーヤー＋動画の行）、今後のライブ（6件）、メンバー（8人・まとめてフォロー）が出た（8章の 1・2・6）。
+- 未確認：ホームのお知らせ（P-5）・名前のリンク（P-4a）・セトリの YouTube（P-6）は、`flutter run` の再起動の後に人が確かめる。8章の 4（新しいライブのお知らせ）は、新しいライブが見つかったときに確かめる。
