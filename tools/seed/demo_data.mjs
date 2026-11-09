@@ -56,97 +56,97 @@ export const perfId = (liveKey, n) => `demo-perf-${liveKey}-${n}`;
 export const recId = (liveKey, recKey) => `demo-rec-${liveKey}-${recKey}`;
 
 // ---------------------------------------------------------------
-// 推し（グループ7・個人22。ジャンルの半分をアイドルにする）
+// 推し（グループ7・個人22。Google にまつわるものがモチーフ。ジャンルの半分をアイドルにする）
 // ---------------------------------------------------------------
 
 /** メンバーは [ID のキー, 名前, 別名] */
 export const GROUPS = [
   {
-    key: 'stellanote',
-    name: 'ステラノート',
+    key: 'workspace',
+    name: 'Work☆Space',
     genre: 'idol',
-    aliases: ['ステラ', 'STELLA NOTE'],
+    aliases: ['ワクスペ', 'Work Space'],
     members: [
-      ['luna', '星宮ルナ', 'ルナ'],
-      ['sora', '月城ソラ', 'ソラ'],
-      ['hikari', '陽野ヒカリ', 'ヒカリ'],
-      ['mio', '雪村ミオ', 'ミオ'],
+      ['gmail', 'メルル', 'Gmail'],
+      ['calendar', 'カレン', 'Calendar'],
+      ['drive', 'ミドリ', 'Drive'],
+      ['docs', 'フミ', 'Docs'],
     ],
   },
   {
-    key: 'luminous',
-    name: 'ルミナス☆ガーデン',
+    key: 'maps',
+    name: 'マップ☆ガイド',
     genre: 'idol',
-    aliases: ['ルミガ'],
+    aliases: ['マプガイ', 'Maps'],
     members: [
-      ['momo', '花咲モモ', 'モモ'],
-      ['rin', '桜井リン', 'リン'],
-      ['tsubasa', '葉山ツバサ', 'ツバサ'],
+      ['pin', 'ピン', 'Pin'],
+      ['route', 'ルート', 'Route'],
+      ['navi', 'ナビ', 'Navi'],
     ],
   },
   {
-    key: 'blueorbit',
-    name: 'BLUE ORBIT',
+    key: 'pixel',
+    name: 'TEAM PIXEL',
     genre: 'idol',
-    aliases: ['ブルオビ'],
+    aliases: ['チーピク'],
     members: [
-      ['haruto', '蒼井ハルト', 'ハルト'],
-      ['ren', '黒瀬レン', 'レン'],
-      ['yu', '白石ユウ', 'ユウ'],
+      ['tensor', 'テンソル', 'Tensor'],
+      ['camera', 'カメラ', 'Camera'],
+      ['eraser', 'イレイサー', 'Magic Eraser'],
     ],
   },
   {
-    key: 'prismvoice',
-    name: 'Prism Voice',
+    key: 'okvoices',
+    name: 'OK! Voices',
     genre: 'voice_actor',
-    aliases: ['プリボ'],
+    aliases: ['オケボ'],
     members: [
-      ['yui', '天羽ユイ', 'ユイ'],
-      ['shizuku', '宵宮シズク', 'シズク'],
-      ['nana', '春野ナナ', 'ナナ'],
+      ['assistant', 'アシスタ', 'Assistant'],
+      ['nest', 'ネスト', 'Nest'],
+      ['home', 'ホーム', 'Home'],
     ],
   },
   {
-    key: 'midnight',
-    name: 'ミッドナイト・トレイン',
+    key: 'playlists',
+    name: 'The Playlists',
     genre: 'artist',
-    aliases: ['ミドトレ'],
+    aliases: ['プレリス'],
     members: [
-      ['kai', '鳴海カイ', 'カイ'],
-      ['jin', '霧島ジン', 'ジン'],
-      ['yuki', '早瀬ユウキ', 'ユウキ'],
-      ['takumi', '真壁タクミ', 'タクミ'],
+      ['play', 'プレイ', 'Play'],
+      ['shorts', 'ショーツ', 'Shorts'],
+      ['music', 'ミュージック', 'Music'],
+      ['premium', 'プレミアム', 'Premium'],
     ],
   },
   {
-    key: 'neonlink',
-    name: 'ネオンリンク',
+    key: 'kotoba',
+    name: 'ことばレンズ',
     genre: 'vtuber',
-    aliases: ['ネオリン'],
+    aliases: ['ことレン'],
     members: [
-      ['milk', '猫宮ミルク', 'ミルク'],
-      ['ao', '竜胆アオ', 'アオ'],
+      ['lens', 'レンズ', 'Lens'],
+      ['translate', 'ホンヤク', 'Translate'],
     ],
   },
   {
     // 申請中のグループ（「申請中」の表示の確認用）。メンバーも申請中
-    key: 'cosmodrop',
-    name: 'コスモドロップ',
+    key: 'earthdrop',
+    name: 'アース☆ドロップ',
     genre: 'idol',
-    aliases: ['コスモ'],
+    aliases: ['アスドロ'],
     pending: true,
     members: [
-      ['kirara', '流星キララ', 'キララ'],
-      ['riri', '宙野リリ', 'リリ'],
+      ['earth', 'アース', 'Earth'],
+      ['moon', 'ムーン', 'Moon'],
     ],
   },
 ];
 
 /** ソロは [ID のキー, 名前, 別名, ジャンル] */
 export const SOLOS = [
-  ['reina', '白鳥レイナ', 'レイナ', 'idol'],
-  ['minato', '柊ミナト', 'ミナト', 'voice_actor'],
-  ['kanata', '空野カナタ', 'カナタ', 'artist'],
+  ['keep', 'キープちゃん', 'Keep', 'idol'],
+  ['photos', 'フォトさん', 'Photos', 'voice_actor'],
+  ['meet', 'ミート', 'Meet', 'artist'],
 ];
 
 function buildOshiDocs(created) {
@@ -196,9 +196,9 @@ function buildOshiDocs(created) {
 
 export const LIVES = [
   {
-    key: 'stella-tour',
-    title: 'ステラノート 全国ツアー 2026「ひかりの旋律」',
-    groups: ['stellanote'],
+    key: 'workspace-tour',
+    title: 'Work☆Space 全国ツアー 2026「Shared with You」',
+    groups: ['workspace'],
     oshis: [],
     perfs: [
       [40, 18, 0, '東京ドリームホール', '東京都'],
@@ -250,10 +250,10 @@ export const LIVES = [
     ],
   },
   {
-    key: 'hoshizora-fest',
-    title: 'ほしぞらフェス 2026',
-    groups: ['stellanote', 'luminous', 'midnight'],
-    oshis: ['kanata'],
+    key: 'cloud-fest',
+    title: 'クラウドフェス 2026',
+    groups: ['workspace', 'maps', 'playlists'],
+    oshis: ['meet'],
     perfs: [
       [30, 12, 0, '静岡ほしぞら公園 特設ステージ', '静岡県'],
       [31, 12, 0, '静岡ほしぞら公園 特設ステージ', '静岡県'],
@@ -280,9 +280,9 @@ export const LIVES = [
     ],
   },
   {
-    key: 'stella-1st',
-    title: 'ステラノート 1st ライブ「はじまりの夜」',
-    groups: ['stellanote'],
+    key: 'workspace-1st',
+    title: 'Work☆Space 1st ライブ「はじまりの受信箱」',
+    groups: ['workspace'],
     oshis: [],
     perfs: [[-20, 18, 0, '横浜ハーバーホール', '神奈川県']],
     recs: [
@@ -299,9 +299,9 @@ export const LIVES = [
     ],
   },
   {
-    key: 'luminous-oneman',
-    title: 'ルミナス☆ガーデン 秋のワンマン「花ひらく」',
-    groups: ['luminous'],
+    key: 'maps-oneman',
+    title: 'マップ☆ガイド 秋のワンマン「目的地はここ」',
+    groups: ['maps'],
     oshis: [],
     perfs: [[12, 18, 30, '渋谷フラワーホール', '東京都']],
     recs: [
@@ -328,9 +328,9 @@ export const LIVES = [
     ],
   },
   {
-    key: 'luminous-release',
-    title: 'ルミナス☆ガーデン 新曲リリースイベント',
-    groups: ['luminous'],
+    key: 'maps-release',
+    title: 'マップ☆ガイド 新曲リリースイベント',
+    groups: ['maps'],
     oshis: [],
     perfs: [
       [3, 13, 0, '池袋スカイステージ', '東京都'],
@@ -349,9 +349,9 @@ export const LIVES = [
     ],
   },
   {
-    key: 'blueorbit-tour',
-    title: 'BLUE ORBIT ARENA TOUR「ORBIT LINE」',
-    groups: ['blueorbit'],
+    key: 'pixel-tour',
+    title: 'TEAM PIXEL ARENA TOUR「SNAPSHOT」',
+    groups: ['pixel'],
     oshis: [],
     perfs: [
       [50, 18, 0, 'さいたまブルーアリーナ', '埼玉県'],
@@ -380,9 +380,9 @@ export const LIVES = [
     ],
   },
   {
-    key: 'blueorbit-5th',
-    title: 'BLUE ORBIT 5th Anniversary Live',
-    groups: ['blueorbit'],
+    key: 'pixel-5th',
+    title: 'TEAM PIXEL 5th Anniversary Live',
+    groups: ['pixel'],
     oshis: [],
     perfs: [[-45, 17, 0, '札幌ノースホール', '北海道']],
     recs: [
@@ -399,9 +399,9 @@ export const LIVES = [
     ],
   },
   {
-    key: 'prism-1st',
-    title: 'Prism Voice 1st LIVE「Colorful Harmony」',
-    groups: ['prismvoice'],
+    key: 'okvoices-1st',
+    title: 'OK! Voices 1st LIVE「Hey, Harmony」',
+    groups: ['okvoices'],
     oshis: [],
     perfs: [
       [25, 17, 0, '千葉ベイサイドホール', '千葉県'],
@@ -430,10 +430,10 @@ export const LIVES = [
     ],
   },
   {
-    key: 'minato-fanmeeting',
-    title: '柊ミナト ファンミーティング 2026',
+    key: 'photos-fanmeeting',
+    title: 'フォトさん ファンミーティング 2026「思い出」',
     groups: [],
-    oshis: ['minato'],
+    oshis: ['photos'],
     perfs: [
       [18, 14, 0, '名古屋サンライズホール', '愛知県'],
       [18, 18, 0, '名古屋サンライズホール', '愛知県'],
@@ -451,9 +451,9 @@ export const LIVES = [
     ],
   },
   {
-    key: 'midnight-tour',
-    title: 'ミッドナイト・トレイン LIVE HOUSE TOUR「終電のあとで」',
-    groups: ['midnight'],
+    key: 'playlists-tour',
+    title: 'The Playlists LIVE HOUSE TOUR「おすすめの次に」',
+    groups: ['playlists'],
     oshis: [],
     perfs: [
       [9, 19, 0, '仙台ラインハウス', '宮城県'],
@@ -473,9 +473,9 @@ export const LIVES = [
     ],
   },
   {
-    key: 'midnight-dawn',
-    title: 'ミッドナイト・トレイン ワンマン「夜明け前」',
-    groups: ['midnight'],
+    key: 'playlists-dawn',
+    title: 'The Playlists ワンマン「自動再生」',
+    groups: ['playlists'],
     oshis: [],
     perfs: [[-8, 19, 0, '東京ネオンホール', '東京都']],
     recs: [
@@ -490,9 +490,9 @@ export const LIVES = [
     ],
   },
   {
-    key: 'neon-3d',
-    title: 'ネオンリンク 3Dライブ「Link Start!」',
-    groups: ['neonlink'],
+    key: 'kotoba-3d',
+    title: 'ことばレンズ 3Dライブ「Look & Talk」',
+    groups: ['kotoba'],
     oshis: [],
     perfs: [[35, 20, 0, 'オンライン配信', null]],
     recs: [
@@ -507,10 +507,10 @@ export const LIVES = [
     ],
   },
   {
-    key: 'reina-swan',
-    title: '白鳥レイナ コンサート 2026「Swan Song」',
+    key: 'keep-swan',
+    title: 'キープちゃん コンサート 2026「メモのうた」',
     groups: [],
-    oshis: ['reina'],
+    oshis: ['keep'],
     perfs: [[20, 18, 0, '京都ノーブルホール', '京都府']],
     recs: [
       {
@@ -534,10 +534,10 @@ export const LIVES = [
     ],
   },
   {
-    key: 'kanata-acoustic',
-    title: '空野カナタ アコースティックライブ「ことのは」',
+    key: 'meet-acoustic',
+    title: 'ミート アコースティックライブ「ミュートを外して」',
     groups: [],
-    oshis: ['kanata'],
+    oshis: ['meet'],
     perfs: [
       [-3, 19, 0, '金沢ことのはホール', '石川県'],
       [14, 19, 0, '高松しおかぜホール', '香川県'],
@@ -556,8 +556,8 @@ export const LIVES = [
   {
     key: 'voice-parade',
     title: 'VOICE PARADE 2026',
-    groups: ['prismvoice'],
-    oshis: ['minato'],
+    groups: ['okvoices'],
+    oshis: ['photos'],
     perfs: [[44, 15, 0, '横浜ベイアリーナ', '神奈川県']],
     recs: [
       {
@@ -644,7 +644,7 @@ function addChangeHistory(docs, b) {
   const changes = [
     {
       // 入金期限の延長
-      path: `receptions/${recId('stella-tour', 'fc')}`,
+      path: `receptions/${recId('workspace-tour', 'fc')}`,
       field: 'paymentDeadline',
       before: at(b, 6, 23, 59),
       after: at(b, 7, 23, 59),
@@ -652,7 +652,7 @@ function addChangeHistory(docs, b) {
     },
     {
       // 会場名の修正
-      path: `performances/${perfId('hoshizora-fest', 2)}`,
+      path: `performances/${perfId('cloud-fest', 2)}`,
       field: 'venue',
       before: '静岡ほしぞら公園',
       after: '静岡ほしぞら公園 特設ステージ',
@@ -660,7 +660,7 @@ function addChangeHistory(docs, b) {
     },
     {
       // 一般発売の前倒し
-      path: `receptions/${recId('luminous-oneman', 'general')}`,
+      path: `receptions/${recId('maps-oneman', 'general')}`,
       field: 'applyStartAt',
       before: at(b, 2, 10),
       after: at(b, 1, 10),
@@ -686,7 +686,7 @@ function addChangeHistory(docs, b) {
   });
 
   // 名古屋公演は後から追加した（createdAt がライブより後なので「追加」の印が出る）
-  const added = byPath.get(`performances/${perfId('stella-tour', 5)}`);
+  const added = byPath.get(`performances/${perfId('workspace-tour', 5)}`);
   added.data.createdBy = DEMO_EDITOR;
   added.data.createdAt = at(b, -2, 10);
   added.data.updatedBy = DEMO_EDITOR;
