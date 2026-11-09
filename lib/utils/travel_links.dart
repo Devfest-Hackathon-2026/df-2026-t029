@@ -12,6 +12,9 @@ String _placeOf(Performance p) => [
   if (p.prefecture case final pref? when pref.isNotEmpty) pref,
 ].join(' ');
 
+/// Google マップで探すときの場所（会場名と都道府県）。add_M の地図でも使う
+String placeOf(Performance p) => _placeOf(p);
+
 /// 会場までの行き方（Google マップの経路。電車などの公共交通機関。
 /// add_E 4章）。オンラインなら null
 Uri? directionsUri(Performance p) => isOnlineVenue(p)
