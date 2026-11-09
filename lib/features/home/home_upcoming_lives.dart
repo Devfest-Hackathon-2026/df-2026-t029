@@ -25,7 +25,7 @@ class HomeUpcomingLives extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         HomeSectionHeader(
-          title: '今後のライブ',
+          title: '今後参戦するライブ',
           onSeeAll: () => context.go('/lives'),
         ),
         switch (lives) {

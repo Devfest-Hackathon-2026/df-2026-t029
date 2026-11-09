@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../models/oshi_news.dart';
 
@@ -36,5 +37,25 @@ class FirestoreOshiNewsRepository implements OshiNewsRepository {
               ?OshiNews.fromFirestore(doc.id, doc.data()),
           ],
         );
+  }
+}
+
+/// 個人の動画の YouTube 検索（fix_Ff 6.3）
+abstract class OshiVideoSearchRepository {
+  Future<PersonVideos> search(String personId);
+}
+
+/// Cloud Functions（searchOshiVideos）版の [OshiVideoSearchRepository]
+class FunctionsOshiVideoSearchRepository implements OshiVideoSearchRepository {
+  FunctionsOshiVideoSearchRepository(this._functions);
+
+  final FirebaseFunctions _functions;
+
+  @override
+  Future<PersonVideos> search(String personId) async {
+    final result = await _functions
+        .httpsCallable('searchOshiVideos')
+        .call<Map<Object?, Object?>>({'id': personId});
+    return PersonVideos.fromMap(result.data);
   }
 }

@@ -20,6 +20,7 @@ const {defineSecret} = require("firebase-functions/params");
 const {findPrefecture} = require("./prefectures");
 const {refreshOshiNews} = require("./oshi_news/run");
 const {searchOfficialYoutube} = require("./oshi_news/search");
+const {searchPersonVideos} = require("./oshi_news/video_search");
 
 const WEATHER_API_KEY = defineSecret("WEATHER_API_KEY");
 const YOUTUBE_API_KEY = defineSecret("YOUTUBE_API_KEY");
@@ -780,4 +781,28 @@ exports.onGroupYoutubeChanged = onDocumentUpdated(
 exports.onOshiYoutubeChanged = onDocumentUpdated(
     {document: "oshis/{id}", retry: false, secrets: [YOUTUBE_API_KEY]},
     (event) => refreshOnYoutubeChanged(event, "person"),
+);
+
+/**
+ * 個人の動画を YouTube の検索で探す（Callable。fix_Ff 6.2）。
+ * 入力：{id}（個人の ID）
+ * 出力：{status, query, videos: [{videoId, title, channelTitle, publishedAt}]}
+ */
+exports.searchOshiVideos = onCall(
+    {secrets: [YOUTUBE_API_KEY]},
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "ログインしてください");
+      }
+      const {id} = request.data ?? {};
+      if (typeof id !== "string" || !id || id.includes("/")) {
+        throw new HttpsError("invalid-argument", "推しの指定が正しくありません");
+      }
+      try {
+        return await searchPersonVideos(getFirestore(), id, YOUTUBE_API_KEY.value());
+      } catch (e) {
+        logger.error(`動画の検索に失敗しました person:${id}`, e);
+        throw new HttpsError("internal", "動画を探せませんでした");
+      }
+    },
 );

@@ -50,35 +50,16 @@ class _FollowAllMembersButtonState
     extends ConsumerState<FollowAllMembersButton> {
   bool _running = false;
 
-  /// 1人ずつ順にフォローする。上限（種別ごとに200）を超える分はフォローしない
-  Future<void> _followAll(
-    List<OshiSummary> targets,
-    FollowState following,
-  ) async {
+  /// 1回の書き込みでまとめてフォローする（Ff 2.2）。
+  /// フォロー状態の購読が1回で変わるので、メンバーの行も一度に切り替わる
+  Future<void> _followAll(List<OshiSummary> targets) async {
     if (_running) return;
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _running = true);
-    final room = FollowState.maxFollows - following.oshiIds.length;
-    final list = targets.take(room < 0 ? 0 : room).toList();
-    var ok = 0;
-    var failed = 0;
-    for (final t in list) {
-      final error = await runFollowAction(ref, t, follow: true);
-      if (!mounted) return;
-      if (error == null) {
-        ok++;
-      } else {
-        failed++;
-      }
-    }
+    final message = await runFollowManyAction(ref, targets);
+    if (!mounted) return;
     setState(() => _running = false);
-    final skipped = targets.length - list.length;
-    final message = [
-      if (ok > 0) '$ok人をフォローしました',
-      if (failed > 0) '$failed人はフォローできませんでした',
-      if (skipped > 0) 'フォローできるのは${FollowState.maxFollows}件までのため、$skipped人はフォローしていません',
-    ].join('。');
-    if (message.isEmpty) return;
+    if (message == null) return;
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
@@ -111,7 +92,7 @@ class _FollowAllMembersButtonState
       key: key,
       onPressed: _running || !followAsync.hasValue
           ? null
-          : () => _followAll(targets, following),
+          : () => _followAll(targets),
       icon: const Icon(Icons.group_add_outlined, size: 18),
       label: Text(
         _running ? 'フォローしています…' : 'メンバーをまとめてフォロー（${targets.length}人）',
