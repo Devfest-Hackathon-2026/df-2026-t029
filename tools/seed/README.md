@@ -33,3 +33,19 @@ node seed_demo.mjs --project oshiashi-test --delete
 - デモ動画では、シードしたデータであることを字幕などで明示する（偽装にならないように）。
 - 入れたデータはアプリから更新できる形（`firestore.rules` の項目の検査に合う形）にしてある。
 - ルールのテスト: `node --test`（`npm test`）。
+
+## Google の架空の推し（G-Palette ほか。ライブは公式サイトから取得）
+
+`seed_google.mjs` は、架空の公式サイト（`demo_site/`）と組み合わせて使う。入れるのは **推しだけ**（グループ3・メンバー10・ソロ1）。ライブは入れない。
+
+```bash
+# 先に demo_site/ を公開しておく（demo_site/README.md）
+node seed_google.mjs --project oshiashi-test --site-url https://g-palette-demo.web.app
+node seed_google.mjs --project oshiashi-test --delete
+```
+
+- ID は `gdemo-` で始まる。`demo-` にしないのは、`functions/live_fetch` が `demo-` の推しを取得の対象外にしているため。
+- 推しの名前・公式サイトのパスは `demo_site/site_data.mjs` から読む（1か所で決める）。
+- 入れたあと、アプリで推しを開いて「ライブ情報を取得」を押すと、公式サイトからライブ・公演・受付が入る。
+  メンバー（グループに入っている個人）は取得の対象外なので、グループで取得する。
+- `--delete` は、`gdemo-` の推しと、その推しに付いたライブ・公演・受付・お知らせを消す（取得したもの・スクショから追加したものを含む）。フォローの記録と `users/{uid}` 以下は消さない。

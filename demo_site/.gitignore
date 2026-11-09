@@ -1,0 +1,3 @@
+# build.mjs が作る（基準日ごとに作り直す）
+public/
+.firebase/
