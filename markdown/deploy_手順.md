@@ -17,11 +17,14 @@
 flutter pub get
 flutter build web --release \
   --dart-define=APP_CHECK_SITE_KEY=<reCAPTCHA v3 のサイトキー> \
-  --dart-define=FCM_VAPID_KEY=<ウェブプッシュ証明書の鍵（2.7）>
+  --dart-define=FCM_VAPID_KEY=<ウェブプッシュ証明書の鍵（2.7）> \
+  --dart-define=MAPS_EMBED_KEY=<Maps Embed のキー（2.12）>
 ```
 
 - サイトキーを渡さずにビルドすると、App Check は無効のまま動く（アプリ自体は動く）。
 - VAPID キーを渡さずにビルドすると、リマインド通知をオンにできない（「通知の設定がされていません」と出る。アプリ自体は動く）。
+- Maps Embed のキーを渡さずにビルドすると、「地図」のシートに地図が埋め込まれず、「Google マップで開く」のボタンだけになる（アプリ自体は動く）。
+- キーは `--dart-define-from-file=/root/prod_defines.json`（Dev Container の中。リポジトリの外）にまとめてもよい。`flutter run` も同じファイルを付けて起動する。キーを足したら `flutter run` を起動し直す（ホットリスタートでは反映されない）。
 - 出力は `build/web`。`firebase.json` の Hosting の設定がこのフォルダを公開する（すべてのパスを `/index.html` に書き換えるので、`/lives/xxx` を直接開いても表示される）。
 
 ### 1.2 まずプレビューに公開して確かめる
@@ -32,6 +35,7 @@ firebase hosting:channel:deploy preview --expires 7d
 
 - 表示された URL（`https://oshiashi-test--preview-xxxxxxxx.web.app`）を開き、「3. 公開後の確認」を行う。
 - **プレビューの URL では Google ログインがそのままでは失敗する**。2.1 で、表示されたドメインを Authentication の承認済みドメインに一時的に足す（確認後に消してよい）。
+- プレビューの URL は Maps Embed のキーのウェブサイトの制限（2.12）に入っていないので、「地図」の埋め込みはエラーになる。地図も確かめるときは、表示されたドメインを一時的に制限に足す。
 
 ### 1.3 本番に公開
 
@@ -187,6 +191,15 @@ firebase functions:secrets:set YOUTUBE_API_KEY
 - 入れ直したときは、`secrets:set` の途中の「古い版を使う関数をデプロイし直す」で Yes を選ぶ（または `firebase deploy --only functions`）。
 - 使う量の目安：新着の取得は推し1つで1ユニット、公式 YouTube の検索は1回100ユニット（推しごとに7日に1回、3時間ごとに最大5件）。無料枠は1日1万ユニット。
 
+### 2.12 地図（Maps Embed API）
+
+会場の地図と、会場から帰りの駅までの電車の経路を埋め込みで出す（add_M）。
+
+- Google Cloud コンソール → API とサービス → ライブラリ で **Maps Embed API** を有効にする（11/9 済み）。無料で、回数の上限も無い。
+- 認証情報で `MapsEmbed_key` を作り、**API の制限を Maps Embed API だけ**、**ウェブサイトの制限**を `http://localhost:8080/*`・`https://oshiashi-test.web.app/*`・`https://oshiashi-test.firebaseapp.com/*` にする（11/9 済み）。キーは iframe の URL に入るので画面から見えるが、この2つの制限で他のサイト・他の API では使えない。
+- キーはビルドのときに渡す（1.1）。リポジトリには書かない。
+- **Routes API** も有効にしてあり、`RoutesAPI_key`（API の制限は Routes API だけ）もある。日本の電車の経路が返らないことを確かめるのに使っただけで、今のアプリでは使っていない（add_M 2.1）。使わないまま提出するなら、キーを消してもよい。
+
 ## 3. 公開後の確認
 
 プレビュー・本番の両方で、PC の Chrome とスマホのブラウザで確かめる。
@@ -208,6 +221,7 @@ firebase functions:secrets:set YOUTUBE_API_KEY
 15. アイコン: 推しの札を押して、色・絵文字・画像を選べる（画像は自分にだけ見える）。プロフィールでアイコンを選ぶと、ホームのあいさつ・アカウントのボタン・自分の投稿と返信・チャット一覧（相手から見たとき）に出る。
 16. 通知（add_S）: 申込開始が1時間以内の未申込の受付があると、強制実行で「まもなく申込開始」が届く。締切の通知の題名に【推しの名前】が付く。相互マッチする投稿を作ると、相手（通知をオンにしたアカウント）に「新しい相互マッチ」が届き、押すと投稿の詳細が添付付きで開く。
 17. 推しのページ（add_P）: 推しの一覧で名前を押すと推しのページが開く。公式 YouTube がある推し（CUTIE STREET など）では「最新の動画」に埋め込みのプレーヤーと動画の行が出て、再生できる。最推しにすると、ホームのいちばん上に「お知らせ」が出る。メモリーのセトリの曲のアイコンから YouTube の検索が開く。
+18. 地図（add_M）: ライブ詳細の公演の行と遠征の一覧のカードに「地図」が出る。押すと会場の地図が出る。「帰りの経路」で帰りの駅を登録すると、会場からの電車の経路が出て、「Google マップで終電を調べる」で Google マップが開く。
 
 ## 4. デモ用データ（架空）
 
