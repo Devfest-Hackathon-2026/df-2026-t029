@@ -1,5 +1,19 @@
 # デモ用データのスクリプト
 
+## まっさらにして入れ直す（おすすめの順）
+
+```bash
+cd tools/seed
+node reset_shared.mjs --project oshiashi-test          # お試し：消す件数を見るだけ
+node reset_shared.mjs --project oshiashi-test --yes    # 共有データを全部消す（users/・publicProfiles/ は残す）
+node seed_demo.mjs --project oshiashi-test --base <撮影の日 YYYY-MM-DD> --uid <デモ用アカウントの uid> --name けん
+node seed_google.mjs --project oshiashi-test --site-url https://g-palette-demo.web.app
+```
+
+- `reset_shared.mjs` は ID に関係なく、推し・ライブ・公演・受付・グッズ・投稿・チャット・お知らせ・公開メモリーを全部消す（手で入れたデータも消える。元に戻せない）。
+- `seed_demo.mjs`（demo-）はライブまで入れる。グッズ交換・メモリー・締切などの画面の確認用。
+- `seed_google.mjs`（gdemo-）は推しだけ入れる。ライブは架空の公式サイトから取得する（下の「Google の架空の推し」）。
+
 架空の推し・ライブ・公演・受付を Firestore に入れる・消す。すべて架空で、実在の人物・団体・作品とは関係がない。
 
 ## 使い方
@@ -20,7 +34,7 @@ node seed_demo.mjs --project oshiashi-test --delete
 - `--base YYYY-MM-DD`: 基準日（日本時間）。省略すると今日。日時はすべて基準日からの相対（例: FC 先行の申込期限は基準日の2日後 23:59、アプグレの入金期限は基準日の 17:00）。デモの撮影日に合わせて指定する。
 - ドキュメント ID は `demo-` で始まる固定値。何度実行しても上書きされ、重複しない。
 - `--delete` は `demo-` で始まる ID のドキュメントを、サブコレクション（変更履歴）ごと消す。アプリで推しをフォローした記録や、`users/{uid}` 以下（自分のライブ一覧・申込状況）は消さない（本人のデータのため）。
-- 入れるのは、推し（グループ1・メンバー3・ソロ1）、ライブ3、公演5、受付5。グッズ・投稿は入れない。
+- 入れるのは、推し（グループ7・メンバー22・ソロ3。Google にまつわるものがモチーフ）、ライブ15とその公演・受付、グッズ・交換の投稿。`--uid` を付けると個人データ（自分のライブ一覧・申込状況・メモリー・遠征・チャットなど）も入れる。
 
 ## 認証情報（リポジトリに入れない）
 
