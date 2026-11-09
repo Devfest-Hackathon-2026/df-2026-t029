@@ -120,3 +120,85 @@ class FirestoreFollowRepository implements FollowRepository {
     });
   }
 }
+
+
+/// まとめてフォロー（Ff 2.2）。
+/// テストで差し替える [FollowRepository] の実装を増やさないよう、別のクラスにする
+class FollowBatchRepository {
+  FollowBatchRepository(this._db);
+
+  final FirebaseFirestore _db;
+
+  /// [targets] のうち、承認済みでまだフォローしていない推しを、
+  /// 1回のトランザクションでフォローする。
+  /// 申請中・削除済み・上限（種別ごとに [FollowState.maxFollows]）を超える分は足さない。
+  /// `users/{uid}` の作り方・欠けた項目の補い方は [FirestoreFollowRepository.follow] と同じ
+  Future<({int added, int skipped})> followMany(
+    String uid,
+    List<OshiSummary> targets, {
+    String? displayName,
+  }) async {
+    if (targets.isEmpty) return (added: 0, skipped: 0);
+    final userRef = _db.collection('users').doc(uid);
+    final refs = [
+      for (final t in targets) _db.collection(t.kind.collection).doc(t.id),
+    ];
+
+    return _db.runTransaction((tx) async {
+      // トランザクションでは、書き込みの前にすべて読む
+      final snaps = [for (final r in refs) await tx.get(r)];
+      final userSnap = await tx.get(userRef);
+      final userData = userSnap.data() ?? const <String, dynamic>{};
+      final state = FollowState.fromFirestore(userData);
+
+      final adds = <OshiKind, List<String>>{};
+      var skipped = 0;
+      for (var i = 0; i < targets.length; i++) {
+        final t = targets[i];
+        final current = OshiSummary.fromFirestore(
+          t.kind,
+          t.id,
+          snaps[i].data(),
+        );
+        if (current == null || !current.isApproved) {
+          skipped++;
+          continue;
+        }
+        final have = state.idsOf(t.kind);
+        final list = adds.putIfAbsent(t.kind, () => []);
+        if (have.contains(t.id) || list.contains(t.id)) continue;
+        if (have.length + list.length >= FollowState.maxFollows) {
+          skipped++;
+          continue;
+        }
+        list.add(t.id);
+      }
+
+      final added = adds.values.fold<int>(0, (n, l) => n + l.length);
+      if (added == 0) return (added: 0, skipped: skipped);
+
+      final name = displayName?.trim() ?? '';
+      final data = <String, dynamic>{
+        for (final e in adds.entries)
+          if (e.value.isNotEmpty)
+            FollowState.fieldOf(e.key): FieldValue.arrayUnion(e.value),
+        if (userData['displayName'] is! String)
+          'displayName': name.isEmpty
+              ? FirestoreFollowRepository.defaultDisplayName
+              : name,
+        if (userData['createdAt'] is! Timestamp)
+          'createdAt': FieldValue.serverTimestamp(),
+        for (final kind in OshiKind.values)
+          if ((adds[kind]?.isEmpty ?? true) &&
+              userData[FollowState.fieldOf(kind)] is! List)
+            FollowState.fieldOf(kind): <String>[],
+      };
+      if (userSnap.exists) {
+        tx.update(userRef, data);
+      } else {
+        tx.set(userRef, data);
+      }
+      return (added: added, skipped: skipped);
+    });
+  }
+}

@@ -57,6 +57,14 @@
         { "fieldPath": "oshiIds", "arrayConfig": "CONTAINS" },
         { "fieldPath": "updatedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "oshiNews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "oshiKey", "order": "ASCENDING" },
+        { "fieldPath": "publishedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

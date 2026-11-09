@@ -4,8 +4,10 @@ import 'dart:typed_data';
 import 'package:firebase_ai/firebase_ai.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'gemini_backend.dart';
+
 class GeminiService {
-  final _extractModel = FirebaseAI.googleAI().generativeModel(
+  final _extractModel = geminiBackend().generativeModel(
     model: 'gemini-3.5-flash-lite',
     generationConfig: GenerationConfig(
       responseMimeType: 'application/json',

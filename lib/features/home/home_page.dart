@@ -16,6 +16,7 @@ import 'home_upcoming_lives.dart';
 import 'home_new_trades.dart';
 import 'home_expense_summary.dart';
 import 'home_next_trip.dart';
+import 'home_new_oshi_lives.dart';
 import 'home_oshi_days.dart';
 import '../shell/app_shell.dart';
 
@@ -37,22 +38,27 @@ class HomePage extends ConsumerWidget {
       HomeNewTrades(),
       HomeRecentMemories(),
     ];
+
     const right = <Widget>[
       // 当落発表（Fe 3.3）
       _DeadlinesBlock(results: true),
+      // 推しの新しいライブ（Ff 5.4）
+      HomeNewOshiLives(),
       // 次の遠征（add_E 6章）
       HomeNextTrip(),
       // 今月の推し活費（H-3）
       HomeExpenseSummary(),
     ];
-    // 1列のときの順：次の締切 → 当落発表 → 今後のライブ → 次の遠征 → 新しい交換 → 推し活費 → 思い出
+    // 1列のときの順：次の締切 → 当落発表 → 推しの新しいライブ → 今後参戦するライブ →
+    // 次の遠征 → 新しい交換 → 推し活費 → 思い出（Ff 5.4）
     final single = <Widget>[
       left[0],
       right[0],
-      left[1],
       right[1],
-      left[2],
+      left[1],
       right[2],
+      left[2],
+      right[3],
       left[3],
     ];
 

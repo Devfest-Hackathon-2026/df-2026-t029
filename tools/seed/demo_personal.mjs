@@ -49,10 +49,10 @@ function buildKenProfile(b, uid, name) {
     data: {
       displayName: name,
       xAccount: 'ken',
-      followingGroupIds: ['stellanote', 'luminous', 'prismvoice', 'midnight'].map(
+      followingGroupIds: ['workspace', 'maps', 'okvoices', 'playlists'].map(
         groupId,
       ),
-      followingOshiIds: ['luna', 'kanata'].map(oshiId),
+      followingOshiIds: ['gmail', 'meet'].map(oshiId),
       createdAt: at(b, -30, 12),
       // これが無いと、アプリはプロフィール未作成と判断する
       profileUpdatedAt: at(b, -30, 12),
@@ -62,15 +62,15 @@ function buildKenProfile(b, uid, name) {
 
   // 自分のライブ一覧（フォロー中でも、L09・L13・L15 などはあえて入れない）
   const myLives = [
-    'stella-tour',
-    'hoshizora-fest',
-    'stella-1st',
-    'luminous-oneman',
-    'luminous-release',
-    'prism-1st',
-    'midnight-tour',
-    'midnight-dawn',
-    'kanata-acoustic',
+    'workspace-tour',
+    'cloud-fest',
+    'workspace-1st',
+    'maps-oneman',
+    'maps-release',
+    'okvoices-1st',
+    'playlists-tour',
+    'playlists-dawn',
+    'meet-acoustic',
   ];
   myLives.forEach((key, i) => {
     docs.push({
@@ -81,15 +81,15 @@ function buildKenProfile(b, uid, name) {
 
   // 申込状況（ホームの「次の締切」に、急ぎ・近い・通常の3段階が出るように）
   const applications = [
-    ['stella-tour', 'fc', 'won'], // 入金期限 D+7（通常）＋アップグレード（当選者のみ）D+1（近い）
-    ['hoshizora-fest', 'pg', 'won'], // 入金期限 D+2（近い）
-    ['stella-1st', 'general', 'paid'],
-    ['luminous-oneman', 'fc', 'won'], // 入金期限 D+0 21:00（急ぎ）
-    ['prism-1st', 'bd', 'applied'], // 当落発表 D+2（近い）
-    ['midnight-tour', 'general', 'paid'],
-    ['midnight-dawn', 'general', 'paid'],
-    ['kanata-acoustic', 'general', 'paid'],
-    // luminous-release の整理券は未申込のまま（申込期限 D+2 が近い締切に出る）
+    ['workspace-tour', 'fc', 'won'], // 入金期限 D+7（通常）＋アップグレード（当選者のみ）D+1（近い）
+    ['cloud-fest', 'pg', 'won'], // 入金期限 D+2（近い）
+    ['workspace-1st', 'general', 'paid'],
+    ['maps-oneman', 'fc', 'won'], // 入金期限 D+0 21:00（急ぎ）
+    ['okvoices-1st', 'bd', 'applied'], // 当落発表 D+2（近い）
+    ['playlists-tour', 'general', 'paid'],
+    ['playlists-dawn', 'general', 'paid'],
+    ['meet-acoustic', 'general', 'paid'],
+    // maps-release の整理券は未申込のまま（申込期限 D+2 が近い締切に出る）
   ];
   applications.forEach(([live, rec, status], i) => {
     docs.push({
@@ -101,54 +101,54 @@ function buildKenProfile(b, uid, name) {
   // メモリー（参戦済み3件・参戦予定2件）
   const memories = [
     {
-      perf: ['stella-1st', 1],
+      perf: ['workspace-1st', 1],
       seat: '1階 B列 12番',
       setlist: [
-        'はじまりの夜',
-        'ステラ・ノート',
-        '星降るメロディ',
-        'きみと見た流星',
-        'ミッドナイト・テレスコープ',
+        'はじまりの受信箱',
+        'Shared with You',
+        '既読のメロディ',
+        'スター付きのきみ',
+        'ミッドナイト・リマインダー',
         'ひかりの方へ',
-        'またね、ステラ',
-        'ステラ・ノート（アンコール）',
+        'またね、Work☆Space',
+        'Shared with You（アンコール）',
       ],
       impression:
-        '初めてのワンマンライブ。開演の瞬間に会場が星空みたいになって鳥肌が立った。' +
-        'ルナちゃんのソロパートで泣きそうになった。' +
-        'アンコールでもう一度「ステラ・ノート」を歌ってくれたのが最高だった。次のツアーも絶対行く！',
+        '初めてのワンマンライブ。開演の瞬間に会場がペンライトの4色に染まって鳥肌が立った。' +
+        'メルルちゃんのソロパートで泣きそうになった。' +
+        'アンコールでもう一度「Shared with You」を歌ってくれたのが最高だった。次のツアーも絶対行く！',
       written: [-19, 23],
     },
     {
-      perf: ['midnight-dawn', 1],
+      perf: ['playlists-dawn', 1],
       seat: 'スタンディング 整理番号 A-58',
       setlist: [
-        '終電のあとで',
-        '夜明け前',
-        'ネオンの海',
+        'おすすめの次に',
+        '自動再生',
+        '再生リストの海',
         'ラストシグナル',
         '始発列車',
         'おやすみ東京',
       ],
       impression:
-        'ライブハウスの近さがすごい。ユウキのベースソロで床が揺れた。' +
+        'ライブハウスの近さがすごい。ミュージックのベースソロで床が揺れた。' +
         '最後の「おやすみ東京」は、みんなで大合唱だった。',
       written: [-7, 1],
     },
     {
-      perf: ['kanata-acoustic', 1],
+      perf: ['meet-acoustic', 1],
       seat: '自由席',
-      setlist: ['ことのは', '海の見える部屋', '手紙', '灯り', 'またあした'],
+      setlist: ['ミュートを外して', '海の見える部屋', '手紙', '灯り', 'またあした'],
       impression: 'ギター1本と歌だけなのに、ずっと聴いていたくなる2時間だった。新曲の「灯り」が特によかった。',
       written: [-2, 22],
     },
     {
-      perf: ['stella-tour', 1],
+      perf: ['workspace-tour', 1],
       seat: 'アリーナ C3ブロック 8列 21番',
       written: [-1, 19],
     },
     {
-      perf: ['hoshizora-fest', 1],
+      perf: ['cloud-fest', 1],
       written: [-2, 12],
     },
   ];
@@ -185,33 +185,33 @@ function buildKenTrade(b, uid, name) {
     tradePostDoc(b, {
       ...ken,
       id: 'ken-1',
-      groups: ['stellanote'],
+      groups: ['workspace'],
       tags: ['trade'],
-      gives: [give('stella-acsta', ['sora', 'hikari'], 1)],
-      wants: [wants(want.item('stella-acsta', 'luna'))],
+      gives: [give('workspace-acsta', ['calendar', 'drive'], 1)],
+      wants: [wants(want.item('workspace-acsta', 'gmail'))],
       hand: ['mail', 'hand'],
-      perfs: [['stella-tour', 1]],
-      note: 'ルナのアクスタを探しています。東京1日目は会場で手渡しもできます',
+      perfs: [['workspace-tour', 1]],
+      note: 'メルルのアクスタを探しています。東京1日目は会場で手渡しもできます',
       upd: [-1, 22],
     }),
     tradePostDoc(b, {
       ...ken,
       id: 'ken-2',
-      groups: ['stellanote'],
+      groups: ['workspace'],
       tags: ['trade', 'sell'],
       priceType: 'face',
-      gives: [give('stella-badge', ['mio'])],
-      wants: [wants(want.member('luna'))],
+      gives: [give('workspace-badge', ['docs'])],
+      wants: [wants(want.member('gmail'))],
       hand: ['mail'],
       upd: [-2, 20],
     }),
     tradePostDoc(b, {
       ...ken,
       id: 'ken-3',
-      groups: ['stellanote'],
+      groups: ['workspace'],
       tags: ['trade'],
-      gives: [give('stella-photo', ['hikari'])],
-      wants: [wants(want.item('stella-photo', 'luna'))],
+      gives: [give('workspace-photo', ['drive'])],
+      wants: [wants(want.item('workspace-photo', 'gmail'))],
       hand: ['mail'],
       status: 'closed',
       upd: [-15, 21],
@@ -236,7 +236,7 @@ function buildKenTrade(b, uid, name) {
       'ken-1',
       'ken1-a',
       u03,
-      'はじめまして！ルナのアクスタをお譲りできます。ヒカリのトレカと交換していただけませんか？',
+      'はじめまして！メルルのアクスタをお譲りできます。ミドリのトレカと交換していただけませんか？',
       '02',
       false,
       at(b, 0, 9),
@@ -246,7 +246,7 @@ function buildKenTrade(b, uid, name) {
       'ken-1',
       'ken1-b',
       u01,
-      'ソラちゃんのアクスタを探していました。ルナと交換お願いできますか？',
+      'カレンちゃんのアクスタを探していました。メルルと交換お願いできますか？',
       '01',
       true,
       at(b, -1, 17, 30),
@@ -255,7 +255,7 @@ function buildKenTrade(b, uid, name) {
       'ken-3',
       'ken3-a',
       u03,
-      'ヒカリの生写真、ルナの生写真と交換お願いします！',
+      'ミドリの生写真、メルルの生写真と交換お願いします！',
       null,
       true,
       at(b, -16, 12),
@@ -300,12 +300,12 @@ function buildKenTrade(b, uid, name) {
     return result;
   };
   docs.push(
-    // やり取り中。最後のメッセージがるなまるで、けんは未読
+    // やり取り中。最後のメッセージがめるまるで、けんは未読
     ...chat({
       post: 'ken-1',
       user: u01,
       replyId: 'ken1-b',
-      summary: 'ステラノート TOUR 2026 ランダムアクリルスタンド（月城ソラ）',
+      summary: 'Work☆Space TOUR 2026 ランダムアクリルスタンド（カレン）',
       status: 'open',
       createdAt: [-1, 17, 50],
       kenReadAt: [-1, 19, 0],
@@ -322,7 +322,7 @@ function buildKenTrade(b, uid, name) {
       post: 'ken-3',
       user: u03,
       replyId: 'ken3-a',
-      summary: 'ステラノート 生写真セット「はじまりの夜」（陽野ヒカリ）',
+      summary: 'Work☆Space 生写真セット「はじまりの受信箱」（ミドリ）',
       status: 'closed',
       createdAt: [-16, 13],
       messages: [
@@ -350,25 +350,25 @@ function buildKenMoney(b, uid) {
   // 遠征メモ（users/{uid}/trips/{performanceId}）
   const trips = [
     {
-      perf: ['stella-tour', 1],
+      perf: ['workspace-tour', 1],
       transport: 'shinkansen',
       transportCost: 14000,
       hotelName: 'ホテル ドリームステイ東京',
       hotelCost: 9800,
-      note: '物販は開場の3時間前から並ぶ。るなまるさんと開演前に交換',
+      note: '物販は開場の3時間前から並ぶ。めるまるさんと開演前に交換',
       written: [-1, 22],
     },
     {
-      perf: ['hoshizora-fest', 1],
+      perf: ['cloud-fest', 1],
       transport: 'shinkansen',
       transportCost: 8000,
       written: [-2, 21],
     },
     {
-      perf: ['kanata-acoustic', 1],
+      perf: ['meet-acoustic', 1],
       transport: 'shinkansen',
       transportCost: 28000,
-      hotelName: '金沢ことのはイン',
+      hotelName: '金沢あかりイン',
       hotelCost: 7500,
       written: [-5, 20],
     },
@@ -396,16 +396,16 @@ function buildKenMoney(b, uid) {
 
   // チケット代の設定（FC先行は S席を2枚）
   docs.push({
-    path: `${u}/ticketCosts/${recId('stella-tour', 'fc')}`,
+    path: `${u}/ticketCosts/${recId('workspace-tour', 'fc')}`,
     data: { seat: 'S席', unitPrice: 12000, count: 2, updatedAt: at(b, -2, 19) },
   });
 
   // 手入力の出費（[ID, 種類, 内容, 金額, 日, ライブのキー]）
   const expenses = [
-    ['1', 'goods', 'ペンライト（ステラノート公式）', 3800, -3, 'stella-tour'],
-    ['2', 'goods', 'TOUR ランダムアクスタ 3個', 2400, -6, 'stella-tour'],
-    ['3', 'goods', '1st ライブ グッズ（タオル・Tシャツ）', 4500, -20, 'stella-1st'],
-    ['4', 'other', 'ステラノート ファンクラブ 年会費', 4800, -25, null],
+    ['1', 'goods', 'ペンライト（Work☆Space公式）', 3800, -3, 'workspace-tour'],
+    ['2', 'goods', 'TOUR ランダムアクスタ 3個', 2400, -6, 'workspace-tour'],
+    ['3', 'goods', '1st ライブ グッズ（タオル・Tシャツ）', 4500, -20, 'workspace-1st'],
+    ['4', 'other', 'Work☆Space ファンクラブ 年会費', 4800, -25, null],
   ];
   for (const [id, category, title, amount, day, liveKey] of expenses) {
     const live = liveKey ? liveByKey.get(liveKey) : null;
@@ -443,8 +443,8 @@ function buildPartner(b, partnerUid, partnerName) {
       path: `users/${partnerUid}`,
       data: {
         displayName: partnerName,
-        followingGroupIds: [groupId('stellanote')],
-        followingOshiIds: [oshiId('sora')],
+        followingGroupIds: [groupId('workspace')],
+        followingOshiIds: [oshiId('calendar')],
         createdAt: at(b, -20, 12),
         // これが無いと、アプリはプロフィール未作成と判断する
         profileUpdatedAt: at(b, -20, 12),
@@ -454,22 +454,22 @@ function buildPartner(b, partnerUid, partnerName) {
     tradePostDoc(b, {
       ...partner,
       id: 'partner-1',
-      groups: ['stellanote'],
+      groups: ['workspace'],
       tags: ['trade'],
-      gives: [give('stella-card', ['luna'])],
-      wants: [wants(want.item('stella-badge', 'mio'))],
+      gives: [give('workspace-card', ['gmail'])],
+      wants: [wants(want.item('workspace-badge', 'docs'))],
       hand: ['mail'],
       upd: [0, 9],
     }),
     tradePostDoc(b, {
       ...partner,
       id: 'partner-2',
-      groups: ['luminous'],
+      groups: ['maps'],
       tags: ['sell'],
       priceType: 'below',
-      gives: [give('luminous-photo', ['momo', 'rin'])],
+      gives: [give('maps-photo', ['pin', 'route'])],
       hand: ['hand'],
-      perfs: [['luminous-release', 1]],
+      perfs: [['maps-release', 1]],
       upd: [-1, 16],
     }),
     // けんの ken-2 への返信（未承認）
@@ -478,7 +478,7 @@ function buildPartner(b, partnerUid, partnerName) {
       data: {
         uid: partnerUid,
         displayName: partnerName,
-        text: 'ミオちゃんの缶バッジ、ルナのトレカと交換できませんか？',
+        text: 'フミちゃんの缶バッジ、メルルのトレカと交換できませんか？',
         linkedPostId: postId('partner-1'),
         approved: false,
         createdAt: at(b, 0, 9, 30),

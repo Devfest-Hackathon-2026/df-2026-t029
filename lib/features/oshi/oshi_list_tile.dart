@@ -9,7 +9,10 @@ import '../../theme/hako_fonts.dart';
 import '../../providers/oshi_emoji_providers.dart';
 import '../../providers/oshi_image_providers.dart';
 import '../common/storage_image.dart';
+import 'package:go_router/go_router.dart';
+
 import 'group_members_panel.dart' show FollowAllMembersButton;
+import 'oshi_detail_page.dart' show oshiPagePath;
 
 /// グループの ID → グループ名（個人の行に「所属：◯◯」を出すのに使う）
 Map<String, String> groupNamesById(List<OshiSummary> all) => {
@@ -180,6 +183,10 @@ class OshiListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPending = !oshi.isApproved;
     final badge = OshiKindBadge(oshi: oshi);
+    // 名前（個人は行も）を押すと推しのページ（add_P P-4a）。申請中は開かない
+    final VoidCallback? openPage = isPending
+        ? null
+        : () => context.push(oshiPagePath(oshi));
     final canToggle =
         oshi.kind == OshiKind.group && onTap != null && membersExpanded != null;
 
@@ -257,14 +264,20 @@ class OshiListTile extends StatelessWidget {
       children: [
         HakoTagChip(oshi.genre.label, key: ValueKey('oshi_genre_$_keySuffix')),
         const SizedBox(height: 4),
-        Text(
-          oshi.name,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: HakoFonts.jp(
-            size: 16,
-            height: 1.5,
-            weight: highlight ? FontWeight.w700 : FontWeight.w400,
+        InkWell(
+          key: ValueKey('oshi_name_link_$_keySuffix'),
+          onTap: openPage,
+          child: Text(
+            openPage == null ? oshi.name : '${oshi.name} ›',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: HakoFonts.jp(
+              size: 16,
+              height: 1.5,
+              weight: highlight ? FontWeight.w700 : FontWeight.w400,
+            ).copyWith(
+              decoration: openPage == null ? null : TextDecoration.underline,
+            ),
           ),
         ),
         if (lowerChips.isNotEmpty) ...[
@@ -313,7 +326,8 @@ class OshiListTile extends StatelessWidget {
 
     return InkWell(
       key: ValueKey('oshi_tile_$_keySuffix'),
-      onTap: onTap,
+      // グループは今までどおり（メンバーの開閉など）、個人は推しのページ
+      onTap: onTap ?? openPage,
       overlayColor: WidgetStatePropertyAll(
         BrandColors.ink.withValues(alpha: 0.10),
       ),

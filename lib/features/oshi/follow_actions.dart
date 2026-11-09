@@ -64,3 +64,27 @@ Future<String?> runFavoriteAction(
     return favorite ? '最推しにできませんでした。もう一度お試しください' : '最推しを外せませんでした。もう一度お試しください';
   }
 }
+
+/// まとめてフォローする（Ff 2.2）。画面に出す日本語の文を返す（出すものが無ければ null）
+Future<String?> runFollowManyAction(
+  WidgetRef ref,
+  List<OshiSummary> targets,
+) async {
+  final uid = ref.read(currentUidProvider);
+  if (uid == null) return 'ログインし直してください';
+  try {
+    final displayName = ref.read(authStateProvider).value?.displayName;
+    final r = await ref
+        .read(followBatchRepositoryProvider)
+        .followMany(uid, targets, displayName: displayName);
+    final message = [
+      if (r.added > 0) '${r.added}人をフォローしました',
+      if (r.skipped > 0)
+        '${r.skipped}人はフォローできませんでした（申請中、またはフォローできる'
+            '${FollowState.maxFollows}件を超えるため）',
+    ].join('。');
+    return message.isEmpty ? null : message;
+  } catch (_) {
+    return 'フォローできませんでした。もう一度お試しください';
+  }
+}

@@ -5,6 +5,7 @@ import 'package:firebase_ai/firebase_ai.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../utils/memory_ticket.dart';
+import 'gemini_backend.dart';
 
 enum PhotoDecision { pick, candidate, skip }
 
@@ -240,7 +241,7 @@ final _pickSchema = Schema.object(
 class GeminiPhotoPickAi implements PhotoPickAi {
   GenerativeModel? _model;
 
-  GenerativeModel get _m => _model ??= FirebaseAI.googleAI().generativeModel(
+  GenerativeModel get _m => _model ??= geminiBackend().generativeModel(
     model: 'gemini-3.5-flash-lite',
     generationConfig: GenerationConfig(
       responseMimeType: 'application/json',

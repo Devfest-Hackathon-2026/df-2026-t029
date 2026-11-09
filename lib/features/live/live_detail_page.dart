@@ -20,6 +20,7 @@ import '../live_form/date_time_field.dart';
 import '../live_form/live_draft_to_models.dart' show formatYen;
 import '../calendar/calendar_add_sheet.dart';
 import '../travel/trip_sheet.dart';
+import '../travel/venue_map_sheet.dart';
 import '../travel/weather_line.dart';
 import '../live_fetch/ai_source_widgets.dart';
 import 'deadline_format.dart';
@@ -606,6 +607,14 @@ class _PerformanceTile extends ConsumerWidget {
                 spacing: 4,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
+                  // 会場の地図と帰りの経路（add_M 5.2）。「行き方」と同じ条件
+                  if (directions != null)
+                    TextButton.icon(
+                      key: Key('live_detail_map_button_${p.id}'),
+                      onPressed: () => showVenueMapSheet(context, p),
+                      icon: const Icon(Icons.map_outlined, size: 18),
+                      label: const Text('地図'),
+                    ),
                   if (directions != null)
                     TextButton.icon(
                       key: Key('live_detail_directions_button_${p.id}'),

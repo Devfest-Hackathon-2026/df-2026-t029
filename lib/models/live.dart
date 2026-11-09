@@ -12,6 +12,7 @@ class Live {
     this.source,
     this.sourceUrls = const [],
     this.searchQueries = const [],
+    this.createdAt,
   });
 
   final String? id; // 保存前は null
@@ -29,11 +30,15 @@ class Live {
   /// 取得のときに使った Google 検索の語（add_L 3.1）。読むだけ
   final List<String> searchQueries;
 
+  /// 登録した日時（Ff 5.2）。読むだけ（書き込みはリポジトリがサーバー時刻で行う）
+  final DateTime? createdAt;
+
   /// AI が登録したライブか（add_L 5.3）
   bool get isAi => source == 'ai';
 
   factory Live.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
+    final createdAt = data['createdAt'];
     return Live(
       id: doc.id,
       title: data['title'] as String,
@@ -43,10 +48,11 @@ class Live {
       source: data['source'] as String?,
       sourceUrls: toStringList(data['sourceUrls']),
       searchQueries: toStringList(data['searchQueries']),
+      createdAt: createdAt is Timestamp ? createdAt.toDate() : null,
     );
   }
 
-  /// source・sourceUrls・searchQueries は書かない（Functions だけが書く。add_L 3.1）
+  /// source・sourceUrls・searchQueries・createdAt は書かない（add_L 3.1・Ff 5.2）
   Map<String, dynamic> toFirestore() => {
     'title': title,
     'groupIds': groupIds,
@@ -64,5 +70,6 @@ class Live {
     source: source,
     sourceUrls: sourceUrls,
     searchQueries: searchQueries,
+    createdAt: createdAt,
   );
 }

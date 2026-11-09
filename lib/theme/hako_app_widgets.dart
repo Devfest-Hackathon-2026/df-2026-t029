@@ -556,11 +556,12 @@ class HakoStatusChip extends StatelessWidget {
             border: Border.all(color: BrandColors.ink, width: 2),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            // 読みやすい大きさにする（Ff 3章）
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             child: Text(
               label,
               style: HakoFonts.jp(
-                size: 12,
+                size: 13,
                 weight: FontWeight.w700,
                 height: 1.5,
               ),
@@ -572,7 +573,7 @@ class HakoStatusChip extends StatelessWidget {
   }
 }
 
-/// 小さいチップ（11・400。リンクは tonal2）
+/// 小さいチップ（13・400。リンクは tonal2。Ff 3章で 11 から大きくした）
 class HakoTagChip extends StatelessWidget {
   const HakoTagChip(this.label, {super.key, this.link = false});
 
@@ -584,12 +585,12 @@ class HakoTagChip extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: link ? BrandColors.tonal2 : BrandColors.tonal,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: BrandColors.ink, width: 2),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-        child: Text(label, style: HakoFonts.jp(size: 11, height: 1.3)),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        child: Text(label, style: HakoFonts.jp(size: 13, height: 1.3)),
       ),
     );
   }

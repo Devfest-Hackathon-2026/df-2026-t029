@@ -305,6 +305,11 @@ service cloud.firestore {
         isValidPersonRequest(request.resource.data);
       allow update, delete: if false;
     }
+    // お知らせ（add_P 3.2）。書くのは Functions だけ
+    match /oshiNews/{newsId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
 
     // =============================================================
     // ライブ・公演・受付・申込状況の検査（Step2）

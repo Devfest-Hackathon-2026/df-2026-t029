@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/oshi.dart';
 import '../../providers/favorite_oshi_providers.dart';
 import '../../providers/oshi_providers.dart';
 // import '../../theme/brand_colors.dart';
@@ -10,12 +9,14 @@ import '../../theme/hako_fonts.dart';
 import '../../models/oshi_days.dart';
 import '../../providers/live_providers.dart';
 import '../../providers/oshi_days_providers.dart';
-import 'group_members_sheet.dart';
+import 'package:go_router/go_router.dart';
+
+import 'oshi_detail_page.dart' show oshiPagePath;
 import 'oshi_list_tile.dart';
 
 /// 推しページの「最推し」（見出しと白い箱。Fc 3.2）。
 /// 最推しがいない（フォロー中でない・読み込み中を含む）ときは何も出さない。
-/// グループなら、箱を押すとメンバーの一覧を出す
+/// 箱を押すと推しのページ（add_P 5.2）
 class FavoriteOshiCard extends ConsumerWidget {
   const FavoriteOshiCard({super.key});
 
@@ -23,7 +24,6 @@ class FavoriteOshiCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final oshi = ref.watch(favoriteOshiProvider);
     if (oshi == null) return const SizedBox.shrink();
-    final isGroup = oshi.kind == OshiKind.group;
     final groupNames = groupNamesOf(
       oshi,
       groupNamesById(ref.watch(allOshisProvider).value ?? const []),
@@ -45,7 +45,7 @@ class FavoriteOshiCard extends ConsumerWidget {
         const HakoHint('いちばん応援している推しです。', key: Key('hint_oshi_favorite')),
         InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: isGroup ? () => showGroupMembersSheet(context, oshi) : null,
+          onTap: () => context.push(oshiPagePath(oshi)),
           child: HakoBox(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
             child: Row(
@@ -85,8 +85,7 @@ class FavoriteOshiCard extends ConsumerWidget {
                           HakoTagChip(oshi.genre.label),
                           if (groupNames.isNotEmpty)
                             HakoTagChip('所属：${groupNames.join('・')}'),
-                          if (isGroup)
-                            const HakoTagChip('メンバーを見る ›', link: true),
+                          const HakoTagChip('推しのページ ›', link: true),
                         ],
                       ),
                     ],
