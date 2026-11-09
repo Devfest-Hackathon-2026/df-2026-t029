@@ -19,8 +19,7 @@ class GoodsTargetNotifier extends Notifier<OshiSummary?> {
   void select(OshiSummary? oshi) => state = oshi;
 }
 
-final goodsTargetProvider =
-    NotifierProvider<GoodsTargetNotifier, OshiSummary?>(
+final goodsTargetProvider = NotifierProvider<GoodsTargetNotifier, OshiSummary?>(
   GoodsTargetNotifier.new,
 );
 
@@ -34,8 +33,10 @@ final goodsForTargetProvider = FutureProvider<List<Goods>>((ref) async {
   final repository = ref.watch(goodsRepositoryProvider);
   return switch (oshi.kind) {
     OshiKind.group => repository.fetchFor(groupIds: [oshi.id]),
-    OshiKind.person =>
-      repository.fetchFor(groupIds: oshi.groupIds, oshiIds: [oshi.id]),
+    OshiKind.person => repository.fetchFor(
+      groupIds: oshi.groupIds,
+      oshiIds: [oshi.id],
+    ),
   };
 }, retry: firestoreRetry);
 

@@ -242,11 +242,7 @@ class _UpcomingTripCard extends StatelessWidget {
       if (hotel.isNotEmpty)
         _IconLine(icon: Icons.hotel_outlined, text: hotel.join(' ／ ')),
       if (trip.localNote case final note? when note.isNotEmpty)
-        _IconLine(
-          icon: Icons.sticky_note_2_outlined,
-          text: note,
-          maxLines: 3,
-        ),
+        _IconLine(icon: Icons.sticky_note_2_outlined, text: note, maxLines: 3),
       if (cost.isNotEmpty)
         _IconLine(icon: Icons.payments_outlined, text: cost.join(' ／ ')),
     ];
@@ -276,7 +272,11 @@ class _IconLine extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: HakoFonts.jp(size: 12, color: BrandColors.ink, height: 1.5),
+              style: HakoFonts.jp(
+                size: 12,
+                color: BrandColors.ink,
+                height: 1.5,
+              ),
               maxLines: maxLines,
               overflow: TextOverflow.ellipsis,
             ),

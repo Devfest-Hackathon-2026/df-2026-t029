@@ -453,10 +453,7 @@ class _MemoryFormState extends ConsumerState<_MemoryForm> {
                 key: const Key('memory_form_public_switch'),
                 contentPadding: EdgeInsets.zero,
                 title: const Text('同じ推しのファンに公開する'),
-                subtitle: Text(
-                  'フォロー中の推しが同じ人の「みんなのメモリー」に出ます',
-                  style: subStyle,
-                ),
+                subtitle: Text('フォロー中の推しが同じ人の「みんなのメモリー」に出ます', style: subStyle),
                 value: _isPublic,
                 onChanged: _busy ? null : (v) => setState(() => _isPublic = v),
               ),

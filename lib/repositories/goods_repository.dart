@@ -95,9 +95,10 @@ class FirestoreGoodsRepository implements GoodsRepository {
 
     final oldData = before.toFirestore();
     final newData = after.toFirestore();
-    final changedFields = {...oldData.keys, ...newData.keys}
-        .where((f) => jsonEncode(oldData[f]) != jsonEncode(newData[f]))
-        .toList();
+    final changedFields = {
+      ...oldData.keys,
+      ...newData.keys,
+    }.where((f) => jsonEncode(oldData[f]) != jsonEncode(newData[f])).toList();
     if (changedFields.isEmpty) return;
 
     final ref = _goods.doc(id);

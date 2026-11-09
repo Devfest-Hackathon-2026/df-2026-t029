@@ -54,7 +54,11 @@ class PhotoGrid extends StatelessWidget {
 
 /// 写真を画面いっぱいに表示する。拡大でき、左右に送れる
 class PhotoViewer extends StatefulWidget {
-  const PhotoViewer({super.key, required this.paths, required this.initialIndex});
+  const PhotoViewer({
+    super.key,
+    required this.paths,
+    required this.initialIndex,
+  });
 
   final List<String> paths;
   final int initialIndex;

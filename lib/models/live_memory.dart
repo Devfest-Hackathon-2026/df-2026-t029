@@ -40,9 +40,7 @@ class LiveMemory {
     );
   }
 
-  factory LiveMemory.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
+  factory LiveMemory.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
     return LiveMemory(
       performanceId: doc.id,
@@ -90,17 +88,17 @@ class LiveMemory {
 
   /// 作成時に書き込む項目（日時は repository が付ける）
   Map<String, dynamic> toFirestore() => {
-        'liveId': liveId,
-        'liveTitle': liveTitle,
-        'startAt': Timestamp.fromDate(startAt),
-        'venue': venue,
-        if (seat != null) 'seat': seat,
-        'setlist': setlist,
-        if (impression != null) 'impression': impression,
-        'images': images,
-        'isPublic': isPublic,
-        'publicSeat': publicSeat,
-      };
+    'liveId': liveId,
+    'liveTitle': liveTitle,
+    'startAt': Timestamp.fromDate(startAt),
+    'venue': venue,
+    if (seat != null) 'seat': seat,
+    'setlist': setlist,
+    if (impression != null) 'impression': impression,
+    'images': images,
+    'isPublic': isPublic,
+    'publicSeat': publicSeat,
+  };
 
   /// 座席・セトリ・感想・写真（と公開の設定）を差し替えた複製。
   /// null を渡すとその項目を空にする。[isPublic]・[publicSeat] は省略すると今の値
@@ -111,21 +109,20 @@ class LiveMemory {
     required List<String> images,
     bool? isPublic,
     bool? publicSeat,
-  }) =>
-      LiveMemory(
-        performanceId: performanceId,
-        liveId: liveId,
-        liveTitle: liveTitle,
-        startAt: startAt,
-        venue: venue,
-        seat: seat,
-        setlist: setlist,
-        impression: impression,
-        images: images,
-        isPublic: isPublic ?? this.isPublic,
-        publicSeat: publicSeat ?? this.publicSeat,
-        createdAt: createdAt,
-        updatedAt: updatedAt,
-        postedAt: postedAt,
-      );
+  }) => LiveMemory(
+    performanceId: performanceId,
+    liveId: liveId,
+    liveTitle: liveTitle,
+    startAt: startAt,
+    venue: venue,
+    seat: seat,
+    setlist: setlist,
+    impression: impression,
+    images: images,
+    isPublic: isPublic ?? this.isPublic,
+    publicSeat: publicSeat ?? this.publicSeat,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+    postedAt: postedAt,
+  );
 }

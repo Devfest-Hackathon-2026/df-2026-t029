@@ -35,10 +35,12 @@ WeatherQuery? weatherQueryOf(Performance p, DateTime now) {
 
 /// 公演の日の天気。未ログインなら null。
 /// 同じ条件は1回だけ呼ぶ（autoDispose にしない）。失敗しても取り直さない
-final eventWeatherProvider =
-    FutureProvider.family<EventWeather?, WeatherQuery>((ref, q) {
-      if (ref.watch(currentUidProvider) == null) return null;
-      return ref
-          .watch(weatherRepositoryProvider)
-          .fetch(prefecture: q.prefecture, date: q.date);
-    }, retry: (_, _) => null);
+final eventWeatherProvider = FutureProvider.family<EventWeather?, WeatherQuery>(
+  (ref, q) {
+    if (ref.watch(currentUidProvider) == null) return null;
+    return ref
+        .watch(weatherRepositoryProvider)
+        .fetch(prefecture: q.prefecture, date: q.date);
+  },
+  retry: (_, _) => null,
+);

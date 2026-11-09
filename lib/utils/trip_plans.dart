@@ -5,7 +5,11 @@ import 'deadline.dart';
 import 'travel_links.dart';
 
 /// これからの遠征の1件（公演・ライブ名・遠征メモ。add_E 6章）
-typedef UpcomingTrip = ({Performance performance, String liveTitle, Trip? trip});
+typedef UpcomingTrip = ({
+  Performance performance,
+  String liveTitle,
+  Trip? trip,
+});
 
 /// 遠征の一覧（これからの遠征・これまでの遠征。add_E 6章）
 class TripPlans {

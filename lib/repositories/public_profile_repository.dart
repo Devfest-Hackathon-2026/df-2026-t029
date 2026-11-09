@@ -24,9 +24,7 @@ class FirestorePublicProfileRepository implements PublicProfileRepository {
       _db.collection('publicProfiles').doc(uid);
 
   @override
-  Stream<PublicProfile?> watch(String uid) => _doc(uid).snapshots().map((
-    snap,
-  ) {
+  Stream<PublicProfile?> watch(String uid) => _doc(uid).snapshots().map((snap) {
     final data = snap.data();
     return data == null ? null : PublicProfile.fromMap(data);
   });

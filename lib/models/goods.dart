@@ -7,12 +7,12 @@ enum GoodsCategory { card, acrylic, badge, photo, other }
 
 extension GoodsCategoryLabel on GoodsCategory {
   String get label => switch (this) {
-        GoodsCategory.card => 'トレカ',
-        GoodsCategory.acrylic => 'アクスタ・アクキー',
-        GoodsCategory.badge => '缶バッジ',
-        GoodsCategory.photo => '生写真・ブロマイド',
-        GoodsCategory.other => 'その他',
-      };
+    GoodsCategory.card => 'トレカ',
+    GoodsCategory.acrylic => 'アクスタ・アクキー',
+    GoodsCategory.badge => '缶バッジ',
+    GoodsCategory.photo => '生写真・ブロマイド',
+    GoodsCategory.other => 'その他',
+  };
 }
 
 /// グッズの種類（例：メンバーA、絵柄1）
@@ -24,16 +24,16 @@ class GoodsVariant {
   final String? oshiId; // 紐づくメンバー（任意）
 
   factory GoodsVariant.fromMap(Map<String, dynamic> map) => GoodsVariant(
-        id: map['id'] as String,
-        name: map['name'] as String,
-        oshiId: map['oshiId'] as String?,
-      );
+    id: map['id'] as String,
+    name: map['name'] as String,
+    oshiId: map['oshiId'] as String?,
+  );
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'name': name,
-        if (oshiId != null) 'oshiId': oshiId,
-      };
+    'id': id,
+    'name': name,
+    if (oshiId != null) 'oshiId': oshiId,
+  };
 }
 
 class Goods {
@@ -77,7 +77,8 @@ class Goods {
       id: doc.id,
       name: data['name'] as String,
       aliases: toStringList(data['aliases']),
-      category: GoodsCategory.values.asNameMap()[data['category']] ??
+      category:
+          GoodsCategory.values.asNameMap()[data['category']] ??
           GoodsCategory.other,
       groupIds: toStringList(data['groupIds']),
       oshiIds: toStringList(data['oshiIds']),
@@ -92,14 +93,14 @@ class Goods {
   }
 
   Map<String, dynamic> toFirestore() => {
-        'name': name,
-        if (aliases.isNotEmpty) 'aliases': aliases,
-        'category': category.name,
-        'groupIds': groupIds,
-        'oshiIds': oshiIds,
-        if (liveId != null) 'liveId': liveId,
-        if (price != null) 'price': price,
-        if (officialUrl != null) 'officialUrl': officialUrl,
-        'variants': [for (final v in variants) v.toMap()],
-      };
+    'name': name,
+    if (aliases.isNotEmpty) 'aliases': aliases,
+    'category': category.name,
+    'groupIds': groupIds,
+    'oshiIds': oshiIds,
+    if (liveId != null) 'liveId': liveId,
+    if (price != null) 'price': price,
+    if (officialUrl != null) 'officialUrl': officialUrl,
+    'variants': [for (final v in variants) v.toMap()],
+  };
 }

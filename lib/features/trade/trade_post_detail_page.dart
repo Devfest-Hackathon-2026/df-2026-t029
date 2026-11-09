@@ -170,10 +170,7 @@ class _PostBody extends ConsumerWidget {
         // 投稿全体の写真（G-7 仕様書 6.3）
         if (post.images.isNotEmpty) ...[
           heading('写真'),
-          PhotoGrid(
-            key: const Key('trade_detail_photos'),
-            paths: post.images,
-          ),
+          PhotoGrid(key: const Key('trade_detail_photos'), paths: post.images),
         ],
         if (post.gives.isNotEmpty) ...[
           heading('譲（出せるもの）'),

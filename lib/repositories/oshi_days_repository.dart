@@ -19,20 +19,19 @@ class FirestoreOshiDaysRepository implements OshiDaysRepository {
 
   final FirebaseFirestore _db;
 
-  DocumentReference<Map<String, dynamic>> _doc(String uid) => _db
-      .collection('users')
-      .doc(uid)
-      .collection('settings')
-      .doc('oshiDays');
+  DocumentReference<Map<String, dynamic>> _doc(String uid) =>
+      _db.collection('users').doc(uid).collection('settings').doc('oshiDays');
 
   @override
   Stream<OshiDays> watch(String uid) =>
       _doc(uid).snapshots().map((snap) => OshiDays.fromMap(snap.data()));
 
   @override
-  Future<void> setStartDate(String uid, String key, DateTime? date) =>
-      _doc(uid).set({
-        'startDates': {key: date == null ? FieldValue.delete() : formatYmd(date)},
+  Future<void> setStartDate(String uid, String key, DateTime? date) => _doc(uid)
+      .set({
+        'startDates': {
+          key: date == null ? FieldValue.delete() : formatYmd(date),
+        },
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 

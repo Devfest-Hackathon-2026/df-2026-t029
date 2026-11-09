@@ -138,7 +138,11 @@ class _OshiColorSheetState extends ConsumerState<_OshiColorSheet> {
     final ownEmoji = emojis[_key];
     final images = ref.watch(oshiImagesProvider).value ?? const {};
     final ownImage = images[_key];
-    final heading = HakoFonts.jp(size: 14, weight: FontWeight.w700, height: 1.5);
+    final heading = HakoFonts.jp(
+      size: 14,
+      weight: FontWeight.w700,
+      height: 1.5,
+    );
     final note = HakoFonts.jp(size: 12, color: BrandColors.sub, height: 1.5);
 
     Widget swatch({
@@ -162,7 +166,9 @@ class _OshiColorSheetState extends ConsumerState<_OshiColorSheet> {
             child: selected
                 ? Icon(
                     Icons.check,
-                    color: color == null ? BrandColors.ink : onThemeColor(color),
+                    color: color == null
+                        ? BrandColors.ink
+                        : onThemeColor(color),
                   )
                 : (color == null
                       ? const Icon(Icons.block, color: BrandColors.sub)
@@ -188,7 +194,10 @@ class _OshiColorSheetState extends ConsumerState<_OshiColorSheet> {
               color: selected
                   ? BrandColors.ink.withValues(alpha: 0.12)
                   : BrandColors.surface,
-              border: Border.all(color: BrandColors.ink, width: selected ? 3 : 2),
+              border: Border.all(
+                color: BrandColors.ink,
+                width: selected ? 3 : 2,
+              ),
             ),
             child: emoji == null
                 ? const Icon(Icons.block, color: BrandColors.sub)
