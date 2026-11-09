@@ -95,14 +95,16 @@ class GoogleCalendarService {
         'timeMin': DateTime.now().toUtc().toIso8601String(),
       },
     );
-    final res =
-        await http.get(uri, headers: {'Authorization': 'Bearer $token'});
+    final res = await http.get(
+      uri,
+      headers: {'Authorization': 'Bearer $token'},
+    );
     if (res.statusCode != 200) {
       throw Exception('Calendar API エラー（${res.statusCode}）：${res.body}');
     }
     final items =
         (jsonDecode(res.body) as Map<String, dynamic>)['items'] as List? ??
-            const [];
+        const [];
     return [
       for (final e in items)
         (e as Map<String, dynamic>)['summary'] as String? ?? '（件名なし）',
@@ -140,8 +142,7 @@ class GoogleCalendarService {
         body: body,
       );
       if (updated.statusCode == 200) return;
-      throw Exception(
-          '予定の更新に失敗しました（${updated.statusCode}）：${updated.body}');
+      throw Exception('予定の更新に失敗しました（${updated.statusCode}）：${updated.body}');
     }
     throw Exception('予定の追加に失敗しました（${created.statusCode}）：${created.body}');
   }

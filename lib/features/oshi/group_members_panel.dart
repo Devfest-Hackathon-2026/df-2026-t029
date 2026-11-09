@@ -28,10 +28,8 @@ List<OshiSummary> groupMembersOf(OshiSummary group, List<OshiSummary> all) {
 }
 
 /// このグループのメンバーを申請する画面のパス（このグループを所属に選んだ状態）
-String memberRequestPath(OshiSummary group) => Uri(
-  path: '/oshi/request',
-  queryParameters: {'group': group.id},
-).toString();
+String memberRequestPath(OshiSummary group) =>
+    Uri(path: '/oshi/request', queryParameters: {'group': group.id}).toString();
 
 /// 「メンバー全員をフォロー（n人）」のボタン（Fc 4.2）。
 /// 対象は、承認済みで、まだフォローしていないメンバー。
@@ -76,7 +74,8 @@ class _FollowAllMembersButtonState
     final message = [
       if (ok > 0) '$ok人をフォローしました',
       if (failed > 0) '$failed人はフォローできませんでした',
-      if (skipped > 0) 'フォローできるのは${FollowState.maxFollows}件までのため、$skipped人はフォローしていません',
+      if (skipped > 0)
+        'フォローできるのは${FollowState.maxFollows}件までのため、$skipped人はフォローしていません',
     ].join('。');
     if (message.isEmpty) return;
     messenger

@@ -48,21 +48,21 @@ class Live {
 
   /// source・sourceUrls・searchQueries は書かない（Functions だけが書く。add_L 3.1）
   Map<String, dynamic> toFirestore() => {
-        'title': title,
-        'groupIds': groupIds,
-        'oshiIds': oshiIds,
-        if (officialUrl != null) 'officialUrl': officialUrl,
-      };
+    'title': title,
+    'groupIds': groupIds,
+    'oshiIds': oshiIds,
+    if (officialUrl != null) 'officialUrl': officialUrl,
+  };
 
   /// 保存後に ID を付けた複製
   Live copyWithId(String id) => Live(
-        id: id,
-        title: title,
-        groupIds: groupIds,
-        oshiIds: oshiIds,
-        officialUrl: officialUrl,
-        source: source,
-        sourceUrls: sourceUrls,
-        searchQueries: searchQueries,
-      );
+    id: id,
+    title: title,
+    groupIds: groupIds,
+    oshiIds: oshiIds,
+    officialUrl: officialUrl,
+    source: source,
+    sourceUrls: sourceUrls,
+    searchQueries: searchQueries,
+  );
 }

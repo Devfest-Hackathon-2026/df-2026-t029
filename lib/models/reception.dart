@@ -13,9 +13,9 @@ class Price {
   final int amount; // 円
 
   factory Price.fromMap(Map<String, dynamic> map) => Price(
-        seat: map['seat'] as String,
-        amount: (map['amount'] as num).toInt(),
-      );
+    seat: map['seat'] as String,
+    amount: (map['amount'] as num).toInt(),
+  );
 
   Map<String, dynamic> toMap() => {'seat': seat, 'amount': amount};
 }
@@ -63,8 +63,8 @@ class Reception {
       liveId: data['liveId'] as String?,
       groupIds: toStringList(data['groupIds']),
       oshiIds: toStringList(data['oshiIds']),
-      type: ReceptionType.values.asNameMap()[data['type']] ??
-          ReceptionType.other,
+      type:
+          ReceptionType.values.asNameMap()[data['type']] ?? ReceptionType.other,
       name: data['name'] as String,
       applyStartAt: toDateTime(data['applyStartAt']),
       applyEndAt: toDateTime(data['applyEndAt'])!,
@@ -80,17 +80,16 @@ class Reception {
   }
 
   Map<String, dynamic> toFirestore() => {
-        'type': type.name,
-        'name': name,
-        if (applyStartAt != null)
-          'applyStartAt': Timestamp.fromDate(applyStartAt!),
-        'applyEndAt': Timestamp.fromDate(applyEndAt),
-        if (resultAt != null) 'resultAt': Timestamp.fromDate(resultAt!),
-        if (paymentDeadline != null)
-          'paymentDeadline': Timestamp.fromDate(paymentDeadline!),
-        'prices': [for (final p in prices) p.toMap()],
-        'winnersOnly': winnersOnly,
-      };
+    'type': type.name,
+    'name': name,
+    if (applyStartAt != null) 'applyStartAt': Timestamp.fromDate(applyStartAt!),
+    'applyEndAt': Timestamp.fromDate(applyEndAt),
+    if (resultAt != null) 'resultAt': Timestamp.fromDate(resultAt!),
+    if (paymentDeadline != null)
+      'paymentDeadline': Timestamp.fromDate(paymentDeadline!),
+    'prices': [for (final p in prices) p.toMap()],
+    'winnersOnly': winnersOnly,
+  };
 
   /// 保存時に、ID とライブから複製する項目を付けた複製
   Reception copyWithIds({
@@ -98,19 +97,18 @@ class Reception {
     required String liveId,
     required List<String> groupIds,
     required List<String> oshiIds,
-  }) =>
-      Reception(
-        id: id,
-        liveId: liveId,
-        groupIds: groupIds,
-        oshiIds: oshiIds,
-        type: type,
-        name: name,
-        applyStartAt: applyStartAt,
-        applyEndAt: applyEndAt,
-        resultAt: resultAt,
-        paymentDeadline: paymentDeadline,
-        prices: prices,
-        winnersOnly: winnersOnly,
-      );
+  }) => Reception(
+    id: id,
+    liveId: liveId,
+    groupIds: groupIds,
+    oshiIds: oshiIds,
+    type: type,
+    name: name,
+    applyStartAt: applyStartAt,
+    applyEndAt: applyEndAt,
+    resultAt: resultAt,
+    paymentDeadline: paymentDeadline,
+    prices: prices,
+    winnersOnly: winnersOnly,
+  );
 }

@@ -77,7 +77,8 @@ Future<MergeReviewResult?> showMergeReview(
 ) => Navigator.of(context).push<MergeReviewResult>(
   // PC で横に伸びすぎないように 960 で中央に置く（Fe 3.5）
   MaterialPageRoute(
-    builder: (context) => HakoCenteredPage(child: MergeReviewPage(request: request)),
+    builder: (context) =>
+        HakoCenteredPage(child: MergeReviewPage(request: request)),
   ),
 );
 

@@ -47,11 +47,12 @@ class DismissedHomeBannersNotifier extends Notifier<Set<String>> {
       final raw = ref.read(homeBannerStorageProvider).read(_key!);
       if (raw == null) return const {};
       final list = jsonDecode(raw);
-      if (list is List)
+      if (list is List) {
         return {
           for (final v in list)
             if (v is String) v,
         };
+      }
     } catch (_) {
       // 読めなければ、何も閉じていないことにする
     }

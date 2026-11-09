@@ -48,8 +48,7 @@ typedef TravelLink = ({String label, IconData icon, Uri uri});
 List<TravelLink> travelLinksOf(Performance p) => [
   if (directionsUri(p) case final u?)
     (label: '行き方', icon: Icons.directions, uri: u),
-  if (hotelsUri(p) case final u?)
-    (label: '周辺の宿', icon: Icons.hotel, uri: u),
+  if (hotelsUri(p) case final u?) (label: '周辺の宿', icon: Icons.hotel, uri: u),
   if (lockersUri(p) case final u?)
     (label: '周辺のロッカー', icon: Icons.luggage_outlined, uri: u),
   if (foodUri(p) case final u?)

@@ -17,24 +17,20 @@ class FirestoreOshiColorRepository implements OshiColorRepository {
 
   final FirebaseFirestore _db;
 
-  DocumentReference<Map<String, dynamic>> _doc(String uid) => _db
-      .collection('users')
-      .doc(uid)
-      .collection('settings')
-      .doc('oshiColors');
+  DocumentReference<Map<String, dynamic>> _doc(String uid) =>
+      _db.collection('users').doc(uid).collection('settings').doc('oshiColors');
 
   @override
-  Stream<Map<String, int>> watch(String uid) => _doc(uid).snapshots().map((
-    snap,
-  ) {
-    final colors = snap.data()?['colors'];
-    if (colors is! Map) return const {};
-    return {
-      for (final e in colors.entries)
-        if (e.key is String && e.value is num)
-          e.key as String: (e.value as num).toInt(),
-    };
-  });
+  Stream<Map<String, int>> watch(String uid) =>
+      _doc(uid).snapshots().map((snap) {
+        final colors = snap.data()?['colors'];
+        if (colors is! Map) return const {};
+        return {
+          for (final e in colors.entries)
+            if (e.key is String && e.value is num)
+              e.key as String: (e.value as num).toInt(),
+        };
+      });
 
   @override
   Future<void> setColor(String uid, String key, int? argb) => _doc(uid).set({

@@ -96,7 +96,10 @@ class LiveTimelineItem extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(live.title, style: HakoFonts.jp(size: 15, height: 1.5)),
+                    Text(
+                      live.title,
+                      style: HakoFonts.jp(size: 15, height: 1.5),
+                    ),
                     if (p.isNotEmpty) Text(p, style: sub),
                     Text(upcomingDateLine(entry), style: sub),
                   ],

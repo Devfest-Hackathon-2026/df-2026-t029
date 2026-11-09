@@ -31,9 +31,7 @@ Future<void> addLiveToCalendar(
   final existing = await ref.read(liveRepositoryProvider).fetchExisting(liveId);
   if (!context.mounted) return;
   if (existing == null) {
-    messenger.showSnackBar(
-      const SnackBar(content: Text('ライブを読み込めませんでした')),
-    );
+    messenger.showSnackBar(const SnackBar(content: Text('ライブを読み込めませんでした')));
     return;
   }
   final events = buildCalendarEvents(
@@ -89,15 +87,16 @@ class _CalendarAddSheetState extends ConsumerState<_CalendarAddSheet> {
 
   /// プリセットに含まれる種類の予定を選ぶ（当選者のみが対象の受付は外す）
   Set<String> _selectionFor(CalendarPreset preset) => {
-        for (final e in widget.events)
-          if (preset.kinds.contains(e.kind) && !e.winnersOnly) e.eventId,
-      };
+    for (final e in widget.events)
+      if (preset.kinds.contains(e.kind) && !e.winnersOnly) e.eventId,
+  };
 
   /// 一覧に出す日時（期限は締切の時刻、それ以外は開始の時刻）
   DateTime _displayAt(CalendarEvent e) =>
-      e.kind == CalendarEventKind.applyEnd || e.kind == CalendarEventKind.payment
-          ? e.end
-          : e.start;
+      e.kind == CalendarEventKind.applyEnd ||
+          e.kind == CalendarEventKind.payment
+      ? e.end
+      : e.start;
 
   Future<void> _add() async {
     setState(() {
@@ -144,9 +143,9 @@ class _CalendarAddSheetState extends ConsumerState<_CalendarAddSheet> {
                 onSelectionChanged: _adding
                     ? null
                     : (s) => setState(() {
-                          _preset = s.first;
-                          _selected = _selectionFor(_preset);
-                        }),
+                        _preset = s.first;
+                        _selected = _selectionFor(_preset);
+                      }),
               ),
               const SizedBox(height: 8),
               Expanded(
@@ -158,17 +157,19 @@ class _CalendarAddSheetState extends ConsumerState<_CalendarAddSheet> {
                         onChanged: _adding
                             ? null
                             : (v) => setState(() {
-                                  if (v ?? false) {
-                                    _selected.add(e.eventId);
-                                  } else {
-                                    _selected.remove(e.eventId);
-                                  }
-                                }),
+                                if (v ?? false) {
+                                  _selected.add(e.eventId);
+                                } else {
+                                  _selected.remove(e.eventId);
+                                }
+                              }),
                         title: Text(e.title),
-                        subtitle: Text([
-                          formatDateTime(_displayAt(e)),
-                          if (e.winnersOnly) '当選者のみ対象',
-                        ].join('　')),
+                        subtitle: Text(
+                          [
+                            formatDateTime(_displayAt(e)),
+                            if (e.winnersOnly) '当選者のみ対象',
+                          ].join('　'),
+                        ),
                       ),
                   ],
                 ),
@@ -178,8 +179,9 @@ class _CalendarAddSheetState extends ConsumerState<_CalendarAddSheet> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
                     _error!,
-                    style:
-                        TextStyle(color: Theme.of(context).colorScheme.error),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                   ),
                 ),
               Row(

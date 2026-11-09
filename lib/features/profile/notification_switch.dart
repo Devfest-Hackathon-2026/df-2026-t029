@@ -39,7 +39,8 @@ class _NotificationSwitchState extends ConsumerState<NotificationSwitch> {
     ref.invalidate(notificationEnabledProvider);
     if (!mounted) return;
     setState(() => _busy = false);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override

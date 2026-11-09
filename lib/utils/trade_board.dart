@@ -136,11 +136,8 @@ class BoardFilter {
 
   /// 推しを決めないと使えない条件（グッズ・手渡しの公演）を外したもの。
   /// 「フォロー中すべて」で使う（Fc 5.1）
-  BoardFilter withoutTargetOnly() => BoardFilter(
-    categories: categories,
-    side: side,
-    tags: tags,
-  );
+  BoardFilter withoutTargetOnly() =>
+      BoardFilter(categories: categories, side: side, tags: tags);
 
   /// 投稿が条件に合うか。[categoryOf] はグッズの ID → 種別
   /// （種別で絞り込むときだけ要る。引けないグッズは種別に合わないとする）

@@ -35,7 +35,8 @@ class LiveFetchResult {
     final added = map['added'] as Map<Object?, Object?>? ?? const {};
     int count(String key) => (added[key] as num?)?.toInt() ?? 0;
     return LiveFetchResult(
-      status: LiveFetchStatus.values.asNameMap()[map['status']] ??
+      status:
+          LiveFetchStatus.values.asNameMap()[map['status']] ??
           LiveFetchStatus.skipped,
       addedLives: count('lives'),
       addedPerformances: count('performances'),

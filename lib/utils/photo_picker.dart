@@ -96,7 +96,11 @@ Future<PhotoPickResult> pickPhotos({required int remaining}) async {
       continue;
     }
     photos.add(
-      PickedPhoto(bytes: bytes, contentType: type, extension: _extensionOf[type]!),
+      PickedPhoto(
+        bytes: bytes,
+        contentType: type,
+        extension: _extensionOf[type]!,
+      ),
     );
   }
   final room = remaining < 0 ? 0 : remaining;

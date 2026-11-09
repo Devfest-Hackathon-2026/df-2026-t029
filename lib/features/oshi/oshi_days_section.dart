@@ -104,7 +104,11 @@ class _OshiDaysSectionState extends ConsumerState<OshiDaysSection> {
         ? null
         : oshiDayCount(start, ref.watch(nowProvider));
     final birthdayLabel = widget.oshi.kind == OshiKind.group ? '結成日' : '誕生日';
-    final heading = HakoFonts.jp(size: 14, weight: FontWeight.w700, height: 1.5);
+    final heading = HakoFonts.jp(
+      size: 14,
+      weight: FontWeight.w700,
+      height: 1.5,
+    );
     final note = HakoFonts.jp(size: 12, color: BrandColors.sub, height: 1.5);
     final label = HakoFonts.jp(size: 13, height: 1.5);
     final dayItems = maxDayOfMonth(_month ?? 1);
@@ -139,7 +143,9 @@ class _OshiDaysSectionState extends ConsumerState<OshiDaysSection> {
                 key: const Key('oshi_days_start_clear'),
                 onPressed: _saving
                     ? null
-                    : () => _run((repo, uid) => repo.setStartDate(uid, _key, null)),
+                    : () => _run(
+                        (repo, uid) => repo.setStartDate(uid, _key, null),
+                      ),
                 child: const Text('外す'),
               ),
           ],

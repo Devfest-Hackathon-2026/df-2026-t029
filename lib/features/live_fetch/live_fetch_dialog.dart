@@ -122,7 +122,11 @@ class _LiveFetchDialogState extends ConsumerState<LiveFetchDialog> {
               const SizedBox(height: 12),
               Text(
                 '公式サイト',
-                style: HakoFonts.jp(size: 12, color: BrandColors.sub, height: 1.5),
+                style: HakoFonts.jp(
+                  size: 12,
+                  color: BrandColors.sub,
+                  height: 1.5,
+                ),
               ),
               OfficialUrlLink(url: officialUrl),
             ],

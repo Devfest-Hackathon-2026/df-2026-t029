@@ -78,7 +78,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       // タブを出さない画面（紹介・ログイン・メールの確認・プロフィール・接続テスト）
-      GoRoute(path: '/welcome', builder: (context, state) => const WelcomePage()),
+      GoRoute(
+        path: '/welcome',
+        builder: (context, state) => const WelcomePage(),
+      ),
       GoRoute(
         path: '/login',
         builder: (context, state) => LoginPage(
@@ -91,7 +94,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/verify-email',
         builder: (context, state) => const VerifyEmailPage(),
       ),
-      GoRoute(path: '/profile', builder: (context, state) => const ProfilePage()),
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) => const ProfilePage(),
+      ),
       GoRoute(
         path: '/calendar-test',
         builder: (context, state) => const CalendarTestPage(),
@@ -143,9 +149,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(
                     path: ':liveId',
-                    builder: (context, state) => LiveDetailPage(
-                      liveId: state.pathParameters['liveId']!,
-                    ),
+                    builder: (context, state) =>
+                        LiveDetailPage(liveId: state.pathParameters['liveId']!),
                     routes: [
                       // ライブの編集（Step4・計画書 3.7）
                       GoRoute(
@@ -214,13 +219,19 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          GoRoute(path: '/register', builder: (context, state) => const ScanPage()),
+          GoRoute(
+            path: '/register',
+            builder: (context, state) => const ScanPage(),
+          ),
           GoRoute(
             path: '/live-form',
             builder: (context, state) =>
                 LiveFormPage(initial: state.extra as LiveDraft?),
           ),
-          GoRoute(path: '/goods', builder: (context, state) => const GoodsSearchPage()),
+          GoRoute(
+            path: '/goods',
+            builder: (context, state) => const GoodsSearchPage(),
+          ),
           GoRoute(
             path: '/goods/new',
             builder: (context, state) => const GoodsFormPage(),
@@ -290,7 +301,8 @@ class App extends ConsumerWidget {
       scrollBehavior: const _AppScrollBehavior(),
       routerConfig: ref.watch(routerProvider),
       // アプリを開いているときに届いた通知を SnackBar で出す（Step6）
-      builder: (context, child) => ForegroundNotificationListener(child: child!),
+      builder: (context, child) =>
+          ForegroundNotificationListener(child: child!),
     );
   }
 }
@@ -301,9 +313,9 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
 
   @override
   Set<PointerDeviceKind> get dragDevices => {
-        ...super.dragDevices,
-        PointerDeviceKind.mouse,
-      };
+    ...super.dragDevices,
+    PointerDeviceKind.mouse,
+  };
 }
 
 /// ログイン状態が変わったら、ルーターに再判定させる

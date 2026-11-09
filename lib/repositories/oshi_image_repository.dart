@@ -17,29 +17,26 @@ class FirestoreOshiImageRepository implements OshiImageRepository {
 
   final FirebaseFirestore _db;
 
-  DocumentReference<Map<String, dynamic>> _doc(String uid) => _db
-      .collection('users')
-      .doc(uid)
-      .collection('settings')
-      .doc('oshiImages');
+  DocumentReference<Map<String, dynamic>> _doc(String uid) =>
+      _db.collection('users').doc(uid).collection('settings').doc('oshiImages');
 
   @override
-  Stream<Map<String, String>> watch(String uid) => _doc(uid).snapshots().map((
-    snap,
-  ) {
-    final images = snap.data()?['images'];
-    if (images is! Map) return const {};
-    return {
-      for (final e in images.entries)
-        if (e.key is String && e.value is String && (e.value as String).isNotEmpty)
-          e.key as String: e.value as String,
-    };
-  });
+  Stream<Map<String, String>> watch(String uid) =>
+      _doc(uid).snapshots().map((snap) {
+        final images = snap.data()?['images'];
+        if (images is! Map) return const {};
+        return {
+          for (final e in images.entries)
+            if (e.key is String &&
+                e.value is String &&
+                (e.value as String).isNotEmpty)
+              e.key as String: e.value as String,
+        };
+      });
 
   @override
-  Future<void> setImage(String uid, String key, String? path) =>
-      _doc(uid).set({
-        'images': {key: path ?? FieldValue.delete()},
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+  Future<void> setImage(String uid, String key, String? path) => _doc(uid).set({
+    'images': {key: path ?? FieldValue.delete()},
+    'updatedAt': FieldValue.serverTimestamp(),
+  }, SetOptions(merge: true));
 }

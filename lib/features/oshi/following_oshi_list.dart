@@ -51,7 +51,10 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
   }
 
   /// 最推しにする・外す（Fc 3.2）
-  Future<void> _toggleFavorite(OshiSummary oshi, {required bool favorite}) async {
+  Future<void> _toggleFavorite(
+    OshiSummary oshi, {
+    required bool favorite,
+  }) async {
     if (_busy.contains(oshi.key)) return;
     setState(() => _busy.add(oshi.key));
     final error = await runFavoriteAction(ref, oshi, favorite: favorite);
@@ -124,7 +127,11 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
             padding: const EdgeInsets.only(top: 2, bottom: 6),
             child: Text(
               '☆を押すと最推しに、丸い札を押すと色を選べます',
-              style: HakoFonts.jp(size: 12, color: BrandColors.sub, height: 1.5),
+              style: HakoFonts.jp(
+                size: 12,
+                color: BrandColors.sub,
+                height: 1.5,
+              ),
             ),
           ),
         Padding(
@@ -159,9 +166,7 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
             key: const Key('oshi_filter_empty'),
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Text(
-              kind == OshiKind.group
-                  ? 'フォロー中のグループはありません'
-                  : 'フォロー中の個人はいません',
+              kind == OshiKind.group ? 'フォロー中のグループはありません' : 'フォロー中の個人はいません',
               textAlign: TextAlign.center,
             ),
           )
@@ -176,7 +181,9 @@ class _FollowingOshiListState extends ConsumerState<FollowingOshiList> {
               // グループの行を押すと、その場でメンバーを閉じる・開く（Fc 4.1・Fd 5.5）
               onTap: oshi.kind == OshiKind.group
                   ? () => setState(() {
-                      if (!_collapsed.remove(oshi.key)) _collapsed.add(oshi.key);
+                      if (!_collapsed.remove(oshi.key)) {
+                        _collapsed.add(oshi.key);
+                      }
                     })
                   : null,
               membersExpanded: oshi.kind == OshiKind.group

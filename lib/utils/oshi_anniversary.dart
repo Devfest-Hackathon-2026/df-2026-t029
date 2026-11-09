@@ -40,8 +40,7 @@ class OshiEvent {
   final int? count;
 }
 
-bool _isLeap(int year) =>
-    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+bool _isLeap(int year) => (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
 
 /// [date] がその月日か。2月29日は、うるう年でなければ2月28日に祝う
 bool _isMonthDay(int month, int day, DateTime date) {
