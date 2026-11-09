@@ -1,0 +1,11 @@
+{
+  "name": "oshiashi-demo-site",
+  "private": true,
+  "type": "module",
+  "description": "架空の公式サイト（デモ用）。おしあしとは別のサイトとしてホストする",
+  "scripts": {
+    "build": "node build.mjs",
+    "build:b": "node build.mjs --version b",
+    "test": "node --test"
+  }
+}

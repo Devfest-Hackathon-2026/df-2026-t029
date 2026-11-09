@@ -1,0 +1,18 @@
+{
+  "hosting": {
+    "site": "g-palette-demo",
+    "public": "public",
+    "trailingSlash": true,
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "headers": [
+      {
+        "source": "/_shot/**",
+        "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }]
+      },
+      {
+        "source": "**",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      }
+    ]
+  }
+}
