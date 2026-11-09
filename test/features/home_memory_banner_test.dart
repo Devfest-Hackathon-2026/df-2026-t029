@@ -61,8 +61,11 @@ Future<void> pumpPage(
   double width = 390,
   double textScale = 1,
   List<String> liveIds = const [],
+  Map<String, String>? store,
+  String? uid = 'u1',
 }) async {
   _routes.clear();
+  final saved = store ?? <String, String>{};
   tester.view.physicalSize = Size(width, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -97,7 +100,13 @@ Future<void> pumpPage(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        currentUidProvider.overrideWithValue('u1'),
+        currentUidProvider.overrideWithValue(uid),
+        homeBannerStorageProvider.overrideWithValue(
+          HomeBannerStorage(
+            read: (k) => saved[k],
+            write: (k, v) => saved[k] = v,
+          ),
+        ),
         memoryRepositoryProvider.overrideWithValue(repo),
         nowProvider.overrideWithValue(_now),
         liveRepositoryProvider.overrideWithValue(
@@ -226,6 +235,85 @@ void main() {
       expect(find.textContaining('古いほう', findRichText: true), findsNothing);
     });
 
+    testWidgets('閉じるボタン（×）で、そのカードが消える。ほかの記録のカードは出ない', (tester) async {
+      final store = <String, String>{};
+      await pumpPage(
+        tester,
+        _home(),
+        repo: FakeMemoryRepository([recent]),
+        liveIds: ['a'],
+        store: store,
+      );
+      expect(_key('home_memory_banner'), findsOneWidget);
+      await tester.ensureVisible(_key('home_memory_banner_close'));
+      await tester.tap(_key('home_memory_banner_close'));
+      await tester.pumpAndSettle();
+      expect(_key('home_memory_banner'), findsNothing);
+      // このブラウザに、ユーザーごとの印が残る（記録の中身は変えない）
+      expect(store.keys.single, contains('u1'));
+      expect(store.values.single, contains('"a"'));
+    });
+
+    testWidgets('閉じたカードは、次に開いても出ない（保存した印から戻る）', (tester) async {
+      final store = <String, String>{
+        'oshiashi.dismissedHomeBanners.u1': '["a"]',
+      };
+      await pumpPage(
+        tester,
+        _home(),
+        repo: FakeMemoryRepository([recent]),
+        liveIds: ['a'],
+        store: store,
+      );
+      expect(_key('home_memory_banner'), findsNothing);
+    });
+
+    testWidgets('別のユーザーが閉じた印は、効かない', (tester) async {
+      final store = <String, String>{
+        'oshiashi.dismissedHomeBanners.other': '["a"]',
+      };
+      await pumpPage(
+        tester,
+        _home(),
+        repo: FakeMemoryRepository([recent]),
+        liveIds: ['a'],
+        store: store,
+      );
+      expect(_key('home_memory_banner'), findsOneWidget);
+    });
+
+    testWidgets('保存した印が壊れていても、カードは出る（例外なし）', (tester) async {
+      final store = <String, String>{
+        'oshiashi.dismissedHomeBanners.u1': 'これはJSONではない',
+      };
+      await pumpPage(
+        tester,
+        _home(),
+        repo: FakeMemoryRepository([recent]),
+        liveIds: ['a'],
+        store: store,
+      );
+      expect(_key('home_memory_banner'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('いちばん新しい記録を閉じると、次に新しい（7日以内・未投稿）記録のカードに替わる', (tester) async {
+      await pumpPage(
+        tester,
+        _home(),
+        repo: FakeMemoryRepository([
+          _mem('old', _now.subtract(const Duration(days: 5)), title: '古いほう'),
+          _mem('new', _now.subtract(const Duration(days: 1)), title: '新しいほう'),
+        ]),
+        liveIds: ['old', 'new'],
+      );
+      await tester.ensureVisible(_key('home_memory_banner_close'));
+      await tester.tap(_key('home_memory_banner_close'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('古いほう', findRichText: true), findsWidgets);
+      expect(find.textContaining('新しいほう', findRichText: true), findsNothing);
+    });
+
     testWidgets('ボタンで投稿の画面へ（投稿先つき）・リンクで記録へ', (tester) async {
       await pumpPage(
         tester,
@@ -312,6 +400,16 @@ void main() {
   });
 
   group('メモリー一覧の「新しい記録」のカード', () {
+    testWidgets('ホームのカードを閉じた記録でも、一覧の「新しい記録」のカードは残る', (tester) async {
+      await pumpPage(
+        tester,
+        const MemoryListPage(),
+        repo: FakeMemoryRepository([recent]),
+        store: {'oshiashi.dismissedHomeBanners.u1': '["a"]'},
+      );
+      expect(_key('memory_list_recent_card'), findsOneWidget);
+    });
+
     testWidgets('新しい記録は大きいカードで先頭に出て、同じ記録のグリッドのカードは出ない', (tester) async {
       await pumpPage(
         tester,
