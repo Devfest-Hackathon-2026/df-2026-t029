@@ -58,7 +58,9 @@ class OshiKindBadge extends ConsumerWidget {
       ref.watch(oshiImagesProvider).value ?? const {},
     );
     final isGroup = oshi.kind == OshiKind.group;
-    final background = isGroup ? BrandColors.ink : (color ?? BrandColors.surface);
+    final background = isGroup
+        ? BrandColors.ink
+        : (color ?? BrandColors.surface);
     final border = Border.all(
       color: isGroup ? (color ?? BrandColors.ink) : BrandColors.ink,
       width: isGroup && color != null ? 3 : 2,
@@ -260,10 +262,7 @@ class OshiListTile extends StatelessWidget {
     final info = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        HakoTagChip(
-          oshi.genre.label,
-          key: ValueKey('oshi_genre_$_keySuffix'),
-        ),
+        HakoTagChip(oshi.genre.label, key: ValueKey('oshi_genre_$_keySuffix')),
         const SizedBox(height: 4),
         InkWell(
           key: ValueKey('oshi_name_link_$_keySuffix'),

@@ -160,7 +160,7 @@ void main() {
     testWidgets('0件: 区画の下の「ライブを追加」からライブを追加する画面へ行ける', (tester) async {
       await pumpAt(tester, '/lives');
       expect(_key('live_list_upcoming_empty'), findsOneWidget);
-      expect(find.text('今後のライブはまだありません'), findsOneWidget);
+      expect(find.text('参戦するライブはまだありません。「推しの今後のライブ」から追加できます'), findsOneWidget);
       expect(find.text('ライブを追加'), findsOneWidget);
       await tester.tap(_key('live_list_add_button'));
       await tester.pumpAndSettle();
@@ -272,10 +272,13 @@ void main() {
       expect(_key('live_list_finished_header'), findsNothing);
     });
 
-    testWidgets('補足: 「今後のライブ」の下にいつも出る（0件でも）。「終了」の補足は出ない', (tester) async {
+    testWidgets('補足: 「今後参戦するライブ」の下にいつも出る（0件でも）。「終了」の補足は出ない', (tester) async {
       await pumpAt(tester, '/lives');
       expect(_key('hint_live_upcoming'), findsOneWidget);
-      expect(find.text('開催日の近い順です。タップすると詳細を開けます。'), findsOneWidget);
+      expect(
+        find.text('自分のライブ一覧に入れた、これから参戦するライブです。開催日の近い順に並びます。'),
+        findsOneWidget,
+      );
       expect(
         tester.getTopLeft(_key('live_list_upcoming_header')).dy,
         lessThan(tester.getTopLeft(_key('hint_live_upcoming')).dy),

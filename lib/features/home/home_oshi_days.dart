@@ -88,7 +88,11 @@ class _TodayBox extends StatelessWidget {
             Expanded(
               child: Text(
                 text,
-                style: HakoFonts.jp(size: 16, weight: FontWeight.w700, height: 1.4),
+                style: HakoFonts.jp(
+                  size: 16,
+                  weight: FontWeight.w700,
+                  height: 1.4,
+                ),
               ),
             ),
             const Text('🎉', style: TextStyle(fontSize: 22)),
@@ -119,7 +123,11 @@ class _UpcomingRow extends StatelessWidget {
             child: Text(
               'あと${event.daysAway}日：${oshiEventTitle(event)}'
               '（${date.month}/${date.day}）',
-              style: HakoFonts.jp(size: 13, color: BrandColors.sub, height: 1.5),
+              style: HakoFonts.jp(
+                size: 13,
+                color: BrandColors.sub,
+                height: 1.5,
+              ),
             ),
           ),
         ],

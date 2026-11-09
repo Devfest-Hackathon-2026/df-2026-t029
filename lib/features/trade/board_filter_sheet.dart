@@ -55,8 +55,7 @@ class _BoardFilterSheetState extends ConsumerState<_BoardFilterSheet> {
   late String? _performanceLabel = widget.initial.performanceLabel;
 
   bool get _isGroup => widget.target?.kind == OshiKind.group;
-  List<String> get _groupIds =>
-      _isGroup ? [widget.target!.id] : const [];
+  List<String> get _groupIds => _isGroup ? [widget.target!.id] : const [];
   List<String> get _oshiIds =>
       widget.target != null && !_isGroup ? [widget.target!.id] : const [];
 

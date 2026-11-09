@@ -58,10 +58,7 @@ enum WantType {
 /// 文字列の配列を enum の配列にする（知らない値は読み飛ばす）
 List<T> _enumList<T extends Enum>(List<T> values, Object? raw) {
   final byName = values.asNameMap();
-  return [
-    for (final s in toStringList(raw))
-      ?byName[s],
-  ];
+  return [for (final s in toStringList(raw)) ?byName[s]];
 }
 
 /// 譲の品目（グッズ＋種類）
@@ -79,16 +76,16 @@ class GiveItem {
   final String label;
 
   factory GiveItem.fromMap(Map<String, dynamic> map) => GiveItem(
-        goodsId: map['goodsId'] as String,
-        variantId: map['variantId'] as String,
-        label: map['label'] as String? ?? '',
-      );
+    goodsId: map['goodsId'] as String,
+    variantId: map['variantId'] as String,
+    label: map['label'] as String? ?? '',
+  );
 
   Map<String, dynamic> toMap() => {
-        'goodsId': goodsId,
-        'variantId': variantId,
-        'label': label,
-      };
+    'goodsId': goodsId,
+    'variantId': variantId,
+    'label': label,
+  };
 }
 
 /// 譲セット（「この中から N 個」）
@@ -110,21 +107,21 @@ class GiveSet {
   final String? note;
 
   factory GiveSet.fromMap(Map<String, dynamic> map) => GiveSet(
-        items: [
-          for (final m in map['items'] as List? ?? const [])
-            GiveItem.fromMap(Map<String, dynamic>.from(m as Map)),
-        ],
-        pickCount: (map['pickCount'] as num?)?.toInt(),
-        images: toStringList(map['images']),
-        note: map['note'] as String?,
-      );
+    items: [
+      for (final m in map['items'] as List? ?? const [])
+        GiveItem.fromMap(Map<String, dynamic>.from(m as Map)),
+    ],
+    pickCount: (map['pickCount'] as num?)?.toInt(),
+    images: toStringList(map['images']),
+    note: map['note'] as String?,
+  );
 
   Map<String, dynamic> toMap() => {
-        'items': [for (final i in items) i.toMap()],
-        if (pickCount != null) 'pickCount': pickCount,
-        'images': images,
-        if (note != null) 'note': note,
-      };
+    'items': [for (final i in items) i.toMap()],
+    if (pickCount != null) 'pickCount': pickCount,
+    'images': images,
+    if (note != null) 'note': note,
+  };
 }
 
 /// 求める対象（品目／グッズの全種類／メンバー）
@@ -165,12 +162,12 @@ class WantTarget {
   }
 
   Map<String, dynamic> toMap() => {
-        'type': type.name,
-        if (goodsId != null) 'goodsId': goodsId,
-        if (variantId != null) 'variantId': variantId,
-        if (oshiId != null) 'oshiId': oshiId,
-        'label': label,
-      };
+    'type': type.name,
+    if (goodsId != null) 'goodsId': goodsId,
+    if (variantId != null) 'variantId': variantId,
+    if (oshiId != null) 'oshiId': oshiId,
+    'label': label,
+  };
 }
 
 /// 求セット
@@ -184,19 +181,19 @@ class WantSet {
   final String? note;
 
   factory WantSet.fromMap(Map<String, dynamic> map) => WantSet(
-        targets: [
-          for (final m in map['targets'] as List? ?? const [])
-            ?WantTarget.fromMap(Map<String, dynamic>.from(m as Map)),
-        ],
-        pickCount: (map['pickCount'] as num?)?.toInt(),
-        note: map['note'] as String?,
-      );
+    targets: [
+      for (final m in map['targets'] as List? ?? const [])
+        ?WantTarget.fromMap(Map<String, dynamic>.from(m as Map)),
+    ],
+    pickCount: (map['pickCount'] as num?)?.toInt(),
+    note: map['note'] as String?,
+  );
 
   Map<String, dynamic> toMap() => {
-        'targets': [for (final t in targets) t.toMap()],
-        if (pickCount != null) 'pickCount': pickCount,
-        if (note != null) 'note': note,
-      };
+    'targets': [for (final t in targets) t.toMap()],
+    if (pickCount != null) 'pickCount': pickCount,
+    if (note != null) 'note': note,
+  };
 }
 
 /// 交換・売買の投稿
@@ -291,7 +288,8 @@ class TradePost {
       note: data['note'] as String?,
       images: toStringList(data['images']),
       // 知らない値は、募集中として扱わない
-      status: TradePostStatus.values.asNameMap()[data['status']] ??
+      status:
+          TradePostStatus.values.asNameMap()[data['status']] ??
           TradePostStatus.closed,
       createdAt: toDateTime(data['createdAt']),
       updatedAt: toDateTime(data['updatedAt']),
@@ -300,16 +298,16 @@ class TradePost {
 
   /// 保存用の Map。uid・表示名・検索用キー・状態・日時は repository が付ける
   Map<String, dynamic> toFirestore() => {
-        'groupIds': groupIds,
-        'oshiIds': oshiIds,
-        'tags': [for (final t in tags) t.name],
-        if (hasPrice && priceType != null) 'priceType': priceType!.name,
-        'gives': [for (final s in gives) s.toMap()],
-        'wants': [for (final s in wants) s.toMap()],
-        'handover': [for (final h in handover) h.name],
-        'performanceIds': performanceIds,
-        if (xAccount != null) 'xAccount': xAccount,
-        if (note != null) 'note': note,
-        'images': images,
-      };
+    'groupIds': groupIds,
+    'oshiIds': oshiIds,
+    'tags': [for (final t in tags) t.name],
+    if (hasPrice && priceType != null) 'priceType': priceType!.name,
+    'gives': [for (final s in gives) s.toMap()],
+    'wants': [for (final s in wants) s.toMap()],
+    'handover': [for (final h in handover) h.name],
+    'performanceIds': performanceIds,
+    if (xAccount != null) 'xAccount': xAccount,
+    if (note != null) 'note': note,
+    'images': images,
+  };
 }

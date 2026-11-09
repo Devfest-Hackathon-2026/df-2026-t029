@@ -19,10 +19,7 @@ enum CalendarEventKind {
 
 /// 予定の種類をまとめて選ぶプリセット
 enum CalendarPreset {
-  compact('コンパクト', {
-    CalendarEventKind.performance,
-    CalendarEventKind.applyEnd,
-  }),
+  compact('コンパクト', {CalendarEventKind.performance, CalendarEventKind.applyEnd}),
   standard('標準', {
     CalendarEventKind.performance,
     CalendarEventKind.applyEnd,
@@ -80,26 +77,26 @@ class CalendarEvent {
 
   /// Calendar API に送る形
   Map<String, dynamic> toJson() => {
-        'id': eventId,
-        'status': 'confirmed',
-        'summary': title,
-        if (location != null) 'location': location,
-        'description': description,
-        'start': {
-          'dateTime': start.toUtc().toIso8601String(),
-          'timeZone': 'Asia/Tokyo',
-        },
-        'end': {
-          'dateTime': end.toUtc().toIso8601String(),
-          'timeZone': 'Asia/Tokyo',
-        },
-        'reminders': {
-          'useDefault': false,
-          'overrides': [
-            for (final m in reminderMinutes) {'method': 'popup', 'minutes': m},
-          ],
-        },
-      };
+    'id': eventId,
+    'status': 'confirmed',
+    'summary': title,
+    if (location != null) 'location': location,
+    'description': description,
+    'start': {
+      'dateTime': start.toUtc().toIso8601String(),
+      'timeZone': 'Asia/Tokyo',
+    },
+    'end': {
+      'dateTime': end.toUtc().toIso8601String(),
+      'timeZone': 'Asia/Tokyo',
+    },
+    'reminders': {
+      'useDefault': false,
+      'overrides': [
+        for (final m in reminderMinutes) {'method': 'popup', 'minutes': m},
+      ],
+    },
+  };
 }
 
 /// 保存済みのライブ・公演・受付から、追加できる予定をすべて作る。
@@ -153,8 +150,12 @@ List<CalendarEvent> buildCalendarEvents({
         reminderMinutes: const [1440, 180],
       ),
     for (final r in receptions) ...[
-      receptionEvent(r, CalendarEventKind.applyEnd, r.applyEndAt,
-          isDeadline: true),
+      receptionEvent(
+        r,
+        CalendarEventKind.applyEnd,
+        r.applyEndAt,
+        isDeadline: true,
+      ),
       if (r.paymentDeadline case final at?)
         receptionEvent(r, CalendarEventKind.payment, at, isDeadline: true),
       if (r.applyStartAt case final at?)

@@ -65,8 +65,9 @@ class _TripSheet extends ConsumerStatefulWidget {
 
 class _TripSheetState extends ConsumerState<_TripSheet> {
   /// 開いたときの記録（無ければ null）
-  late final Trip? _existing =
-      ref.read(myTripsProvider).value?[widget.performance.id];
+  late final Trip? _existing = ref
+      .read(myTripsProvider)
+      .value?[widget.performance.id];
 
   late TravelTransport? _transport = _existing?.transport;
   late DateTime? _departAt = _existing?.departAt;
@@ -184,9 +185,7 @@ class _TripSheetState extends ConsumerState<_TripSheet> {
     return Padding(
       key: const Key('trip_sheet'),
       // キーボードで欄が隠れないようにする
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

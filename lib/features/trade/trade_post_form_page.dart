@@ -124,15 +124,14 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
         saved = true;
         ref.invalidate(tradePostByIdProvider(base.id!));
         // 外した写真（消したセットの写真も含む）を消す。失敗しても無視・待たない
-        final kept = {
-          ...post.images,
-          for (final s in post.gives) ...s.images,
-        };
+        final kept = {...post.images, for (final s in post.gives) ...s.images};
         unawaited(
-          photoRepo.deleteAll([
-            ...base.images,
-            for (final s in base.gives) ...s.images,
-          ].where((p) => !kept.contains(p))),
+          photoRepo.deleteAll(
+            [
+              ...base.images,
+              for (final s in base.gives) ...s.images,
+            ].where((p) => !kept.contains(p)),
+          ),
         );
       }
       if (!mounted) return;
@@ -208,8 +207,7 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
     );
     // 写真（G-7）：合計の上限・処理中は追加できない。保存中は外せない
     final photosEnabled = !_saving && !_picking;
-    final canAddPhoto =
-        photosEnabled && draft.photoCount < TradePost.maxImages;
+    final canAddPhoto = photosEnabled && draft.photoCount < TradePost.maxImages;
 
     return HakoPageScaffold(
       title: _title,
@@ -302,9 +300,7 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
             ),
             heading('求（欲しいもの）'),
             WantSetsSection(draft: draft, onChanged: () => setState(() {})),
-            heading(
-              '写真（投稿全体とセットで${draft.photoCount}/${TradePost.maxImages}枚）',
-            ),
+            heading('写真（投稿全体とセットで${draft.photoCount}/${TradePost.maxImages}枚）'),
             const Text('譲の現物の写真は、各譲セットの中にも付けられます'),
             const SizedBox(height: 8),
             PhotoEditSection(

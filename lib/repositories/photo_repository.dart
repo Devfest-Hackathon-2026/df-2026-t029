@@ -41,10 +41,9 @@ class FirebasePhotoRepository implements PhotoRepository {
   @override
   Future<String> upload(String dir, PickedPhoto photo) async {
     final path = '$dir/${_fileName(photo.extension)}';
-    await _storage.ref(path).putData(
-      photo.bytes,
-      SettableMetadata(contentType: photo.contentType),
-    );
+    await _storage
+        .ref(path)
+        .putData(photo.bytes, SettableMetadata(contentType: photo.contentType));
     return path;
   }
 

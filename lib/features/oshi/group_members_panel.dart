@@ -28,10 +28,8 @@ List<OshiSummary> groupMembersOf(OshiSummary group, List<OshiSummary> all) {
 }
 
 /// このグループのメンバーを申請する画面のパス（このグループを所属に選んだ状態）
-String memberRequestPath(OshiSummary group) => Uri(
-  path: '/oshi/request',
-  queryParameters: {'group': group.id},
-).toString();
+String memberRequestPath(OshiSummary group) =>
+    Uri(path: '/oshi/request', queryParameters: {'group': group.id}).toString();
 
 /// 「メンバー全員をフォロー（n人）」のボタン（Fc 4.2）。
 /// 対象は、承認済みで、まだフォローしていないメンバー。

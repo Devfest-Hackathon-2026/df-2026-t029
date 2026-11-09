@@ -26,8 +26,11 @@ final tripPlansProvider = Provider<AsyncValue<TripPlans>>((ref) {
   final lives = ref.watch(myLivesProvider);
   final performances = ref.watch(myPerformancesProvider);
   final trips = ref.watch(myTripsProvider);
-  if ((lives.value, performances.value, trips.value)
-      case (final l?, final p?, final t?)) {
+  if ((lives.value, performances.value, trips.value) case (
+    final l?,
+    final p?,
+    final t?,
+  )) {
     return AsyncData(buildTripPlans(l, p, t, now));
   }
   for (final v in <AsyncValue<Object?>>[lives, performances, trips]) {

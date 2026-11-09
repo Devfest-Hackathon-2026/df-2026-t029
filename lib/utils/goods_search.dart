@@ -33,10 +33,10 @@ int? _rank(Goods g, String q) {
     final int? r = key == q
         ? 0
         : key.startsWith(q)
-            ? 1
-            : key.contains(q)
-                ? 2
-                : null;
+        ? 1
+        : key.contains(q)
+        ? 2
+        : null;
     if (r != null && (best == null || r < best)) best = r;
   }
   return best;
@@ -54,8 +54,9 @@ List<Goods> findExactGoodsDuplicates(
   required String name,
   List<String> aliases = const [],
 }) {
-  final keys = {for (final s in [name, ...aliases]) normalizeName(s)}
-    ..remove('');
+  final keys = {
+    for (final s in [name, ...aliases]) normalizeName(s),
+  }..remove('');
   if (keys.isEmpty) return const [];
   return all.where((g) => _keysOf(g).any(keys.contains)).toList();
 }

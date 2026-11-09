@@ -33,10 +33,7 @@ class ForegroundNotificationListener extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
               if (body != null) Text(body),
             ],
           ),

@@ -18,11 +18,13 @@ class _CalendarTestPageState extends ConsumerState<CalendarTestPage> {
   Future<void> _test() async {
     setState(() => _loading = true);
     try {
-      final titles =
-          await ref.read(googleCalendarServiceProvider).upcomingEventTitles();
+      final titles = await ref
+          .read(googleCalendarServiceProvider)
+          .upcomingEventTitles();
       if (!mounted) return;
-      setState(() => _result =
-          titles.isEmpty ? 'これからの予定はありません' : titles.join('\n'));
+      setState(
+        () => _result = titles.isEmpty ? 'これからの予定はありません' : titles.join('\n'),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _result = 'エラー: $e');

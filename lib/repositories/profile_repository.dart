@@ -34,9 +34,10 @@ class FirestoreProfileRepository implements ProfileRepository {
       _db.collection('users').doc(uid);
 
   @override
-  Stream<UserProfile?> watch(String uid) => _user(uid)
-      .snapshots()
-      .map((snap) => UserProfile.fromFirestore(snap.data()));
+  Stream<UserProfile?> watch(String uid) =>
+      _user(uid)
+          .snapshots()
+          .map((snap) => UserProfile.fromFirestore(snap.data()));
 
   @override
   Future<void> save(
@@ -74,7 +75,6 @@ class FirestoreProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<void> saveThemeColor(String uid, int? color) => _user(uid).update({
-        'themeColor': color ?? FieldValue.delete(),
-      });
+  Future<void> saveThemeColor(String uid, int? color) =>
+      _user(uid).update({'themeColor': color ?? FieldValue.delete()});
 }

@@ -57,12 +57,11 @@ class FirestoreExpenseRepository implements ExpenseRepository {
       .map((snap) => [for (final doc in snap.docs) Expense.fromFirestore(doc)]);
 
   @override
-  Future<void> addExpense(String uid, Expense expense) =>
-      _expenses(uid).add({
-        ...expense.toFirestore(),
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+  Future<void> addExpense(String uid, Expense expense) => _expenses(uid).add({
+    ...expense.toFirestore(),
+    'createdAt': FieldValue.serverTimestamp(),
+    'updatedAt': FieldValue.serverTimestamp(),
+  });
 
   @override
   Future<void> updateExpense(String uid, Expense expense) =>
@@ -88,26 +87,24 @@ class FirestoreExpenseRepository implements ExpenseRepository {
       );
 
   @override
-  Future<void> saveTicketCost(String uid, TicketCost cost) =>
-      _ticketCosts(uid).doc(cost.receptionId).set({
-        ...cost.toFirestore(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+  Future<void> saveTicketCost(String uid, TicketCost cost) => _ticketCosts(uid)
+      .doc(cost.receptionId)
+      .set({...cost.toFirestore(), 'updatedAt': FieldValue.serverTimestamp()});
 
   @override
   Future<void> deleteTicketCost(String uid, String receptionId) =>
       _ticketCosts(uid).doc(receptionId).delete();
 
   @override
-  Stream<int?> watchBudget(String uid) => _budget(
-    uid,
-  ).snapshots().map((doc) => (doc.data()?['monthly'] as num?)?.toInt());
+  Stream<int?> watchBudget(String uid) =>
+      _budget(uid)
+          .snapshots()
+          .map((doc) => (doc.data()?['monthly'] as num?)?.toInt());
 
   @override
   Future<void> saveBudget(String uid, int? monthly) => monthly == null
       ? _budget(uid).delete()
-      : _budget(uid).set({
-          'monthly': monthly,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+      : _budget(
+          uid,
+        ).set({'monthly': monthly, 'updatedAt': FieldValue.serverTimestamp()});
 }

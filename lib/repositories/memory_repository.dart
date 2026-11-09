@@ -32,8 +32,9 @@ class FirestoreMemoryRepository implements MemoryRepository {
       _db.collection('users').doc(uid).collection('memories');
 
   @override
-  Stream<Map<String, LiveMemory>> watchAll(String uid) =>
-      _memories(uid).snapshots().map(
+  Stream<Map<String, LiveMemory>> watchAll(String uid) => _memories(uid)
+      .snapshots()
+      .map(
         (snap) => {
           for (final doc in snap.docs) doc.id: LiveMemory.fromFirestore(doc),
         },

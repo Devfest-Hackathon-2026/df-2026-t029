@@ -157,7 +157,7 @@ void main() {
     expect(_key('home_greeting'), findsOneWidget);
     expect(find.textContaining('こんにちは'), findsOneWidget);
     expect(find.text('次の締切'), findsOneWidget);
-    expect(find.text('今後のライブ'), findsOneWidget);
+    expect(find.text('今後参戦するライブ'), findsOneWidget);
     expect(find.text('新しい交換'), findsOneWidget);
     expect(_key('home_new_trades'), findsOneWidget);
   });

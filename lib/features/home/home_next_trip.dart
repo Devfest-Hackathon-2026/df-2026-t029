@@ -30,10 +30,7 @@ class HomeNextTrip extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        HomeSectionHeader(
-          title: '次の遠征',
-          onSeeAll: () => context.go('/trips'),
-        ),
+        HomeSectionHeader(title: '次の遠征', onSeeAll: () => context.go('/trips')),
         Card(
           key: const Key('home_next_trip'),
           margin: EdgeInsets.zero,
