@@ -117,6 +117,54 @@ final liveSearchProvider = Provider.autoDispose
       );
     });
 
+/// ホームの「推しの新しいライブ」に出す日数と件数（Ff 5.1）
+const newOshiLiveDays = 14;
+const newOshiLivesMax = 5;
+
+/// 推しの新しいライブ（Ff 5.1）：フォロー中の推しのライブのうち、
+/// 終わっていない・登録から14日以内・自分のライブ一覧に無いもの。
+/// 登録の新しい順に最大5件。どれかがエラーならエラー、読み込み中なら読み込み中
+final newOshiLivesProvider =
+    Provider.autoDispose<AsyncValue<List<LiveListEntry>>>((ref) {
+      final following = ref.watch(followingOshisProvider);
+      if (following case AsyncError(:final error, :final stackTrace)) {
+        return AsyncError(error, stackTrace);
+      }
+      final oshis = following.value;
+      if (oshis == null) return const AsyncLoading();
+      final targets = FollowTargets.fromFollowing(oshis);
+      if (targets.isEmpty) return const AsyncData([]);
+
+      final result = ref.watch(liveSearchProvider((targets: targets, query: '')));
+      final mine = ref.watch(myLiveIdsProvider).value;
+      if (mine == null) return const AsyncLoading();
+      final since = ref
+          .watch(nowProvider)
+          .subtract(const Duration(days: newOshiLiveDays));
+
+      List<LiveListEntry> pick(List<LiveListEntry> entries) {
+        final list = [
+          for (final e in entries)
+            if (!e.isEnded &&
+                e.nextStartAt != null &&
+                e.live.id != null &&
+                !mine.contains(e.live.id) &&
+                (e.live.createdAt?.isAfter(since) ?? false))
+              e,
+        ]..sort((a, b) => b.live.createdAt!.compareTo(a.live.createdAt!));
+        return list.take(newOshiLivesMax).toList();
+      }
+
+      return switch (result) {
+        AsyncError(:final error, :final stackTrace) => AsyncError(
+          error,
+          stackTrace,
+        ),
+        AsyncValue(value: final entries?) => AsyncData(pick(entries)),
+        _ => const AsyncLoading(),
+      };
+    });
+
 /// ログイン中のユーザーの申込状況（receptionId → 申込状況）。
 /// 未ログインなら空の Map
 final applicationsProvider = StreamProvider<Map<String, Application>>((ref) {

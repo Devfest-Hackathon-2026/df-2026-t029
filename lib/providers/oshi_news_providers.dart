@@ -4,8 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/oshi.dart';
 import '../models/oshi_news.dart';
 import '../repositories/oshi_news_repository.dart';
-import 'favorite_oshi_providers.dart';
-import 'live_providers.dart';
 import 'oshi_color_providers.dart';
 import 'oshi_providers.dart';
 
@@ -19,7 +17,6 @@ const oshiNewsLimit = 20;
 
 /// ホームのお知らせに出す日数と件数（add_P 2.2）
 const homeNewsDays = 14;
-const homeNewsMax = 5;
 
 /// お知らせを読む推しのキー（add_P 5.1）：その推しと、個人なら所属グループ
 List<String> newsKeysOf(OshiSummary oshi) => [
@@ -47,14 +44,3 @@ List<OshiNews> recentNews(List<OshiNews> news, DateTime now, {int days = homeNew
   final since = now.subtract(Duration(days: days));
   return news.where((n) => n.publishedAt.isAfter(since)).toList();
 }
-
-/// ホームのお知らせ（add_P 5.3）：最推しと所属グループの、14日以内のものを新しい順に最大5件。
-/// 最推しがいない・読み込み中・エラーなら空
-final favoriteOshiNewsProvider = Provider.autoDispose<List<OshiNews>>((ref) {
-  final oshi = ref.watch(favoriteOshiProvider);
-  if (oshi == null) return const [];
-  final news =
-      ref.watch(oshiNewsProvider(newsKeysOf(oshi).join(','))).value ??
-      const <OshiNews>[];
-  return recentNews(news, ref.watch(nowProvider)).take(homeNewsMax).toList();
-});
