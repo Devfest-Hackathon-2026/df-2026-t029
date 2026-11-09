@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/oshi.dart';
@@ -44,3 +45,18 @@ List<OshiNews> recentNews(List<OshiNews> news, DateTime now, {int days = homeNew
   final since = now.subtract(Duration(days: days));
   return news.where((n) => n.publishedAt.isAfter(since)).toList();
 }
+
+/// 個人の動画の YouTube 検索のリポジトリ（fix_Ff 6.3）
+final oshiVideoSearchRepositoryProvider = Provider<OshiVideoSearchRepository>(
+  (ref) => FunctionsOshiVideoSearchRepository(
+    FirebaseFunctions.instanceFor(region: 'asia-northeast1'),
+  ),
+);
+
+/// 個人の動画（YouTube の検索の結果。fix_Ff 6.3）。失敗しても取り直さない
+final personVideosProvider = FutureProvider.autoDispose
+    .family<PersonVideos, String>(
+      (ref, personId) =>
+          ref.watch(oshiVideoSearchRepositoryProvider).search(personId),
+      retry: (_, _) => null,
+    );
