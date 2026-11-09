@@ -144,6 +144,7 @@ class HakoAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.title,
     this.showBack = false,
     this.backFallback = '/',
+    this.onBack,
     this.showAccount = true,
     this.color,
     this.foreground = BrandColors.ink,
@@ -152,6 +153,9 @@ class HakoAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final bool showBack;
   final String backFallback;
+
+  /// 指定すると、戻るボタンで _goBack の代わりに呼ぶ
+  final VoidCallback? onBack;
   final bool showAccount;
 
   /// 背景。省略するとページの色
@@ -182,7 +186,7 @@ class HakoAppBar extends StatelessWidget implements PreferredSizeWidget {
                 tooltip: '戻る',
                 icon: const Icon(Icons.chevron_left),
                 color: foreground,
-                onPressed: () => _goBack(context, backFallback),
+                onPressed: onBack ?? () => _goBack(context, backFallback),
               ),
             )
           : null,
@@ -218,6 +222,7 @@ class HakoPageScaffold extends StatelessWidget {
     required this.body,
     this.showBack = false,
     this.backFallback = '/',
+    this.onBack,
     this.showAccount = true,
     this.floatingActionButton,
     this.bottomBar,
@@ -233,6 +238,9 @@ class HakoPageScaffold extends StatelessWidget {
 
   /// 戻れないときの移動先
   final String backFallback;
+
+  /// 指定すると、戻るボタンで _goBack の代わりに呼ぶ（未保存の確認など）
+  final VoidCallback? onBack;
   final bool showAccount;
   final Widget? floatingActionButton;
 
@@ -272,6 +280,7 @@ class HakoPageScaffold extends StatelessWidget {
           title: title,
           showBack: showBack,
           backFallback: backFallback,
+          onBack: onBack,
           showAccount: showAccount,
           color: barColor,
           foreground: fg,
@@ -299,7 +308,8 @@ class HakoPageScaffold extends StatelessWidget {
                       if (showBack)
                         TextButton.icon(
                           key: const Key('hako_back'),
-                          onPressed: () => _goBack(context, backFallback),
+                          onPressed:
+                              onBack ?? () => _goBack(context, backFallback),
                           icon: const Icon(Icons.chevron_left, size: 18),
                           label: const Text('戻る'),
                           style: TextButton.styleFrom(

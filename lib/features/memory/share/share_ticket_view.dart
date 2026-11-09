@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import '../../../theme/brand_colors.dart' show onThemeColor;
 import '../../../theme/hako_fonts.dart';
 import '../../../utils/share_ticket.dart';
+import 'share_fit.dart';
 
 /// シェア画像の背景色（見本の `BGS`。0:きいろ 1:みどり 2:ピンク 3:くろ）
 const shareBackgrounds = [
@@ -34,7 +35,7 @@ const _hover = Color(0xFF1D4ED8);
 /// 大きさは親の幅いっぱい（比率は [target] と `config.formatIndex` で決まる）。
 /// 文字・余白は幅の 1%（`unit = width / 100`）を単位にした割合で決め、
 /// 端末の文字の拡大には影響されない。外側の枠線・影は付けない（呼び出し側で付ける）。
-class ShareTicketView extends StatelessWidget {
+class ShareTicketView extends StatefulWidget {
   const ShareTicketView({
     super.key,
     required this.content,
@@ -44,14 +45,19 @@ class ShareTicketView extends StatelessWidget {
     this.hints = false,
     this.mini = false,
     this.onTapPart,
+    this.onFit,
   });
 
   final ShareContent content;
   final ShareConfig config;
   final ShareTarget target;
 
-  /// 表紙から順。描く前に読み込み済みのもの（先頭3枚まで使う）
+  /// 表紙から順。描く前に読み込み済みのもの（先頭4枚まで使う）
   final List<Uint8List> photoBytes;
+
+  /// チケットのデザインで、自動で絞った結果を知らせる（プレビューだけが渡す）。
+  /// 同じ値が続くときは呼ばない。呼ぶのは描いたあと
+  final ValueChanged<ShareFit>? onFit;
 
   /// 空の枠（+ セトリを書く…）とタップの枠線を出す（プレビューだけ）
   final bool hints;
@@ -63,7 +69,32 @@ class ShareTicketView extends StatelessWidget {
   final void Function(SharePart part)? onTapPart;
 
   @override
+  State<ShareTicketView> createState() => _ShareTicketViewState();
+}
+
+class _ShareTicketViewState extends State<ShareTicketView> {
+  ShareFit? _lastFit;
+
+  /// 自動で絞った結果を、描いたあとに1回だけ知らせる（同じ値は重ねて呼ばない）
+  void _report(ShareFit fit) {
+    final cb = widget.onFit;
+    if (cb == null || fit == _lastFit) return;
+    _lastFit = fit;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.onFit == null) return;
+      widget.onFit!(fit);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final content = widget.content;
+    final config = widget.config;
+    final target = widget.target;
+    final hints = widget.hints;
+    final mini = widget.mini;
+    final onTapPart = widget.onTapPart;
+    final photoBytes = widget.photoBytes;
     final formats = shareFormats[target]!;
     final format = formats[config.formatIndex.clamp(0, formats.length - 1)];
     final showHints = hints && !mini;
@@ -84,9 +115,10 @@ class ShareTicketView extends StatelessWidget {
                     content: content,
                     config: config,
                     format: format,
-                    photos: photoBytes.take(3).toList(),
+                    photos: photoBytes.take(kShareMaxPhotos).toList(),
                     hints: showHints,
                     onTapPart: showHints ? onTapPart : null,
+                    onFit: widget.onFit == null ? null : _report,
                   ),
                 );
               },
@@ -133,7 +165,7 @@ Future<void> precacheShareImages(
   BuildContext context,
   List<Uint8List> photos,
 ) async {
-  for (final bytes in photos.take(3)) {
+  for (final bytes in photos.take(kShareMaxPhotos)) {
     try {
       await precacheImage(MemoryImage(bytes), context);
     } catch (_) {
@@ -155,6 +187,7 @@ class _Shot extends StatelessWidget {
     required this.photos,
     required this.hints,
     required this.onTapPart,
+    required this.onFit,
   });
 
   final double u;
@@ -164,6 +197,7 @@ class _Shot extends StatelessWidget {
   final List<Uint8List> photos;
   final bool hints;
   final void Function(SharePart part)? onTapPart;
+  final ValueChanged<ShareFit>? onFit;
 
   bool get _wide => format.aspectW > format.aspectH;
 
@@ -184,7 +218,8 @@ class _Shot extends StatelessWidget {
         )];
     final sa = bg;
     final inset = (_wide ? 4 : 5) * u;
-    final text = layoutShareText(content, format);
+    final text = layoutShareText(content, format, design: config.design);
+    final sizes = config.sizes;
     final parts = _Parts(
       u: u,
       wide: _wide,
@@ -195,11 +230,15 @@ class _Shot extends StatelessWidget {
       hints: hints,
       onTapPart: onTapPart,
       accent: sa,
+      onFit: onFit,
     );
     if (config.design == ShareDesign.photoMain) return parts.photoMain();
     final Widget ticket;
     if (_wide) {
-      final stubWidth = 25 * u;
+      final stubWidth = 25 * u * sizes.info;
+      // 写真の欄の幅は、本文の行の幅の 34% × 写真の大きさ（のこりが本文）
+      final heroFlex = (34 * sizes.photo * 1000).round();
+      final bodyFlex = ((100 - 34 * sizes.photo) * 1000).round();
       ticket = _TicketFrame(
         u: u,
         wide: true,
@@ -214,10 +253,10 @@ class _Shot extends StatelessWidget {
                     child: Row(
                       children: [
                         Expanded(
-                          flex: 34,
+                          flex: heroFlex,
                           child: parts.hero(rightBorder: true),
                         ),
-                        Expanded(flex: 66, child: parts.body()),
+                        Expanded(flex: bodyFlex, child: parts.body()),
                       ],
                     ),
                   ),
@@ -233,13 +272,13 @@ class _Shot extends StatelessWidget {
       ticket = _TicketFrame(
         u: u,
         wide: false,
-        stubExtent: stubH * u,
+        stubExtent: stubH * sizes.info * u,
         child: Column(
           children: [
             parts.topBar(),
-            SizedBox(height: heroH * u, child: parts.hero()),
+            SizedBox(height: heroH * sizes.photo * u, child: parts.hero()),
             Expanded(child: parts.body()),
-            SizedBox(height: stubH * u, child: parts.stub()),
+            SizedBox(height: stubH * sizes.info * u, child: parts.stub()),
           ],
         ),
       );
@@ -357,6 +396,7 @@ class _Parts {
     required this.hints,
     required this.onTapPart,
     required this.accent,
+    required this.onFit,
   });
 
   final double u;
@@ -368,8 +408,11 @@ class _Parts {
   final bool hints;
   final void Function(SharePart part)? onTapPart;
   final Color accent;
+  final ValueChanged<ShareFit>? onFit;
 
   bool _on(SharePart p) => config.isOn(p, ShareLayer.image);
+
+  ShareSizes get _sizes => config.sizes;
 
   TextStyle _jp(
     double size, {
@@ -377,15 +420,14 @@ class _Parts {
     double height = 1.35,
     double spacing = 0,
     bool bold = true,
-  }) {
-    return HakoFonts.jp(
-      size: size * u,
-      weight: bold ? FontWeight.w700 : FontWeight.w400,
-      color: color,
-      height: height,
-      letterSpacing: spacing * u,
-    ).copyWith(decoration: TextDecoration.none);
-  }
+  }) => shareJpStyle(
+    u,
+    size,
+    color: color,
+    height: height,
+    spacing: spacing,
+    bold: bold,
+  );
 
   /// 上の帯（黒地・「LIVE TICKET」・「参戦済み」）
   Widget topBar() {
@@ -438,7 +480,7 @@ class _Parts {
   /// 写真の欄（1・2・3枚・0枚）
   Widget hero({bool rightBorder = false}) {
     final shown = _on(SharePart.photo)
-        ? photos.take(3).toList()
+        ? photos.take(kShareMaxPhotos).toList()
         : const <Uint8List>[];
     final Widget inner;
     if (shown.isEmpty) {
@@ -463,7 +505,7 @@ class _Parts {
             Expanded(child: img(1)),
           ],
         ),
-        _ => Row(
+        3 => Row(
           children: [
             Expanded(flex: 2, child: img(0)),
             gap,
@@ -473,6 +515,30 @@ class _Parts {
                   Expanded(child: img(1)),
                   gap,
                   Expanded(child: img(2)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        // 4枚は 2×2（同じ大きさ）
+        _ => Column(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(child: img(0)),
+                  gap,
+                  Expanded(child: img(1)),
+                ],
+              ),
+            ),
+            gap,
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(child: img(2)),
+                  gap,
+                  Expanded(child: img(3)),
                 ],
               ),
             ),
@@ -541,37 +607,63 @@ class _Parts {
     final hasMemo = (content.impression ?? '').trim().isNotEmpty;
     final showSet = _on(SharePart.setlist) && (hasSet || hints);
     final showMemo = _on(SharePart.memo) && (hasMemo || hints);
+    final padH = (wide ? 2.4 : 3.4) * u;
+    final padV = (wide ? 1.8 : 2.4) * u;
     return Padding(
-      padding: wide
-          ? EdgeInsets.symmetric(horizontal: 2.4 * u, vertical: 1.8 * u)
-          : EdgeInsets.symmetric(horizontal: 3.4 * u, vertical: 2.4 * u),
-      child: ClipRect(
-        child: OverflowBox(
-          alignment: Alignment.topLeft,
-          minHeight: 0,
-          maxHeight: double.infinity,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(content.title, style: _jp(titleSize, height: 1.35)),
-              if (showSet) ...[
-                SizedBox(height: (wide ? 1.2 : 2) * u),
-                _part(
-                  SharePart.setlist,
-                  hasSet ? _setBlock() : _emptyBlock('SET LIST', '+ セトリを書く'),
-                ),
-              ],
-              if (showMemo) ...[
-                SizedBox(height: (wide ? 1.2 : 2) * u),
-                _part(
-                  SharePart.memo,
-                  hasMemo ? _memoBlock() : _emptyBlock('MEMO', '+ 感想を書く'),
-                ),
-              ],
-            ],
-          ),
-        ),
+      padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 入るかを測って、セトリの曲数・感想の行数を決める（空の枠は絞らない）
+          ShareFitResult? fit;
+          if (constraints.hasBoundedHeight &&
+              !(hints && (!hasSet || !hasMemo))) {
+            fit = computeShareFit(
+              width: constraints.maxWidth,
+              height: constraints.maxHeight,
+              u: u,
+              wide: wide,
+              content: content,
+              config: config,
+              text: text,
+            );
+            onFit?.call(fit.fit);
+          }
+          final setCount = fit?.setCount ?? text.setShown.length;
+          final memoLines = fit?.memoLines ?? 3;
+          final memoVisible = showMemo && (!hasMemo || memoLines > 0);
+          return ClipRect(
+            child: OverflowBox(
+              alignment: Alignment.topLeft,
+              minHeight: 0,
+              maxHeight: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(content.title, style: _jp(titleSize, height: 1.35)),
+                  if (showSet) ...[
+                    SizedBox(height: (wide ? 1.2 : 2) * u),
+                    _part(
+                      SharePart.setlist,
+                      hasSet
+                          ? _setBlock(setCount)
+                          : _emptyBlock('SET LIST', '+ セトリを書く'),
+                    ),
+                  ],
+                  if (memoVisible) ...[
+                    SizedBox(height: (wide ? 1.2 : 2) * u),
+                    _part(
+                      SharePart.memo,
+                      hasMemo
+                          ? _memoBlock(memoLines)
+                          : _emptyBlock('MEMO', '+ 感想を書く'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -597,9 +689,12 @@ class _Parts {
     );
   }
 
-  Widget _setBlock() {
-    final fs = wide ? 2.6 : 3.3;
-    final shown = text.setShown;
+  Widget _setBlock(int count) {
+    final fs = (wide ? 2.6 : 3.3) * _sizes.setlist;
+    final shown = text.setShown.take(count).toList();
+    final more = content.setlist.length - shown.length;
+    // 2列に分ける（5行以上）。横長で写真が 120% を超えるときは1列
+    final twoCols = shown.length > 4 && !(wide && _sizes.photo > 1.2);
     Widget row(int i) => Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -619,7 +714,7 @@ class _Parts {
       ],
     );
     final Widget list;
-    if (shown.length > 4) {
+    if (twoCols) {
       final half = (shown.length + 1) ~/ 2;
       list = Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -644,13 +739,13 @@ class _Parts {
       children: [
         _label('SET LIST'),
         list,
-        if (text.setMore > 0)
+        if (more > 0)
           Padding(
             padding: EdgeInsets.only(top: 0.6 * u),
             child: Text(
-              'ほか${text.setMore}曲',
+              'ほか$more曲',
               style: _jp(
-                wide ? 2.2 : 2.8,
+                (wide ? 2.2 : 2.8) * _sizes.setlist,
                 color: _gray,
                 height: 1.4,
                 bold: false,
@@ -661,7 +756,7 @@ class _Parts {
     );
   }
 
-  Widget _memoBlock() {
+  Widget _memoBlock(int lines) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -680,6 +775,8 @@ class _Parts {
             ),
             child: Text(
               text.memoShown,
+              maxLines: lines,
+              overflow: TextOverflow.ellipsis,
               style: _jp(wide ? 2.5 : 3.2, height: 1.55, bold: false),
             ),
           ),
@@ -773,7 +870,7 @@ class _Parts {
         child: Text(
           t,
           style: _jp(
-            wide ? 2.6 : 3.3,
+            (wide ? 2.6 : 3.3) * _sizes.setlist,
             color: Colors.white,
             height: 1.55,
             bold: false,
@@ -826,7 +923,7 @@ class _Parts {
                   child: Text(
                     _infoLine,
                     style: _jp(
-                      wide ? 2.8 : 3.6,
+                      (wide ? 2.8 : 3.6) * _sizes.info,
                       color: Colors.white,
                       height: 1.4,
                       bold: false,
@@ -860,7 +957,7 @@ class _Parts {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: HakoFonts.en(
-            size: (wide ? 4.6 : 6.4) * u,
+            size: (wide ? 4.6 : 6.4) * _sizes.info * u,
             weight: FontWeight.w700,
             color: fg,
             height: 1.0,
@@ -871,7 +968,7 @@ class _Parts {
           content.venue,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: _jp(wide ? 2.3 : 2.7, color: fg, height: 1.3),
+          style: _jp((wide ? 2.3 : 2.7) * _sizes.info, color: fg, height: 1.3),
         ),
       ],
     );

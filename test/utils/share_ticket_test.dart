@@ -580,6 +580,7 @@ void main() {
       final r = layoutShareText(
         _content(setlist: const ['A', 'B', 'C', 'D', 'E']),
         xWide,
+        design: ShareDesign.photoMain,
       );
       expect(r.setShown, ['A', 'B', 'C']);
       expect(r.setMore, 2);
@@ -589,6 +590,7 @@ void main() {
       final r = layoutShareText(
         _content(setlist: const ['A', 'B', 'C', 'D']),
         xWide,
+        design: ShareDesign.photoMain,
       );
       expect(r.setMore, 1);
     });
@@ -626,10 +628,35 @@ void main() {
           impression: 'い' * 151,
         ),
         story,
+        design: ShareDesign.photoMain,
       );
       expect(r.setShown, hasLength(10));
       expect(r.setMore, 2);
       expect(r.memoShown, '${'い' * 150}…');
+    });
+
+    test('ticket（既定）: セトリは kTicketSetlistCeiling(24) 曲まで、形によらない', () {
+      for (final f in [xWide, story]) {
+        final exact = layoutShareText(
+          _content(setlist: List.generate(24, (i) => '曲$i')),
+          f,
+        );
+        expect(exact.setShown, hasLength(24), reason: f.label);
+        expect(exact.setMore, 0, reason: f.label);
+        final over = layoutShareText(
+          _content(setlist: List.generate(25, (i) => '曲$i')),
+          f,
+          design: ShareDesign.ticket,
+        );
+        expect(over.setShown, hasLength(24), reason: f.label);
+        expect(over.setMore, 1, reason: f.label);
+      }
+    });
+
+    test('ticket でも感想は maxMemoChars で切る（今のまま）', () {
+      final r = layoutShareText(_content(impression: 'あ' * 37), xWide);
+      expect(r.memoShown, '${'あ' * 36}…');
+      expect(r.memoCut, isTrue);
     });
 
     test('実際の shareFormats の全形で、ちょうど上限は切れず、+1 で切れる', () {
@@ -641,6 +668,7 @@ void main() {
               impression: 'あ' * f.maxMemoChars,
             ),
             f,
+            design: ShareDesign.photoMain,
           );
           expect(exact.setMore, 0, reason: f.label);
           expect(exact.memoCut, isFalse, reason: f.label);
@@ -650,12 +678,218 @@ void main() {
               impression: 'あ' * (f.maxMemoChars + 1),
             ),
             f,
+            design: ShareDesign.photoMain,
           );
           expect(over.setMore, 1, reason: f.label);
           expect(over.memoCut, isTrue, reason: f.label);
           expect(over.memoShown.endsWith('…'), isTrue, reason: f.label);
         }
       }
+    });
+  });
+
+  group('ShareSizes', () {
+    test('既定は 1.0 で isNormal', () {
+      expect(ShareSizes.normal.isNormal, isTrue);
+      expect(const ShareSizes(info: 1.05).isNormal, isFalse);
+    });
+
+    test('範囲に収める（写真 0.5〜1.5・文字 0.6〜1.4）', () {
+      final lo = ShareSizes.normal.copyWith(
+        photo: 0.1,
+        info: 0.1,
+        setlist: 0.1,
+      );
+      expect([lo.photo, lo.info, lo.setlist], [0.5, 0.6, 0.6]);
+      final hi = ShareSizes.normal.copyWith(photo: 9, info: 9, setlist: 9);
+      expect([hi.photo, hi.info, hi.setlist], [1.5, 1.4, 1.4]);
+    });
+
+    test('0.05 の刻みに丸める', () {
+      expect(ShareSizes.normal.copyWith(photo: 1.12).photo, 1.1);
+      expect(ShareSizes.normal.copyWith(photo: 1.13).photo, 1.15);
+    });
+
+    test('渡さない項目は今のまま残る', () {
+      final a = ShareSizes.normal.copyWith(photo: 1.3);
+      final b = a.copyWith(info: 0.8);
+      expect([b.photo, b.info, b.setlist], [1.3, 0.8, 1.0]);
+    });
+
+    test('== は値で比べる', () {
+      expect(const ShareSizes(photo: 1.2), const ShareSizes(photo: 1.2));
+      expect(const ShareSizes(photo: 1.2) == const ShareSizes(), isFalse);
+    });
+  });
+
+  group('ShareConfig.sizes', () {
+    test('既定は normal。toggled・copyWith で引き継ぐ', () {
+      expect(ShareConfig.defaults(ShareTarget.x).sizes, ShareSizes.normal);
+      final c = ShareConfig.defaults(ShareTarget.x)
+          .copyWith(sizes: const ShareSizes(photo: 1.3, setlist: 0.7));
+      final t = c.toggled(SharePart.memo, ShareLayer.image);
+      expect(t.sizes, const ShareSizes(photo: 1.3, setlist: 0.7));
+      final d = c.copyWith(design: ShareDesign.photoMain, formatIndex: 1);
+      expect(d.sizes, const ShareSizes(photo: 1.3, setlist: 0.7));
+      expect(d.design, ShareDesign.photoMain);
+    });
+
+    test('toggled・copyWith は他の項目（形・デザイン・背景）も引き継ぐ', () {
+      final c = ShareConfig.defaults(ShareTarget.x).copyWith(
+        formatIndex: 1,
+        design: ShareDesign.photoMain,
+        backgroundIndex: 3,
+      );
+      final t = c.toggled(SharePart.setlist, ShareLayer.caption);
+      expect(
+        [t.formatIndex, t.design, t.backgroundIndex],
+        [1, ShareDesign.photoMain, 3],
+      );
+    });
+  });
+
+  group('shareImageNotes', () {
+    const xWide = ShareFormat('横長 16:9', 16, 9, 1600, 900, 3, 36);
+    ShareConfig cfg({
+      ShareDesign design = ShareDesign.ticket,
+      bool setImage = true,
+      bool memoImage = true,
+    }) => ShareConfig(
+      parts: {
+        SharePart.setlist: {if (setImage) ShareLayer.image},
+        SharePart.memo: {if (memoImage) ShareLayer.image},
+      },
+      design: design,
+    );
+    final set10 = List.generate(10, (i) => '曲$i');
+
+    test('何も切れていなければ空', () {
+      expect(
+        shareImageNotes(
+          _content(setlist: const ['A'], impression: 'あ'),
+          cfg(),
+          xWide,
+          null,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('ticket: fit で絞られていればセトリの注意（先頭○曲）', () {
+      final n = shareImageNotes(
+        _content(setlist: set10),
+        cfg(),
+        xWide,
+        const ShareFit(setShown: 6, setTotal: 10, memoDropped: false),
+      );
+      expect(n, hasLength(1));
+      expect(n.single, contains('先頭6曲'));
+    });
+
+    test('ticket: fit で全曲入っていれば出ない', () {
+      expect(
+        shareImageNotes(
+          _content(setlist: set10),
+          cfg(),
+          xWide,
+          const ShareFit(setShown: 10, setTotal: 10, memoDropped: false),
+        ),
+        isEmpty,
+      );
+    });
+
+    test('photoMain: 形の上限を超えるとセトリの注意', () {
+      final n = shareImageNotes(
+        _content(setlist: set10),
+        cfg(design: ShareDesign.photoMain),
+        xWide,
+        null,
+      );
+      expect(n.single, contains('先頭3曲'));
+    });
+
+    test('セトリを画像にのせていなければ出ない', () {
+      expect(
+        shareImageNotes(
+          _content(setlist: set10),
+          cfg(setImage: false),
+          xWide,
+          const ShareFit(setShown: 2, setTotal: 10, memoDropped: false),
+        ),
+        isEmpty,
+      );
+    });
+
+    test('感想が入りきらず落とされたときの注意（ticket）', () {
+      final n = shareImageNotes(
+        _content(impression: 'あいう'),
+        cfg(),
+        xWide,
+        const ShareFit(setShown: 0, setTotal: 0, memoDropped: true),
+      );
+      expect(n.single, contains('感想は'));
+      expect(n.single, contains('入りきらない'));
+    });
+
+    test('感想が文字数で切れるときの注意', () {
+      final n = shareImageNotes(
+        _content(impression: 'あ' * 37),
+        cfg(),
+        xWide,
+        null,
+      );
+      expect(n.single, contains('36文字まで'));
+    });
+
+    test('感想を画像にのせていない・空なら文字数の注意は出ない', () {
+      expect(
+        shareImageNotes(
+          _content(impression: 'あ' * 37),
+          cfg(memoImage: false),
+          xWide,
+          null,
+        ),
+        isEmpty,
+      );
+      expect(
+        shareImageNotes(_content(impression: ''), cfg(), xWide, null),
+        isEmpty,
+      );
+    });
+
+    test('感想を消したとき、fit.memoDropped でも注意は出ない', () {
+      expect(
+        shareImageNotes(
+          _content(impression: 'あ'),
+          cfg(memoImage: false),
+          xWide,
+          const ShareFit(setShown: 0, setTotal: 0, memoDropped: true),
+        ),
+        isEmpty,
+      );
+    });
+
+    test('座席の目印は注意文に出ない', () {
+      final c = ShareContent.fromMemory(
+        LiveMemory(
+          performanceId: 'p1',
+          liveId: 'l1',
+          liveTitle: 'T',
+          startAt: _start,
+          venue: 'V',
+          seat: _secretSeat,
+          setlist: set10,
+          images: const [],
+        ),
+        performerNames: const [],
+      );
+      final n = shareImageNotes(
+        c,
+        cfg(),
+        xWide,
+        const ShareFit(setShown: 3, setTotal: 10, memoDropped: false),
+      );
+      expect(n.join(), isNot(contains('SEAT')));
     });
   });
 }
