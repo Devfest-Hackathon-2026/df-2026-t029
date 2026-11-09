@@ -7,10 +7,8 @@ import '../../providers/oshi_providers.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/hako_app_widgets.dart';
 import '../../theme/hako_fonts.dart';
-import '../../utils/deadline.dart';
 import '../calendar/calendar_add_sheet.dart';
-import '../live/live_list_entries.dart' show PerformerNames;
-import 'home_section_header.dart';
+import '../live/merged_live.dart';
 
 /// 「今日」「昨日」「◯日前」（端末の日付で数える）
 String _ago(DateTime at, DateTime now) {
@@ -23,9 +21,9 @@ String _ago(DateTime at, DateTime now) {
   return '$days日前';
 }
 
-/// 推しの新しいライブ（Ff 5.3）：フォロー中の推しに最近登録された、
-/// まだ自分のライブ一覧に無いライブ。「参戦する」でその場で追加できる。
-/// 1件も無ければ何も出さない
+/// 推しの新しいライブ（Ff 5.3・Ff-7・Ff-10）：フォロー中の推しに最近登録された、
+/// まだ自分のライブ一覧に無い・既読でないライブ。同じライブは1枚にまとめる。
+/// 開く・×・参戦するで既読にする。1件も無ければ何も出さない
 class HomeNewOshiLives extends ConsumerStatefulWidget {
   const HomeNewOshiLives({super.key});
 
@@ -34,11 +32,22 @@ class HomeNewOshiLives extends ConsumerStatefulWidget {
 }
 
 class _HomeNewOshiLivesState extends ConsumerState<HomeNewOshiLives> {
-  /// 追加の処理中のライブ ID
+  /// 追加の処理中のライブ ID（代表の ID）
   final Set<String> _busy = {};
 
-  /// 自分のライブ一覧に追加する（推しの今後のライブの追加と同じ。続けてカレンダーにも入れられる）
-  Future<void> _add(String liveId) async {
+  /// 既読にする（失敗しても画面は止めない。次に開いたときにまた出るだけ）
+  Future<void> _markRead(Iterable<String> ids) async {
+    final uid = ref.read(currentUidProvider);
+    if (uid == null) return;
+    try {
+      await ref.read(newLivesReadRepositoryProvider).markRead(uid, ids);
+    } catch (_) {}
+  }
+
+  /// 代表の1件を自分のライブ一覧に追加する（続けてカレンダーにも入れられる）。
+  /// まとめた全件を既読にする
+  Future<void> _add(MergedLive m) async {
+    final liveId = m.entry.live.id!;
     if (_busy.contains(liveId)) return;
     setState(() => _busy.add(liveId));
     var added = false;
@@ -58,35 +67,42 @@ class _HomeNewOshiLivesState extends ConsumerState<HomeNewOshiLives> {
     }
     if (!mounted) return;
     setState(() => _busy.remove(liveId));
-    if (added) await addLiveToCalendar(context, ref, liveId);
+    if (added) {
+      await _markRead(m.liveIds);
+      if (!mounted) return;
+      await addLiveToCalendar(context, ref, liveId);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final list = ref.watch(newOshiLivesProvider).value ?? const [];
+    final list = ref.watch(newOshiLivesProvider).value ?? const <MergedLive>[];
     if (list.isEmpty) return const SizedBox.shrink();
-    final all = ref.watch(allOshisProvider).value;
-    final names = all == null ? null : PerformerNames(all);
     final now = ref.watch(nowProvider);
 
     return Column(
       key: const Key('home_new_oshi_lives'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        HomeSectionHeader(
-          title: '推しの新しいライブ',
-          onSeeAll: () => context.go('/lives'),
+        HakoSectionHeader(
+          '推しの新しいライブ',
+          trailingLabel: 'すべて既読にする',
+          onTrailing: () => _markRead([for (final m in list) ...m.liveIds]),
         ),
-        const HakoHint('フォロー中の推しに、新しく登録されたライブです。'),
-        for (final e in list)
+        const HakoHint('フォロー中の推しに、新しく登録されたライブです。見たものは次から出ません。'),
+        for (final m in list)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: _NewLiveCard(
-              entry: e,
-              performers: names?.of(e.live) ?? const [],
+              merged: m,
               now: now,
-              busy: _busy.contains(e.live.id),
-              onAdd: () => _add(e.live.id!),
+              busy: _busy.contains(m.entry.live.id),
+              onAdd: () => _add(m),
+              onOpen: () {
+                _markRead(m.liveIds);
+                context.push('/lives/${m.entry.live.id}');
+              },
+              onDismiss: () => _markRead(m.liveIds),
             ),
           ),
       ],
@@ -94,24 +110,28 @@ class _HomeNewOshiLivesState extends ConsumerState<HomeNewOshiLives> {
   }
 }
 
-/// 1件のカード：日付の札・札（自動登録／新しく登録）と◯日前・ライブ名・出演者・時刻と会場・「参戦する」
+/// 1件のカード：日付の札・札（自動登録／新しく登録）と◯日前・ライブ名・出演者・時刻と会場、
+/// 右に「×」（表示しない）と「参戦する」
 class _NewLiveCard extends StatelessWidget {
   const _NewLiveCard({
-    required this.entry,
-    required this.performers,
+    required this.merged,
     required this.now,
     required this.busy,
     required this.onAdd,
+    required this.onOpen,
+    required this.onDismiss,
   });
 
-  final LiveListEntry entry;
-  final List<String> performers;
+  final MergedLive merged;
   final DateTime now;
   final bool busy;
   final VoidCallback onAdd;
+  final VoidCallback onOpen;
+  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
+    final entry = merged.entry;
     final live = entry.live;
     final next = entry.nextStartAt!;
     final perf = entry.nextPerformance;
@@ -124,9 +144,9 @@ class _NewLiveCard extends StatelessWidget {
     return InkWell(
       key: Key('home_new_oshi_live_${live.id}'),
       borderRadius: BorderRadius.circular(12),
-      onTap: () => context.push('/lives/${live.id}'),
+      onTap: onOpen,
       child: HakoBox(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -157,10 +177,10 @@ class _NewLiveCard extends StatelessWidget {
                       height: 1.45,
                     ),
                   ),
-                  if (performers.isNotEmpty)
+                  if (merged.performers.isNotEmpty)
                     Text(
-                      performers.join('、'),
-                      maxLines: 1,
+                      merged.performers.join('、'),
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: sub,
                     ),
@@ -173,11 +193,23 @@ class _NewLiveCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            FilledButton(
-              key: Key('home_new_oshi_live_add_${live.id}'),
-              onPressed: busy ? null : onAdd,
-              child: Text(busy ? '追加中…' : '参戦する'),
+            const SizedBox(width: 4),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                IconButton(
+                  key: Key('home_new_oshi_live_dismiss_${live.id}'),
+                  tooltip: '表示しない',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onDismiss,
+                  icon: const Icon(Icons.close, size: 20),
+                ),
+                FilledButton(
+                  key: Key('home_new_oshi_live_add_${live.id}'),
+                  onPressed: busy ? null : onAdd,
+                  child: Text(busy ? '追加中…' : '参戦する'),
+                ),
+              ],
             ),
           ],
         ),

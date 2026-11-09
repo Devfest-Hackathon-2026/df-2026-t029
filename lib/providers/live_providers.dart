@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../features/live/live_list_entries.dart' show PerformerNames;
+import '../features/live/merged_live.dart';
 import '../features/live_form/live_draft_to_models.dart';
+import '../repositories/new_lives_read_repository.dart';
 import '../models/application.dart';
 import '../models/history_entry.dart';
 import '../models/live.dart';
@@ -121,11 +124,24 @@ final liveSearchProvider = Provider.autoDispose
 const newOshiLiveDays = 14;
 const newOshiLivesMax = 5;
 
-/// 推しの新しいライブ（Ff 5.1）：フォロー中の推しのライブのうち、
-/// 終わっていない・登録から14日以内・自分のライブ一覧に無いもの。
-/// 登録の新しい順に最大5件。どれかがエラーならエラー、読み込み中なら読み込み中
+/// 「推しの新しいライブ」の既読のリポジトリ（fix_Ff Ff-7）
+final newLivesReadRepositoryProvider = Provider<NewLivesReadRepository>(
+  (ref) => FirestoreNewLivesReadRepository(FirebaseFirestore.instance),
+);
+
+/// 既読にしたライブの ID（Ff-7）。未ログインなら空
+final readNewLiveIdsProvider = StreamProvider<Set<String>>((ref) {
+  final uid = ref.watch(currentUidProvider);
+  if (uid == null) return Stream.value(const <String>{});
+  return ref.watch(newLivesReadRepositoryProvider).watch(uid);
+}, retry: firestoreRetry);
+
+/// 推しの新しいライブ（Ff 5.1・Ff-7・Ff-10）：フォロー中の推しのライブのうち、
+/// 終わっていない・登録から14日以内のものを、同じライブは1件にまとめ、
+/// 自分のライブ一覧にある・既読のものを除いて、登録の新しい順に最大5件。
+/// どれかがエラーならエラー、読み込み中なら読み込み中
 final newOshiLivesProvider =
-    Provider.autoDispose<AsyncValue<List<LiveListEntry>>>((ref) {
+    Provider.autoDispose<AsyncValue<List<MergedLive>>>((ref) {
       final following = ref.watch(followingOshisProvider);
       if (following case AsyncError(:final error, :final stackTrace)) {
         return AsyncError(error, stackTrace);
@@ -137,22 +153,27 @@ final newOshiLivesProvider =
 
       final result = ref.watch(liveSearchProvider((targets: targets, query: '')));
       final mine = ref.watch(myLiveIdsProvider).value;
-      if (mine == null) return const AsyncLoading();
+      final read = ref.watch(readNewLiveIdsProvider).value;
+      if (mine == null || read == null) return const AsyncLoading();
+      final all = ref.watch(allOshisProvider).value;
+      final names = all == null ? null : PerformerNames(all);
       final since = ref
           .watch(nowProvider)
           .subtract(const Duration(days: newOshiLiveDays));
 
-      List<LiveListEntry> pick(List<LiveListEntry> entries) {
-        final list = [
+      List<MergedLive> pick(List<LiveListEntry> entries) {
+        final recent = [
           for (final e in entries)
             if (!e.isEnded &&
                 e.nextStartAt != null &&
                 e.live.id != null &&
-                !mine.contains(e.live.id) &&
                 (e.live.createdAt?.isAfter(since) ?? false))
               e,
         ]..sort((a, b) => b.live.createdAt!.compareTo(a.live.createdAt!));
-        return list.take(newOshiLivesMax).toList();
+        return [
+          for (final m in mergeSameLives(recent, names))
+            if (!m.containsAny(mine) && !m.containsAny(read)) m,
+        ].take(newOshiLivesMax).toList();
       }
 
       return switch (result) {
