@@ -88,3 +88,49 @@ class OshiNews {
       ? null
       : 'https://www.youtube-nocookie.com/embed/$videoId';
 }
+
+
+/// YouTube の検索で見つけた動画（fix_Ff 6.3）
+class PersonVideos {
+  const PersonVideos({required this.query, required this.videos});
+
+  /// 検索に使った語
+  final String query;
+
+  /// 動画（お知らせと同じ形にして、VideoNewsRow で出す。oshiName にはチャンネル名を入れる）
+  final List<OshiNews> videos;
+
+  /// Callable の戻り値から作る。読めない動画は除く
+  factory PersonVideos.fromMap(Map<Object?, Object?> data) {
+    final list = data['videos'];
+    return PersonVideos(
+      query: data['query'] is String ? data['query'] as String : '',
+      videos: [
+        if (list is List)
+          for (final v in list)
+            if (v is Map) ?_videoOf(v),
+      ],
+    );
+  }
+
+  static OshiNews? _videoOf(Map<Object?, Object?> v) {
+    final videoId = v['videoId'];
+    final title = v['title'];
+    final publishedAt = DateTime.tryParse(
+      v['publishedAt'] is String ? v['publishedAt'] as String : '',
+    );
+    if (videoId is! String || videoId.isEmpty) return null;
+    if (title is! String || title.trim().isEmpty || publishedAt == null) {
+      return null;
+    }
+    return OshiNews(
+      id: 'search_$videoId',
+      oshiKey: '',
+      oshiName: v['channelTitle'] is String ? v['channelTitle'] as String : '',
+      type: OshiNewsType.youtube,
+      title: title.trim(),
+      publishedAt: publishedAt,
+      videoId: videoId,
+    );
+  }
+}

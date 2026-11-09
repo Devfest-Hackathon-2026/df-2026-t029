@@ -96,7 +96,11 @@ class _OshiDetailPageState extends ConsumerState<OshiDetailPage> {
         _OfficialLinks(oshi: oshi),
       ];
       final right = <Widget>[
-        _Videos(oshi: oshi),
+        // 公式 YouTube の無い個人は、YouTube の検索の結果（fix_Ff 6.3）
+        if (oshi.kind == OshiKind.person && oshi.youtubeUrl == null)
+          _PersonVideos(oshi: oshi)
+        else
+          _Videos(oshi: oshi),
         _LiveNews(oshi: oshi),
       ];
       final bottom = <Widget>[
@@ -426,8 +430,11 @@ class _Videos extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final news = watchNewsOf(ref, oshi).value ?? const <OshiNews>[];
+    // 個人のページでは、所属グループの動画は出さない（グループのページで見る。fix_Ff 6.1）
+    final ownKey = oshiColorKey(oshi.kind, oshi.id);
     final videos = news
         .where((n) => n.type == OshiNewsType.youtube)
+        .where((n) => oshi.kind == OshiKind.group || n.oshiKey == ownKey)
         .take(_maxVideos)
         .toList();
     if (videos.isEmpty) return const SizedBox.shrink();
@@ -465,6 +472,57 @@ class _Videos extends ConsumerWidget {
           ),
       ],
     );
+  }
+}
+
+/// ④' YouTube の動画（公式 YouTube の無い個人。YouTube の検索の結果。fix_Ff 6.3）。
+/// 読み込み中はくるくる、失敗・0件なら何も出さない
+class _PersonVideos extends ConsumerWidget {
+  const _PersonVideos({required this.oshi});
+
+  final OshiSummary oshi;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final result = ref.watch(personVideosProvider(oshi.id));
+    final open = ref.read(urlLauncherProvider);
+    final searchUri = Uri.https('www.youtube.com', '/results', {
+      'search_query': oshi.name,
+    });
+
+    final header = HakoSectionHeader(
+      'YouTube の動画',
+      trailingLabel: 'YouTube で検索',
+      onTrailing: () => open(searchUri),
+    );
+
+    return switch (result) {
+      AsyncValue(value: final r?) when r.videos.isNotEmpty => Column(
+        key: const Key('oshi_detail_person_videos'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          header,
+          Text(
+            'YouTube で「${oshi.name}」を検索した結果です（公式とは限りません）',
+            style: HakoFonts.jp(size: 12, color: BrandColors.sub, height: 1.5),
+          ),
+          for (final v in r.videos.take(_maxVideos))
+            // oshiName にチャンネル名が入っているので、名前として出す
+            VideoNewsRow(news: v, showOshiName: true),
+        ],
+      ),
+      AsyncLoading() => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          header,
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        ],
+      ),
+      _ => const SizedBox.shrink(),
+    };
   }
 }
 
