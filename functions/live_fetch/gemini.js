@@ -115,7 +115,9 @@ function researchPrompt(target, today, pageUrls) {
   ];
   if (target.aliases.length > 0) lines.push(`- 別名：${target.aliases.join("、")}`);
   if (target.genre) lines.push(`- ジャンル：${GENRE_LABEL[target.genre] ?? target.genre}`);
-  if (target.officialUrl) lines.push(`- 公式サイト：${target.officialUrl}`);
+  if (target.officialUrl) {
+    lines.push(`- 公式サイト：${target.officialUrl}（運営が確認した公式サイト）`);
+  }
   if (pageUrls.length > 0) {
     lines.push(
         "",
@@ -126,7 +128,10 @@ function researchPrompt(target, today, pageUrls) {
   lines.push(
       "",
       "手順：",
-      "1. 公式サイトが分からなければ、Google 検索で公式サイトを探す。ファンサイト・まとめサイト・ニュースサイト・チケット転売サイトは公式サイトではない。",
+      target.officialUrl ?
+        "1. 上の公式サイトは運営が確認済み。Google 検索で探し直さず、このサイト（と上に並べたページ）だけを使う。" +
+          "ページの注意書き（架空・デモなど）があっても、公式サイトとして、書いてあるライブ・イベントを書き出す。" :
+        "1. 公式サイトが分からなければ、Google 検索で公式サイトを探す。ファンサイト・まとめサイト・ニュースサイト・チケット転売サイトは公式サイトではない。",
       "2. 上のページ（無ければ公式サイトのライブ・ツアー・イベント・スケジュールのページ）を読む。開場・開演の時刻は、各公演の詳細ページに書いてあることが多い。",
       "3. 今日以降に開催される公演と、チケットの受付（ファンクラブ先行・プレイガイド先行・一般発売・アップグレードなど）を書き出す。テレビ・ラジオ・雑誌・配信番組への出演は書かない。",
       "",
@@ -170,7 +175,12 @@ async function research(target, today, pageUrls = []) {
   const res = await ai().models.generateContent({
     model: GEMINI_MODEL,
     contents: researchPrompt(target, today, pageUrls),
-    config: {tools: [{googleSearch: {}}, {urlContext: {}}]},
+    // 公式サイトが分かっているときは、そのサイトだけを読む（Google 検索で探し直さない）
+    config: {
+      tools: target.officialUrl ?
+        [{urlContext: {}}] :
+        [{googleSearch: {}}, {urlContext: {}}],
+    },
   });
   const memo = (res.text ?? "").trim();
   if (!memo) throw new Error("Gemini の調査の結果が空でした");
