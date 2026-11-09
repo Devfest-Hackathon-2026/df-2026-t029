@@ -64,4 +64,36 @@ async function latestVideos(channelId, apiKey) {
   return videos;
 }
 
-module.exports = {resolveChannel, latestVideos};
+
+/**
+ * 名前でチャンネルを検索し、上位5件の詳しい情報を返す（add_P P-2b の B）。
+ * search.list は1回100ユニット、channels.list は1ユニット。
+ * 返す形：[{channelId, title, handle, description, subscribers}]
+ */
+async function searchChannelCandidates(query, apiKey) {
+  const json = await getJson("search", {
+    part: "snippet",
+    type: "channel",
+    q: query,
+    maxResults: 5,
+    regionCode: "JP",
+  }, apiKey);
+  const ids = (json.items ?? [])
+      .map((i) => i.id?.channelId ?? i.snippet?.channelId)
+      .filter((x) => typeof x === "string" && x);
+  if (ids.length === 0) return [];
+
+  const details = await getJson("channels", {
+    part: "snippet,statistics",
+    id: ids.join(","),
+  }, apiKey);
+  return (details.items ?? []).map((c) => ({
+    channelId: c.id,
+    title: String(c.snippet?.title ?? ""),
+    handle: typeof c.snippet?.customUrl === "string" ? c.snippet.customUrl : null,
+    description: String(c.snippet?.description ?? ""),
+    subscribers: Number(c.statistics?.subscriberCount ?? 0),
+  }));
+}
+
+module.exports = {resolveChannel, latestVideos, searchChannelCandidates};

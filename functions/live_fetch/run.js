@@ -10,6 +10,7 @@ const {upsertLives} = require("./upsert");
 const {isAllowed, pageHash} = require("./page_check");
 const {collectLivePages} = require("./crawl");
 const {writeLiveNews} = require("../oshi_news/news");
+const {findYoutubeOnSite} = require("./youtube_link");
 
 const MINUTE = 60 * 1000;
 /** 手動の取得の間隔・取得中とみなす時間（10分） */
@@ -145,9 +146,12 @@ async function runLiveFetch(kind, id, {mode}) {
     // 公式サイト・公式 X は空のときだけ入れる（3.2）
     if (!knownUrl && result.officialUrl) update.officialUrl = result.officialUrl;
     if (!data.officialX && result.officialX) update.officialX = result.officialX;
-    // 公式 YouTube も空のときだけ（add_P 3.3）。入ると onGroupYoutubeChanged などが新着を取る
-    if (!data.officialYoutube && result.officialYoutube) {
-      update.officialYoutube = result.officialYoutube;
+    // 公式 YouTube は空のときだけ、公式サイトのリンクから拾う（add_P P-2b の A）。
+    // Gemini の結果は使わない（本物か確かめられないため）。
+    // 入ると onGroupYoutubeChanged などが新着を取る
+    if (!data.officialYoutube) {
+      const youtube = await findYoutubeOnSite(officialUrl).catch(() => null);
+      if (youtube) update.officialYoutube = youtube;
     }
     await finish(ref, "ok", update);
 

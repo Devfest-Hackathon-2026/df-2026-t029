@@ -204,4 +204,6 @@ function normalizeResult(raw, now) {
   };
 }
 
-module.exports = {arrayOf, cleanUrl, jstDate, normalizeName, normalizeResult};
+module.exports = {
+  arrayOf, cleanUrl, cleanYoutubeAccount, jstDate, normalizeName, normalizeResult,
+};

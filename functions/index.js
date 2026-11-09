@@ -19,6 +19,7 @@ const {runLiveFetch} = require("./live_fetch/run");
 const {defineSecret} = require("firebase-functions/params");
 const {findPrefecture} = require("./prefectures");
 const {refreshOshiNews} = require("./oshi_news/run");
+const {searchOfficialYoutube} = require("./oshi_news/search");
 
 const WEATHER_API_KEY = defineSecret("WEATHER_API_KEY");
 const YOUTUBE_API_KEY = defineSecret("YOUTUBE_API_KEY");
@@ -680,9 +681,11 @@ exports.dailyLiveFetch = onSchedule(
     },
 );
 
-
 /** 新着の取得で1回に扱う推しの数（add_P 4.3） */
 const NEWS_MAX_TARGETS = 50;
+
+/** YouTube の検索で1回に扱う推しの数（1件100ユニット。add_P P-2b の B） */
+const SEARCH_MAX_TARGETS = 5;
 
 /** 推しの officialYoutube（無ければ空文字） */
 function officialYoutubeOf(data) {
@@ -691,8 +694,9 @@ function officialYoutubeOf(data) {
 
 /**
  * 3時間ごとの YouTube の新着の取得（add_P 4.3）。
- * 承認済みで officialYoutube があり、フォローしている人が1人以上いる推しを、
- * 前回調べたのが古い順に最大50件
+ * 承認済みで、フォローしている人が1人以上いる推しのうち、
+ * - officialYoutube があるもの：前回調べたのが古い順に最大50件、新着を取る
+ * - 無いもの：最大5件、YouTube の検索で公式を探す（7日に1回まで。P-2b の B）
  */
 exports.scheduledOshiNews = onSchedule(
     {
@@ -706,6 +710,7 @@ exports.scheduledOshiNews = onSchedule(
       const apiKey = YOUTUBE_API_KEY.value();
 
       const targets = [];
+      const searchTargets = [];
       const kinds = [
         {kind: "group", collection: "groups", field: "followingGroupIds"},
         {kind: "person", collection: "oshis", field: "followingOshiIds"},
@@ -714,18 +719,28 @@ exports.scheduledOshiNews = onSchedule(
         const snap = await db.collection(k.collection)
             .where("status", "==", "approved").get();
         for (const d of snap.docs) {
-          if (!officialYoutubeOf(d.data())) continue;
+          if (d.id.startsWith("demo-")) continue;
           const followed = await db.collection("users")
               .where(k.field, "array-contains", d.id).limit(1).get();
           if (followed.empty) continue;
-          targets.push({
-            kind: k.kind,
-            id: d.id,
-            lastMs: d.data().youtube?.checkedAt?.toMillis?.() ?? 0,
-          });
+          const data = d.data();
+          if (officialYoutubeOf(data)) {
+            targets.push({
+              kind: k.kind,
+              id: d.id,
+              lastMs: data.youtube?.checkedAt?.toMillis?.() ?? 0,
+            });
+          } else {
+            searchTargets.push({
+              kind: k.kind,
+              id: d.id,
+              lastMs: data.youtubeSearch?.checkedAt?.toMillis?.() ?? 0,
+            });
+          }
         }
       }
       targets.sort((a, b) => a.lastMs - b.lastMs);
+      searchTargets.sort((a, b) => a.lastMs - b.lastMs);
 
       const counts = {};
       for (const t of targets.slice(0, NEWS_MAX_TARGETS)) {
@@ -733,8 +748,14 @@ exports.scheduledOshiNews = onSchedule(
         const r = await refreshOshiNews(db, t.kind, t.id, apiKey);
         counts[r.status] = (counts[r.status] ?? 0) + 1;
       }
+      const searchCounts = {};
+      for (const t of searchTargets.slice(0, SEARCH_MAX_TARGETS)) {
+        const r = await searchOfficialYoutube(db, t.kind, t.id, apiKey);
+        searchCounts[r.status] = (searchCounts[r.status] ?? 0) + 1;
+      }
       logger.info(`YouTube の新着の取得: 対象 ${targets.length} 件、` +
-        `結果 ${JSON.stringify(counts)}`);
+        `結果 ${JSON.stringify(counts)}／公式の検索: 対象 ${searchTargets.length} 件、` +
+        `結果 ${JSON.stringify(searchCounts)}`);
     },
 );
 
