@@ -38,6 +38,12 @@ describe('users/{uid}', () => {
     await assertSucceeds(getDoc(doc(db, 'users/alice/test/a')));
   });
 
+  test('自分の下でも、サブコレクションより深い所には書けない', async () => {
+    const db = testEnv.authenticatedContext('alice').firestore();
+    await assertFails(setDoc(doc(db, 'users/alice/x/bob/fcmTokens/t'), { v: 1 }));
+    await assertFails(setDoc(doc(db, 'users/alice/test/a/b/c'), { v: 1 }));
+  });
+
   test('他人のドキュメントは読めない', async () => {
     await seed('users/bob', { displayName: 'ボブ' });
     const db = testEnv.authenticatedContext('alice').firestore();

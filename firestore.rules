@@ -591,7 +591,9 @@ service cloud.firestore {
       // サブコレクション以下（動作確認用の test など）は従来どおり。
       // ただし applications・myLives は下の専用ルールだけで検査する（ルールは
       // OR で効くため、ここで除外しないと検査が素通りになる）
-      match /{subcollection}/{document=**} {
+      // 深さは users/{uid}/{サブコレクション}/{文書} の 1 階層だけ。深い所に
+      // fcmTokens などを置いて、ほかの uid を名乗れないようにする
+      match /{subcollection}/{document} {
         allow read, write: if isOwner(userId) &&
           subcollection != 'applications' && subcollection != 'myLives';
       }

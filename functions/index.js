@@ -334,7 +334,13 @@ exports.sendDeadlineReminders = onSchedule(
       const tokenSnap = await db.collectionGroup("fcmTokens").get();
       const tokensByUid = new Map();
       for (const d of tokenSnap.docs) {
-        const uid = d.ref.parent.parent.id;
+        // users/{uid}/fcmTokens/{token} のものだけ使う。ほかの深さに置かれた
+        // fcmTokens（他人の uid を名乗る偽の文書）で通知を横取りされないため
+        const segs = d.ref.path.split("/");
+        if (segs.length !== 4 || segs[0] !== "users" || segs[2] !== "fcmTokens") {
+          continue;
+        }
+        const uid = segs[1];
         if (!tokensByUid.has(uid)) tokensByUid.set(uid, []);
         tokensByUid.get(uid).push(d.id);
       }
@@ -351,6 +357,13 @@ exports.sendDeadlineReminders = onSchedule(
       logger.info(`リマインド通知: ユーザー ${tokensByUid.size} 人、送信 ${total} 件`);
     },
 );
+
+/**
+ * Callable で App Check を強制する（アプリの外からの呼び出しで Gemini・YouTube の
+ * 割り当てを使い切られないため）。エミュレーターでは強制しない。
+ * 前提：本番のビルドに --dart-define=APP_CHECK_SITE_KEY を渡していること
+ */
+const ENFORCE_APP_CHECK = process.env.FUNCTIONS_EMULATOR !== "true";
 
 // ---------------------------------------------------------------------------
 // 公演の日の天気（add_E 5章）
@@ -434,7 +447,7 @@ async function loadForecastDays(db, pref) {
  *      または {status: "outOfRange" | "unknownPlace", date}
  */
 exports.getEventWeather = onCall(
-    {secrets: [WEATHER_API_KEY]},
+    {secrets: [WEATHER_API_KEY], enforceAppCheck: ENFORCE_APP_CHECK},
     async (request) => {
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "ログインしてください");
@@ -562,7 +575,11 @@ exports.notifyNewMatches = onDocumentWritten(
 // ---------------------------------------------------------------------------
 
 /** 取得の関数の共通の設定（Gemini の呼び出しを待つため長め） */
-const LIVE_FETCH_OPTIONS = {timeoutSeconds: 300, memory: "512MiB"};
+const LIVE_FETCH_OPTIONS = {
+  timeoutSeconds: 300,
+  memory: "512MiB",
+  enforceAppCheck: ENFORCE_APP_CHECK,
+};
 
 /**
  * 手動の取得（Callable。add_L 4.1）。
@@ -789,7 +806,7 @@ exports.onOshiYoutubeChanged = onDocumentUpdated(
  * 出力：{status, query, videos: [{videoId, title, channelTitle, publishedAt}]}
  */
 exports.searchOshiVideos = onCall(
-    {secrets: [YOUTUBE_API_KEY]},
+    {secrets: [YOUTUBE_API_KEY], enforceAppCheck: ENFORCE_APP_CHECK},
     async (request) => {
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "ログインしてください");
