@@ -86,19 +86,20 @@ class _TradePostFormPageState extends ConsumerState<TradePostFormPage> {
   Future<void> _save() async {
     final draft = _draft;
     if (draft == null || _saving || _picking) return;
+    // グッズの取得を待つ間に二度押しされないよう、先に保存中にする
+    setState(() => _saving = true);
     final errors = draft.validate(goodsById: await _goodsForKeys(draft));
     if (!mounted) return;
-    if (errors.isNotEmpty) {
-      setState(() => _errors = errors);
+    final uid = ref.read(currentUidProvider);
+    if (errors.isNotEmpty || uid == null) {
+      setState(() {
+        _saving = false;
+        if (errors.isNotEmpty) _errors = errors;
+      });
       return;
     }
-    final uid = ref.read(currentUidProvider);
-    if (uid == null) return;
 
-    setState(() {
-      _saving = true;
-      _errors = const [];
-    });
+    setState(() => _errors = const []);
     final photoRepo = ref.read(photoRepositoryProvider);
     var uploaded = const <NewPhoto, String>{};
     var saved = false;

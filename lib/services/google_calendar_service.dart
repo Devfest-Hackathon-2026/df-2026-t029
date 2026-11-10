@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../repositories/auth_repository.dart';
+
 /// Google カレンダー（Calendar API）との連携
 class GoogleCalendarService {
   GoogleCalendarService(this._auth);
@@ -148,6 +150,8 @@ class GoogleCalendarService {
   }
 }
 
-final googleCalendarServiceProvider = Provider<GoogleCalendarService>(
-  (ref) => GoogleCalendarService(FirebaseAuth.instance),
-);
+final googleCalendarServiceProvider = Provider<GoogleCalendarService>((ref) {
+  // ログアウト・別のユーザーへの切り替えで作り直し、前の人のトークンを捨てる
+  ref.watch(authStateProvider.select((a) => a.value?.uid));
+  return GoogleCalendarService(FirebaseAuth.instance);
+});

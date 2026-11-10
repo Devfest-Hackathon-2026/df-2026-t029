@@ -300,7 +300,12 @@ async function remindUser(db, messaging, uid, tokens, now) {
       if (tokens.length === 0) break;
       const sentRef = userRef.collection("sentNotifications")
           .doc(`${doc.id}_${n.kind}_${n.stage}`);
-      if ((await sentRef.get()).exists) continue;
+      // 同じ締切で送っていれば飛ばす。締切が変わっていたら（延長など）送り直す
+      const sentSnap = await sentRef.get();
+      if (sentSnap.exists &&
+          sentSnap.get("deadlineAt")?.toMillis?.() === n.at.getTime()) {
+        continue;
+      }
 
       const result = await sendToTokens(messaging, userRef, tokens, {
         title: n.title,
@@ -309,6 +314,8 @@ async function remindUser(db, messaging, uid, tokens, now) {
         data: {liveId: r.liveId},
       });
       tokens = result.tokens;
+      // 1件も届かなかったら「送った」と記録しない（次の実行で送り直す）
+      if (result.successCount === 0) continue;
 
       await sentRef.set({
         receptionId: doc.id,

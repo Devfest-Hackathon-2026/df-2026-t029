@@ -88,6 +88,23 @@ void main() {
     });
   });
 
+  group('壊れた投稿', () {
+    test('中身の壊れた投稿は飛ばし、ほかの投稿は返す', () async {
+      await put('ok', groupIds: ['g1'], day: 1);
+      await db.collection('tradePosts').doc('broken').set({
+        'groupIds': ['g1'],
+        'status': 'open',
+        'gives': ['セットではない値'],
+        'updatedAt': Timestamp.fromDate(DateTime(2026, 11, 2)),
+      });
+      final posts = await repo
+          .watchOpenFor(OshiKind.group, 'g1', limit: 50)
+          .first;
+      expect(posts.map((p) => p.id), ['ok']);
+      expect(await repo.fetch('broken'), isNull);
+    });
+  });
+
   group('fetchOpenGiving', () {
     test('giveKeys にどれかを含む、募集中の投稿だけを返す', () async {
       await put('a', giveKeys: ['item:x#v1', 'goods:x'], day: 1);

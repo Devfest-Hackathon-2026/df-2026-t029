@@ -160,7 +160,9 @@ function normalizeReception(r, now) {
   const prices = arrayOf(r.prices)
       .map((x) => ({seat: cleanText(x?.seat, 50), amount: x?.amount}))
       .filter((x) => x.seat && Number.isInteger(x.amount) &&
-        x.amount > 0 && x.amount < 1000000);
+        x.amount > 0 && x.amount < 1000000)
+      // ルール（isValidPrices）は10個までなので、それを超える分は捨てる
+      .slice(0, 10);
 
   return {
     type: r.type,
