@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../repositories/auth_repository.dart';
+
 /// Google フォトとの連携の失敗の種類（文言は `googlePhotosErrorMessage` が決める）
 enum GooglePhotosFailure {
   cancelled,
@@ -434,6 +436,8 @@ class GooglePhotosService implements GooglePhotosApi {
   }
 }
 
-final googlePhotosApiProvider = Provider<GooglePhotosApi>(
-  (ref) => GooglePhotosService(FirebaseAuth.instance),
-);
+final googlePhotosApiProvider = Provider<GooglePhotosApi>((ref) {
+  // ログアウト・別のユーザーへの切り替えで作り直し、前の人のトークンを捨てる
+  ref.watch(authStateProvider.select((a) => a.value?.uid));
+  return GooglePhotosService(FirebaseAuth.instance);
+});

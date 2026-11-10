@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../repositories/auth_repository.dart';
 import '../features/common/user_avatar.dart';
 import '../features/help/help_button.dart';
 import '../providers/help_providers.dart';
+import '../providers/messaging_providers.dart';
 import '../providers/oshi_providers.dart';
 import '../providers/profile_providers.dart';
 import 'brand_colors.dart';
@@ -105,7 +105,7 @@ class AccountMenuButton extends ConsumerWidget {
           case 'profile':
             context.push('/profile');
           case 'logout':
-            ref.read(authRepositoryProvider).signOut();
+            signOutAndStopNotifications(ref);
         }
       },
       itemBuilder: (context) => const [

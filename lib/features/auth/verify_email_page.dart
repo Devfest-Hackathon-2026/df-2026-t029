@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../providers/messaging_providers.dart';
 import '../../repositories/auth_repository.dart';
 import '../../theme/hako_fonts.dart';
 import '../../theme/hako_widgets.dart';
@@ -132,7 +133,7 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
     setState(() => _signingOut = true);
     try {
       // ログアウトすると、ルーターが /welcome へ移す
-      await ref.read(authRepositoryProvider).signOut();
+      await signOutAndStopNotifications(ref);
     } finally {
       if (mounted) setState(() => _signingOut = false);
     }

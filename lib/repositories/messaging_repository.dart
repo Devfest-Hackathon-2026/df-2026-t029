@@ -79,6 +79,15 @@ class MessagingRepository {
     await _messaging.deleteToken();
   }
 
+  /// ログアウトの前に呼ぶ。通知が許可されていれば、このブラウザのトークンを消す。
+  /// 許可されていなければ何もしない（getToken が許可のダイアログを出さないように）
+  Future<void> stopOnSignOut(String uid) async {
+    if (fcmVapidKey.isEmpty) return;
+    final settings = await _messaging.getNotificationSettings();
+    if (settings.authorizationStatus != AuthorizationStatus.authorized) return;
+    await disable(uid);
+  }
+
   /// アプリを開いている（前面の）ときに届いた通知
   Stream<RemoteMessage> get onForegroundMessage => FirebaseMessaging.onMessage;
 }

@@ -176,6 +176,14 @@ class _PhotosSheetBodyState extends ConsumerState<PhotosSheetBody> {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     final editor = ref.read(memoryEditorProvider);
+    // 合計が上限を超えていたら、保存せずに外してもらう（勝手に切り捨てない）
+    final over = _items.length + pick.selected.length - maxPhotosPerItem;
+    if (over > 0) {
+      setState(() {
+        _localError = '写真は$maxPhotosPerItem枚までです。あと$over枚外してください';
+      });
+      return;
+    }
     setState(() {
       _saving = true;
       _localError = null;

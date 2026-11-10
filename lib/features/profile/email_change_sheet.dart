@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/email_change_providers.dart';
-import '../../repositories/auth_repository.dart';
+import '../../providers/messaging_providers.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/hako_fonts.dart';
 import '../../utils/email_change.dart';
@@ -89,7 +89,7 @@ class _EmailChangeSheetBodyState extends ConsumerState<EmailChangeSheetBody> {
 
   Future<void> _toLogin() async {
     final nav = Navigator.of(context);
-    await ref.read(authRepositoryProvider).signOut();
+    await signOutAndStopNotifications(ref);
     if (!mounted) return;
     nav.pop();
   }
