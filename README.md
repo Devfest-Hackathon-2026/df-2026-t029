@@ -36,14 +36,14 @@ DevFest GDGoC Japan Hackathon 2026 の提出作品です。
 | 分類 | 採用技術 |
 |---|---|
 | フロントエンド | Flutter（stable）Web、Riverpod 3、go_router |
-| 認証 | Firebase Authentication（Google ログイン） |
+| 認証 | Firebase Authentication（Google ログイン・メールアドレス） |
 | データベース | Cloud Firestore（`asia-northeast1`） |
 | ファイル | Cloud Storage for Firebase |
 | AI | Gemini（アプリからは Firebase AI Logic 経由、Functions からは Vertex AI 経由） |
 | サーバー処理 | Cloud Functions for Firebase（Node.js 24） |
 | 通知 | Firebase Cloud Messaging（Web プッシュ） |
-| 外部 API | Google Calendar API、Google Photos Picker API、YouTube Data API、Maps Embed API、天気 API |
-| 保護 | Firebase App Check（reCAPTCHA v3） |
+| 外部 API | Google Calendar API、Google Photos Picker API、YouTube Data API、Maps Embed API、Weather API（Google Maps Platform） |
+| 保護 | Firebase App Check（reCAPTCHA Enterprise） |
 | 公開 | Firebase Hosting |
 
 ## フォルダ構成
@@ -119,4 +119,6 @@ flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8080 \
 ## 注意
 
 - 登場するデモ用のグループ・人物・会場・ライブは、すべて架空です。
+- ライブ情報の自動取得のデモ用に、架空の公式サイトを https://g-palette-demo.web.app に公開しています（ソースは `demo_site/`）。
+- 推しの公式 YouTube には、動画の取得と再生を確認できるよう、実在の公開チャンネルを設定しています。
 - API キーや秘密情報はコミットしません。`lib/firebase_options.dart` の Web 用設定は、公開される前提の値です。
