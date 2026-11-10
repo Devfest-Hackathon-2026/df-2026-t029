@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/goods.dart';
 import '../models/oshi.dart';
@@ -61,10 +62,20 @@ class FirestoreTradePostRepository implements TradePostRepository {
   CollectionReference<Map<String, dynamic>> get _posts =>
       _db.collection('tradePosts');
 
+  /// 投稿を読む。中身の壊れた投稿は null にして、一覧全体がエラーにならないようにする
+  static TradePost? _tryParse(DocumentSnapshot<Map<String, dynamic>> doc) {
+    try {
+      return TradePost.fromFirestore(doc);
+    } catch (e) {
+      debugPrint('投稿 ${doc.id} を読めないため飛ばします: $e');
+      return null;
+    }
+  }
+
   @override
   Future<TradePost?> fetch(String id) async {
     final doc = await _posts.doc(id).get();
-    return doc.exists ? TradePost.fromFirestore(doc) : null;
+    return doc.exists ? _tryParse(doc) : null;
   }
 
   @override
@@ -72,7 +83,7 @@ class FirestoreTradePostRepository implements TradePostRepository {
       .where('uid', isEqualTo: uid)
       .orderBy('updatedAt', descending: true)
       .snapshots()
-      .map((s) => [for (final d in s.docs) TradePost.fromFirestore(d)]);
+      .map((s) => [for (final d in s.docs) ?_tryParse(d)]);
 
   @override
   Stream<List<TradePost>> watchOpenFor(
@@ -88,7 +99,7 @@ class FirestoreTradePostRepository implements TradePostRepository {
       .orderBy('updatedAt', descending: true)
       .limit(limit)
       .snapshots()
-      .map((s) => [for (final d in s.docs) TradePost.fromFirestore(d)]);
+      .map((s) => [for (final d in s.docs) ?_tryParse(d)]);
 
   /// `array-contains-any` で1回に使える値の数
   static const int maxKeysPerQuery = 30;
@@ -111,7 +122,7 @@ class FirestoreTradePostRepository implements TradePostRepository {
     ]);
     final byId = <String, TradePost>{
       for (final s in snapshots)
-        for (final d in s.docs) d.id: TradePost.fromFirestore(d),
+        for (final d in s.docs) d.id: ?_tryParse(d),
     };
     return byId.values.toList();
   }

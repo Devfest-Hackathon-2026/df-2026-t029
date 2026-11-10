@@ -72,7 +72,8 @@ class _OshiColorSheetState extends ConsumerState<_OshiColorSheet> {
     setState(() => _saving = true);
     try {
       await save(uid);
-      navigator.pop();
+      // 保存の途中でシートが閉じられていたら、下の画面を閉じてしまうので pop しない
+      if (mounted) navigator.pop();
     } catch (_) {
       if (mounted) setState(() => _saving = false);
       messenger

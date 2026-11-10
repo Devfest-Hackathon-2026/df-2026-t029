@@ -60,3 +60,11 @@ tools/seed/node_modules/
 
 .firebase/
 
+
+# 秘密情報（API キー・サービスアカウントの鍵）をコミットしない
+.env
+.env.*
+!.env.example
+*service-account*.json
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
