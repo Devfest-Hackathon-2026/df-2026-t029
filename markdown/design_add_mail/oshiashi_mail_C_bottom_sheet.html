@@ -193,7 +193,7 @@ const P={
 const ic=(n,s=22,sw=2)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
 
 const THEMES=[['#EC4529','#111'],['#F27CB1','#111'],['#FF9F1C','#111'],['#F5D31A','#111'],['#8DB63C','#111'],['#2DBE7E','#111'],['#3DB5F2','#111'],['#4A97EE','#111'],['#283593','#fff'],['#8E24AA','#fff'],['#FFFFFF','#111'],['#111111','#fff']];
-const st={mode:'email',theme:0,remind:false,email:'ken-oshi@example.com',google:'ken.oshi@gmail.com',
+const st={mode:'email',theme:0,remind:false,email:'ken-oshi@example.com',google:'ken.oshi@example.com',
   open:false,step:1,newEmail:'',code:'',err:'',sec:0,tries:3,reveal:VARIANT==='A',timer:null,sentTo:''};
 const mask=e=>{const [a,b]=e.split('@');return a.slice(0,2)+'*'.repeat(Math.max(3,a.length-2))+'@'+b};
 const shown=()=>{const e=st.mode==='google'?st.google:st.email;return st.reveal?e:mask(e)};
