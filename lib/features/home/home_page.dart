@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/profile_providers.dart';
+import '../../theme/brand_colors.dart';
 import '../../theme/hako_app_widgets.dart';
 import '../../theme/hako_fonts.dart';
 import '../../providers/oshi_providers.dart';
@@ -90,20 +91,32 @@ class HomePage extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        flex: 3,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: left,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: left,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 24),
                       Expanded(
-                        flex: 2,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: right,
+                        child: Container(
+                          // 列の区切りの縦線（右の列の左端）
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              left: BorderSide(
+                                color: BrandColors.rowLine,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                          padding: const EdgeInsets.only(left: 24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: right,
+                          ),
                         ),
                       ),
                     ],
