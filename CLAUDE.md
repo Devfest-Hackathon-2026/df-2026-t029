@@ -1,4 +1,4 @@
-# おしあし（仮）— Claude Code 用プロジェクトメモ
+# おしあし — Claude Code 用プロジェクトメモ
 
 DevFest GDGoC Japan Hackathon 2026 に提出する Flutter Web アプリ。推し活（ライブ・チケットの申込・入金期限など）をまとめて管理する。
 

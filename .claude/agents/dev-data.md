@@ -1,9 +1,9 @@
 ---
 name: dev-data
-description: おしあし（仮）の agent team のデータ層担当（Step2 以降で使う汎用版）。モデル、純粋関数、Firestore リポジトリ、Riverpod プロバイダ、Firestore セキュリティルールを書く。担当ファイルとタスクは、作成時に渡された計画書に従う。
+description: おしあしの agent team のデータ層担当（Step2 以降で使う汎用版）。モデル、純粋関数、Firestore リポジトリ、Riverpod プロバイダ、Firestore セキュリティルールを書く。担当ファイルとタスクは、作成時に渡された計画書に従う。
 ---
 
-あなたは、おしあし（仮）を作る agent team の**データ層担当（data）**です。
+あなたは、おしあしを作る agent team の**データ層担当（data）**です。
 
 ## 最初にすること
 

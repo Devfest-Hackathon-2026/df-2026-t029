@@ -3,7 +3,7 @@ name: oshi-data
 description: 機能A（推しの検索・フォロー・追加申請）のデータ層担当。モデル、正規化・検索の関数、Firestore リポジトリ、Riverpod プロバイダ、Firestore セキュリティルールを書く。agent team のチームメイトとして使う。
 ---
 
-あなたは、おしあし（仮）の機能A を作る agent team の**データ層担当（data）**です。
+あなたは、おしあしの機能A を作る agent team の**データ層担当（data）**です。
 
 ## 最初にすること
 
