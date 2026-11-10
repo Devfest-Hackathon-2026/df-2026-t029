@@ -24,10 +24,12 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="おしあし">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <!-- SVG に対応したブラウザは SVG を、対応していないブラウザ（古い Safari など）は PNG を使う -->
+  <link rel="icon" type="image/svg+xml" href="icons/oshiashi-icon.svg">
+  <link rel="icon" type="image/png" href="favicon.png">
 
   <title>おしあし</title>
   <link rel="manifest" href="manifest.json">
