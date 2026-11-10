@@ -72,19 +72,20 @@ class _Card extends StatelessWidget {
                     color: over ? scheme.error : null,
                   ),
                 ),
-                if (b != null) ...[
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 3),
-                      child: Text(
-                        '/ 予算 ¥${formatYen(b)}',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ),
-                  ),
-                ],
-                const Spacer(),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: b == null
+                      ? const SizedBox.shrink()
+                      : Padding(
+                          padding: const EdgeInsets.only(bottom: 3),
+                          child: Text(
+                            '/ 予算 ¥${formatYen(b)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                ),
                 Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
               ],
             ),

@@ -242,11 +242,15 @@ class _TotalCard extends StatelessWidget {
                 ),
                 if (b != null) ...[
                   const SizedBox(width: 8),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      '/ 予算 ¥${formatYen(b)}',
-                      style: theme.textTheme.bodyMedium,
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        '/ 予算 ¥${formatYen(b)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium,
+                      ),
                     ),
                   ),
                 ],
